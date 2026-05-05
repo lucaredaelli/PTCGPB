@@ -1,4 +1,4 @@
-﻿#SingleInstance on
+#SingleInstance on
 SetMouseDelay, -1
 SetDefaultMouseSpeed, 0
 SetBatchLines, -1
@@ -11,12 +11,9 @@ CoordMode, Pixel, Screen
 #Include Session.ahk
 #Include Data.ahk
 #Include ExtraConfig.ahk
-
 #Include Gdip_All.ahk
 #Include Gdip_Imagesearch.ahk
-
 pToken := Gdip_Startup()
-
 #Include Utils.ahk
 #Include Logging.ahk
 #Include ADB.ahk
@@ -142,7 +139,6 @@ SetTimer, RefreshAccountLists, 3600000  ; Refresh Account list every hour
 
 DirectlyPositionWindow()
 Sleep, 500
-
 setADBBaseInfo()
 ConnectAdb()
 
@@ -194,6 +190,7 @@ if(InStr(botConfig.get("deleteMethod"), "Inject"))
     session.set("injectMethod", true)
 
 initializeAdbShell()
+RemoveOldFiles()
 
 if(session.get("injectMethod"))
     createAccountList(session.get("scriptName"))
@@ -397,6 +394,9 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
             session.set("accountOpenPacks", 0) ;tutorial packs don't count
         }
 
+        if(botConfig.get("deleteMethod") = "Inject Rewards")
+            Goto, EndOfRun
+
         if(botConfig.get("deleteMethod") = "Create Bots (13P)"){
             GoToMain()
             wonderPicked := DoWonderPick()
@@ -417,7 +417,6 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
                     }
                 }
             }
-
             if(!session.get("isReloadAfterAddFriends"))
                 GoToMain()
             else{
@@ -443,7 +442,9 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
             if(session.get("cantOpenMorePacks"))
                 Goto, MidOfRun
         }
-
+        if (isTerminatePTCGPHelperApp()) {
+            InitPackOpening()
+        }
         PackOpening()
         if(session.get("cantOpenMorePacks") || (!session.get("friendIDs") && botConfig.get("FriendID") = "" && session.get("accountOpenPacks") >= session.get("maxAccountPackNum")))
             Goto, MidOfRun
@@ -541,8 +542,7 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
             HourglassOpening(true) ;9
             if(session.get("cantOpenMorePacks") || (!session.get("friendIDs") && botConfig.get("FriendID") = "" && session.get("accountOpenPacks") >= session.get("maxAccountPackNum")))
                 Goto, EndOfRun
-            
-            HourglassOpening(true) ;10
+             HourglassOpening(true) ;10
             if(session.get("cantOpenMorePacks") || (!session.get("friendIDs") && botConfig.get("FriendID") = "" && session.get("accountOpenPacks") >= session.get("maxAccountPackNum")))
                 Goto, EndOfRun
 
@@ -567,14 +567,11 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
 
         EndOfRun:
 
-        if(!session.get("missionDoneList")["receivedGiftDone"] && botConfig.get("receiveGift") && session.get("injectMethod")) {
-            GoToMain()
-            ReceiveGift()
-
-            session.get("missionDoneList")["receivedGiftDone"] := 0
-
-            if (session.get("injectMethod") && session.get("loadedAccount"))
-                setMetaData()
+        ; For Inject Rewards: save original file timestamp to restore it after setMetaData calls
+        claimRewardsOrigTime := ""
+        if (botConfig.get("deleteMethod") = "Inject Rewards" && session.get("injectMethod") && session.get("loadedAccount")) {
+            claimRewardsSaveDir := A_ScriptDir "\..\Accounts\Saved\" . session.get("scriptName")
+            FileGetTime, claimRewardsOrigTime, % claimRewardsSaveDir . "\" . session.get("accountFileName"), M
         }
 
         if(botConfig.get("ocrShinedust") && session.get("injectMethod") && session.get("loadedAccount") && botConfig.get("s4tEnabled")) {
@@ -589,7 +586,7 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
         }
 
         ; Special missions
-        if (botConfig.get("claimSpecialMissions") = 1 && (botConfig.get("deleteMethod") = "Inject 13P+" || botConfig.get("deleteMethod") = "Inject Wonderpick 96P+")) {
+        if (botConfig.get("claimSpecialMissions") = 1 && (botConfig.get("deleteMethod") = "Inject 13P+" || botConfig.get("deleteMethod") = "Inject Wonderpick 96P+" || botConfig.get("deleteMethod") = "Inject Rewards")) {
             syncSpecialEvents()
 
             ; removed check for !specialMissionsDone := 1 so that users don't need to constantly reset claim status on accounts.
@@ -602,9 +599,35 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
                 setMetaData()
         }
 
+        if(!session.get("missionDoneList")["receivedGiftDone"] && botConfig.get("receiveGift") && session.get("injectMethod")) {
+            GoToMain()
+            if (isTerminatePTCGPHelperApp()) {
+                InitPackOpening(true)
+            }
+            giftClaimed := ReceiveGiftExtended()
+            CheckPack(true)
+            if(giftClaimed)
+                HandleGiftedPacksAfterReceiveGift()
+
+            session.get("missionDoneList")["receivedGiftDone"] := 1
+
+            if (session.get("injectMethod") && session.get("loadedAccount"))
+                setMetaData()
+        }
+
         ; Hourglass spending
-        if (botConfig.get("spendHourGlass") = 1 && !(botConfig.get("deleteMethod") = "Inject 13P+" && session.get("accountOpenPacks") >= session.get("maxAccountPackNum"))) {
+        if (botConfig.get("spendHourGlass") = 1 && !(botConfig.get("deleteMethod") = "Inject 13P+" && session.get("accountOpenPacks") >= session.get("maxAccountPackNum")) && botConfig.get("deleteMethod") != "Inject Rewards") {
             SpendAllHourglass()
+        }
+
+        ; Inject Rewards: mark account as claimed, write X flag, restore original timestamp
+        if (botConfig.get("deleteMethod") = "Inject Rewards" && session.get("injectMethod") && session.get("loadedAccount")) {
+            session.get("missionDoneList")["specialMissionsDone"] := 1
+            setMetaData()
+            if (claimRewardsOrigTime != "") {
+                claimRewardsSaveDir := A_ScriptDir "\..\Accounts\Saved\" . session.get("scriptName")
+                FileSetTime, %claimRewardsOrigTime%, % claimRewardsSaveDir . "\" . session.get("accountFileName")
+            }
         }
 
         ; Friend removal for Inject Wonderpick 96P+
@@ -653,7 +676,7 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
         CreateStatusMessage(generateStatusText(), "AvgRuns", 0, 605, false, true)
 
         ; Log to file
-        LogToFile("Packs: " . session.get("packsThisRun") . " | Total time: " . session.get("mminutes") . "m " . session.get("sseconds") . "s | Avg: " . session.get("aminutes") . "m " . session.get("aseconds") . "s | Runs: " . session.get("rerolls"))
+        LogToFile("Packs: " . session.get("packsThisRun") . " | Total time: " . mminutes . "m " . sseconds . "s | Avg: " . aminutes . "m " . aseconds . "s | Runs: " . rerolls)
 
         SendMetadataToPTCGPB(session.get("packsThisRun"))
 
@@ -671,9 +694,15 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
         if (session.get("injectMethod") && session.get("loadedAccount")) {
             ; For injection methods, mark the account as used
             if (!session.get("keepAccount")) {
-                MarkAccountAsUsed()  ; Remove account from queue
-                if(botConfig.get("verboseLogging"))
-                    LogToFile("Marked injected account as used: " . session.get("accountFileName"))
+                if (botConfig.get("deleteMethod") = "Inject Rewards") {
+                    MarkAccountAsClaimed()  ; No 24h lock � account stays available for pack-opening
+                    if(botConfig.get("verboseLogging"))
+                        LogToFile("Marked injected account as claimed: " . session.get("accountFileName"))
+                } else {
+                    MarkAccountAsUsed()  ; Remove account from queue
+                    if(botConfig.get("verboseLogging"))
+                        LogToFile("Marked injected account as used: " . session.get("accountFileName"))
+                }
             } else {
                 if(botConfig.get("verboseLogging"))
                     LogToFile("Keeping injected account: " . session.get("accountFileName"))
@@ -926,6 +955,11 @@ FindOrLoseImage(needleName := "DEFAULT", EL := 1, safeTime := 0, searchVariation
             Delay(1)
         }
     }
+/*
+if(imageName = "CommunityShowcase") {
+    TradeTutorialForShowcase()
+}
+*/
 
     ErrorCheckInScreen(pBitmap)
 
@@ -1118,6 +1152,12 @@ FindImageAndClick(needleName := "DEFAULT", clickx := 0, clicky := 0, searchVaria
         }
 
         Gdip_DisposeImage(pBitmap)
+/*
+if(imageName = "CommunityShowcase") {
+    TradeTutorialForShowcase()
+}
+*/
+
         if(skip) {
             ElapsedTime := (A_TickCount - session.get("StartSkipTime")) // 1000
             if(ElapsedTime - messageTime > 0.5 || firstTime) {
@@ -1209,6 +1249,11 @@ restartGameInstance(reason, RL := true) {
         logStr .= "accountFileName: " . session.get("accountFileName")
         LogToFile(logStr)
         SaveStuckScreenshot(reason)
+        ; Persist recovery state before any stuck-triggered restart.
+        ; This guarantees startup recovery removes friends before loading a new account.
+        if (session.get("injectMethod") && session.get("loadedAccount") && session.get("friended")) {
+            IniWrite, 1, % session.get("scriptIniFile"), UserSettings, DeadCheck
+        }
     }
 
     if (RL = "GodPack") {
@@ -1423,7 +1468,330 @@ menuDeleteStart() {
     }
 }
 
-CheckPack() {
+InitPackOpening(full := false) {
+    global session
+    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
+    waitadb()
+    adbWriteRaw("mkdir -p /data/ptcgp &&  if [ ! -e /data/ptcgp/ptcgpb ]; then curl -L -o /data/ptcgp/ptcgpb https://leanny.github.io/ptcgpb-helper/ptcgpb-helper-android && chmod +x /data/ptcgp/ptcgpb; fi")
+    waitadb()
+    adbWriteRaw("rm -f /data/ptcgp/result.rc")
+    waitadb()
+    adbWriteRaw("rm -f /data/ptcgp/MissionUserPrefs*")
+    waitadb()
+    adbWriteRaw("pkill -f /data/ptcgp/ptcgpb")
+    waitadb()
+    if (full) {
+        RunWait, % adbCommand . " shell su -c ""sh -c 'nohup /data/ptcgp/ptcgpb watch-cards --full >/dev/null 2>&1 </dev/null &'", , Hide
+    } else {
+        RunWait, % adbCommand . " shell su -c ""sh -c 'nohup /data/ptcgp/ptcgpb watch-cards >/dev/null 2>&1 </dev/null &'", , Hide
+    }
+    Sleep, 300
+}
+
+RemoveOldFiles() {
+    adbWriteRaw("rm -f /data/ptcgp/ptcgpb")
+}
+
+GetStdout(cmd) {
+    shell := ComObjCreate("WScript.Shell")
+    exec := shell.Exec(cmd)
+    return exec.StdOut.ReadAll()
+}
+
+EvaluatePack() {
+    global session
+    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
+    Loop, 10 {
+        RunWait, % adbCommand . " shell test -f /data/ptcgp/result.rc", , Hide
+        if (ErrorLevel = 0)
+            break
+        Sleep, 300
+    }
+    adbWriteRaw("pkill -f /data/ptcgp/ptcgpb")
+    waitadb()
+    output := GetStdout(adbCommand . " shell cat /data/ptcgp/result.rc")
+    output := StrReplace(output, "`r")
+    output := Trim(output, "`n ")
+    lines := StrSplit(output, "`n")
+
+    if (lines.Length() < 3)
+        return false
+
+    cards := []
+    for _, val in StrSplit(lines[1], ",")
+        cards.Push(Trim(val))
+
+    pack := Trim(lines[2])
+
+    rarity := []
+    for _, val in StrSplit(lines[3], ",") {
+        rarity.Push(Trim(val) + 0)
+    }
+    raw_msg := lines[1] . "\n" . lines[2] . "\n" . lines[3]
+    return { cards: cards, pack: pack, rarity: rarity, raw: raw_msg }
+}
+
+EvaluatePackCount() {
+    global session
+
+    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
+
+    output := GetStdout(adbCommand . " shell su -c ""sh -c '/data/ptcgp/ptcgpb packcount'""")
+    output := StrReplace(output, "`r")
+    output := Trim(output, "`n ")
+
+    if !RegExMatch(output, "^-?\d+$")
+        return false
+
+    return output + 0
+}
+
+CheckPack(stopEarly := false) {
+    result := EvaluatePack()
+    if (!result) {
+        if (!stopEarly) {
+            CheckPackFallback()
+        }
+        return
+    }
+    cards := result.cards
+    pack := result.pack
+    rarity := result.rarity
+    raw_msg := result.raw
+    if(rarity[1] = 0) {
+        ; Fallback in case recognition failed
+        if (!stopEarly) {
+            CheckPackFallback()
+        }
+        return
+    }
+
+    ; store result
+    LogToCardDatabase(result)
+
+    logMessage := "Instance: " . session.get("scriptName") " | Stored to card database"
+    LogToFile(logMessage, "debug_cards.txt")
+
+    if (stopEarly) {
+        if (botConfig.get("s4tEnabled")) {
+            CheckCardsSimple(result)
+        }
+        return
+    }
+    ; Update pack count.
+    new_packcount := EvaluatePackCount()
+    if (new_packcount = 0) {
+        session.set("accountOpenPacks", session.get("accountOpenPacks") + 1)
+    } else {
+        session.set("accountOpenPacks", new_packcount)
+    }
+
+    if (session.get("injectMethod") && session.get("loadedAccount"))
+        UpdateAccount()
+
+    session.set("packsInPool", session.get("packsInPool") + 1)
+    session.set("packsThisRun", session.get("packsThisRun") + 1)
+
+    ; NEW: Disable card detection for Create Bots and Inject 13P+
+    ; Only run detection for Inject Wonderpick 96P+
+    skipCardDetection := (botConfig.get("deleteMethod") = "Create Bots (13P)" || botConfig.get("deleteMethod") = "Inject 13P+")
+
+    logMessage := "Instance: " . session.get("scriptName") " | Skip Card Detection: " . skipCardDetection
+    LogToFile(logMessage, "debug_cards.txt")
+
+    ; If not doing card detection and no friends and s4t disabled, just return early
+    if(skipCardDetection && !session.get("friendIDs") && botConfig.get("FriendID") = "" && !botConfig.get("s4tEnabled"))
+        return false
+
+    currentPackIs4Card := cards.MaxIndex() = 4
+    currentPackIs6Card := cards.MaxIndex() = 6
+
+    totalCardsInPack := cards.MaxIndex()
+
+    ; Wait for cards to render before checking.
+    Loop {
+        if (CheckCardLoading(totalCardsInPack) = 0)
+            break
+        Delay(1)
+    }
+    Delay(1)
+
+    found1Dmnd       := CountOccurances(cards, rarity, 1)
+    found2Dmnd       := CountOccurances(cards, rarity, 2)
+    found3Dmnd       := CountOccurances(cards, rarity, 3)
+    found4Dmnd       := CountOccurances(cards, rarity, 4)
+    found1Star       := CountOccurances(cards, rarity, 7)
+    foundTrainer     := CountOccurances(cards, rarity, 5, "TR_")
+    foundFullArt     := CountOccurances(cards, rarity, 5, "PK_")
+    foundRainbow     := CountOccurances(cards, rarity, 8)
+    foundImmersive   := CountOccurances(cards, rarity, 9)
+    foundCrown       := CountOccurances(cards, rarity, 10)
+    foundShiny1Star  := CountOccurances(cards, rarity, 11)
+    foundShiny2Star  := CountOccurances(cards, rarity, 12)
+
+    logMessage := "Instance: " . session.get("scriptName") " | Found: " . found1Dmnd
+    logMessage := logMessage . "|" . found2Dmnd
+    logMessage := logMessage . "|" . found2Dmnd
+    logMessage := logMessage . "|" . found3Dmnd
+    logMessage := logMessage . "|" . found4Dmnd
+    logMessage := logMessage . "|" . found1Star
+    logMessage := logMessage . "|" . foundTrainer
+    logMessage := logMessage . "|" . foundFullArt
+    logMessage := logMessage . "|" . foundRainbow
+    logMessage := logMessage . "|" . foundImmersive
+    logMessage := logMessage . "|" . foundCrown
+    logMessage := logMessage . "|" . foundShiny1Star
+    logMessage := logMessage . "|" . foundShiny2Star
+    LogToFile(logMessage, "debug_cards.txt")
+
+    if (botConfig.get("s4tEnabled")) {
+        tradeableList := []
+        tradeableList.Push({key: "3Diamond",  flag: botConfig.get("s4t3Dmnd"),      count: found3Dmnd})
+        tradeableList.Push({key: "4Diamond",  flag: botConfig.get("s4t4Dmnd"),      count: found4Dmnd})
+        tradeableList.Push({key: "1Star",     flag: botConfig.get("s4t1Star"),      count: found1Star})
+        tradeableList.Push({key: "Trainer",   flag: botConfig.get("s4tTrainer"),    count: foundTrainer})
+        tradeableList.Push({key: "FullArt",   flag: botConfig.get("s4tFullArt"),    count: foundFullArt})
+        tradeableList.Push({key: "Rainbow",   flag: botConfig.get("s4tRainbow"),    count: foundRainbow})
+        tradeableList.Push({key: "Immersive", flag: botConfig.get("s4tImmersive"),  count: foundImmersive})
+        tradeableList.Push({key: "Crown",     flag: botConfig.get("s4tCrown"),      count: foundCrown})
+        tradeableList.Push({key: "Shiny1Star",flag: botConfig.get("s4tShiny1Star"), count: foundShiny1Star})
+        tradeableList.Push({key: "Shiny2Star",flag: botConfig.get("s4tShiny2Star"), count: foundShiny2Star})
+
+        foundCards := {}
+        foundTradeable := 0
+        for _, item in tradeableList {
+            foundCards[item.key] := 0
+            if (item.flag) {
+                foundTradeable += item.count
+                foundCards[item.key] := item.count
+            }
+        }
+
+        logMessage := "Instance: " . session.get("scriptName") " | S4T Trandables: " . foundTradeable
+        LogToFile(logMessage, "debug_cards.txt")
+
+        if (foundTradeable > 0) {
+            FoundTradeableNew(foundCards, pack, cards)
+            ; Continue with the rest of the run in s4t mode; don't return early.
+        }
+    }
+
+    ; Skip rest of card detection if this is Create Bots or Inject 13P+
+    if (skipCardDetection) {
+        return false
+    }
+
+    logMessage := "Instance: " . session.get("scriptName") " | GP Check "
+    LogToFile(logMessage, "debug_cards.txt")
+
+    foundLabel := false
+
+    ; Check if the current pack is valid (for Inject Wonderpick 96P+ only now)
+    foundShiny := foundShiny1Star + foundShiny2Star
+    foundInvalid := foundShiny + foundCrown + foundImmersive
+    tempStarCount := foundFullArt + foundRainbow + foundTrainer
+    normalBorders := found1Dmnd + found2Dmnd + found3Dmnd + found4Dmnd
+
+    logMessage := "Instance: " . session.get("scriptName") " | normalBorders: " . normalBorders
+    LogToFile(logMessage, "debug_cards.txt")
+
+    ; Build currentPackInfo in session so GodPackFound can read starCount correctly
+    synthPackInfo := {"isVerified": true, "CardSlot": [], "TypeCount": {}}
+    synthPackInfo["TypeCount"]["normal"]    := normalBorders
+    synthPackInfo["TypeCount"]["1star"]     := found1Star
+    synthPackInfo["TypeCount"]["3diamond"]  := found3Dmnd
+    synthPackInfo["TypeCount"]["trainer"]   := foundTrainer
+    synthPackInfo["TypeCount"]["fullart"]   := foundFullArt
+    synthPackInfo["TypeCount"]["rainbow"]   := foundRainbow
+    synthPackInfo["TypeCount"]["immersive"] := foundImmersive
+    synthPackInfo["TypeCount"]["crown"]     := foundCrown
+    session.set("currentPackInfo", synthPackInfo)
+
+    if (foundInvalid && botConfig.get("InvalidCheck")) {
+        logMessage := "Instance: " . session.get("scriptName") " | Invalid"
+        LogToFile(logMessage, "debug_cards.txt")
+        ; Skip invalid packs if invalidcheck is active
+        return
+    }
+
+    if (foundInvalid) {
+        logMessage := "Instance: " . session.get("scriptName") " | Doing Invalid Check"
+        LogToFile(logMessage, "debug_cards.txt")
+        ; Pack is invalid...
+        foundInvalidGP := FindGodPack(true, cards) ; GP is never ignored
+
+        if (foundInvalidGP){
+            restartGameInstance("Invalid God Pack Found.", "GodPack")
+        }
+        if (!foundInvalidGP) {
+            ; If not a GP and not "ignore invalid packs", check what cards the current pack contains which make it invalid
+            if (botConfig.get("ShinyCheck") && foundShiny && !foundLabel)
+                foundLabel := "Shiny"
+            if (botConfig.get("ImmersiveCheck") && foundImmersive && !foundLabel)
+                foundLabel := "Immersive"
+            if (botConfig.get("CrownCheck") && foundCrown && !foundLabel)
+                foundLabel := "Crown"
+
+            ; Report invalid cards found.
+            if (foundLabel) {
+                FoundStars(foundLabel)
+                restartGameInstance(foundLabel . " found. Continuing...", "GodPack")
+            }
+        }
+
+        IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
+        return
+    }
+
+    ; Check for god pack. if found we know its not invalid
+    session.set("foundGP", FindGodPack(false, cards))
+
+    if (session.get("foundGP")) {
+        if (session.get("loadedAccount")) {
+            session.get("missionDoneList")["accountHasPackInTesting"] := 1  ; T flag ONLY for godpacks
+            setMetaData()
+            IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
+        }
+
+        restartGameInstance("God Pack found. Continuing...", "GodPack")
+        return
+    }
+
+    ; Check for 2-star cards (for Inject Wonderpick 96P+ only)
+    2starCount := false
+
+    if (botConfig.get("PseudoGodPack") && !foundLabel) {
+        2starCount := foundTrainer + foundRainbow + foundFullArt
+        if (2starCount > 1)
+            foundLabel := "Double two star"
+    }
+    if (botConfig.get("TrainerCheck") && !foundLabel) {
+        if (!botConfig.get("PseudoGodPack") && foundTrainer)
+            foundLabel := "Trainer"
+    }
+    if (botConfig.get("RainbowCheck") && !foundLabel) {
+        if (!botConfig.get("PseudoGodPack") && foundRainbow)
+            foundLabel := "Rainbow"
+    }
+    if (botConfig.get("FullArtCheck") && !foundLabel) {
+        if (!botConfig.get("PseudoGodPack") && foundFullArt)
+            foundLabel := "Full Art"
+    }
+
+    if (foundLabel) {
+        if (session.get("loadedAccount")) {
+            ; NEW: Do NOT add T flag for single 2-star cards
+            ; Only godpacks get the T flag now
+            IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
+        }
+
+        FoundStars(foundLabel)
+        restartGameInstance(foundLabel . " found. Continuing...", "GodPack")
+    }
+
+}
+
+CheckPackFallback() {
     global botConfig, session
 
     currentPackIs6Card := false ; reset before each pack check
@@ -1690,10 +2058,12 @@ Screenshot_dev(fileType := "Dev", subDir := "", srcPath := "") {
 
         sleep 100
         msgbox click on top-left corner and bottom-right corners
+
+        yBias := 40
+
         KeyWait, LButton, D
         MouseGetPos , X1, Y1, OutputVarWin, OutputVarControl
         KeyWait, LButton, U
-
         X1 := X1 - PicPosX
         Y1 := Y1 - PicPosY
 
@@ -1704,7 +2074,6 @@ Screenshot_dev(fileType := "Dev", subDir := "", srcPath := "") {
         KeyWait, LButton, D
         MouseGetPos , X2, Y2, OutputVarWin, OutputVarControl
         KeyWait, LButton, U
-
         X2 := X2 - PicPosX
         Y2 := Y2 - PicPosY
 
@@ -1726,12 +2095,9 @@ Screenshot_dev(fileType := "Dev", subDir := "", srcPath := "") {
         filePath := fileDir "\" . fileName . ".png"
         Gdip_SaveBitmapToFile(pBitmap, filePath)
 
-        msgbox click on coordinate for adbClick
-
         KeyWait, LButton, D
         MouseGetPos , X3, Y3, OutputVarWin, OutputVarControl
         KeyWait, LButton, U
-
         X3 := X3 - PicPosX
         Y3 := Y3 - PicPosY
 
@@ -1761,12 +2127,12 @@ Screenshot_dev(fileType := "Dev", subDir := "", srcPath := "") {
             adbClick_wbb(%X3%, %Y3%)
             OCR coordinates: %OCR_X3%, %OCR_Y3%, %OCR_W%, %OCR_H%
         )
-    }
-    catch {
-        msgbox Failed to create screenshot GUI
-    }
-    CoordMode, Pixel, Screen
-    return filePath
+}
+catch {
+    msgbox Failed to create screenshot GUI
+}
+CoordMode, Pixel, Screen
+return filePath
 }
 
 Screenshot(fileType := "Valid", subDir := "", ByRef fileName := "") {
@@ -1805,7 +2171,7 @@ Screenshot(fileType := "Valid", subDir := "", ByRef fileName := "") {
         cropW := 240
         cropH := 165
     }
-    
+
     pBitmapW := from_window(getMuMuHwnd(session.get("winTitle")))
     pBitmap := Gdip_CloneBitmapArea(pBitmapW, cropX, cropY, cropW, cropH)
 
@@ -1942,7 +2308,7 @@ ToggleStopAll() {
 
 ; === Single instance stop handlers (GUI button) ===
 StopImmediatelySingle:
-    targetHwnd := session.get("RememberStopPreferenceSingleHwnd")    
+    targetHwnd := session.get("RememberStopPreferenceSingleHwnd")
     GuiControlGet, RememberStopPreferenceSingle, , %targetHwnd%
     if (RememberStopPreferenceSingle) {
         botConfig.set("stopPreferenceSingle", "immediate", "Extra")
@@ -1950,12 +2316,12 @@ StopImmediatelySingle:
     }
     Gui, StopConfirm:Destroy
     CleanupBeforeExit()
-    ExitApp
+ExitApp
 return
 
 StopWaitEndSingle:
-    targetHwnd := session.get("RememberStopPreferenceSingleHwnd")    
-    GuiControlGet, RememberStopPreferenceSingle, , %targetHwnd%
+    Gui, StopConfirm:Submit, NoHide
+    GuiControlGet, RememberStopPreferenceSingle, , ui_RememberStopPreferenceSingle
     if (RememberStopPreferenceSingle) {
         botConfig.set("stopPreferenceSingle", "wait_end", "Extra")
         botConfig.saveConfigToSettings("Extra")
@@ -1972,7 +2338,7 @@ return
 
 ; === All instances stop handlers (Shift+F7 from instance 1) ===
 StopImmediatelyAll:
-    targetHwnd := session.get("RememberStopPreferenceHwnd")    
+    targetHwnd := session.get("RememberStopPreferenceHwnd")
     GuiControlGet, RememberStopPreference, , %targetHwnd%
     if (RememberStopPreference) {
         botConfig.set("stopPreference", "immediate", "Extra")
@@ -1983,7 +2349,7 @@ StopImmediatelyAll:
 return
 
 StopWaitEndAll:
-    targetHwnd := session.get("RememberStopPreferenceHwnd")    
+    targetHwnd := session.get("RememberStopPreferenceHwnd")
     GuiControlGet, RememberStopPreference, , %targetHwnd%
     if (RememberStopPreference) {
         botConfig.set("stopPreference", "wait_end", "Extra")
@@ -2727,7 +3093,7 @@ DoTutorial() {
         failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
         CreateStatusMessage("Waiting for pack notification " . failSafeTime . "/45 seconds")
     }
-    
+
     FindImageAndClick("Create_TutorialPackOpenNotifyIcon", 145, 194) ;click on packs. stop at booster pack tutorial
 
     Delay(3)
@@ -2847,6 +3213,49 @@ DoTutorial() {
     return true
 }
 
+ensureMissionUserPrefsExist() {
+    global session
+    if(!doesMissionUserPrefsExist()) {
+        session.set("failSafe", A_TickCount)
+        failSafeTime := 0
+        ; Click for hamburger menu and wait for profile
+        Loop {
+            adbClick(240, 494)
+            if(FindOrLoseImage("Profile_UserNameArrowInSettingMenu", 0, failSafeTime)) {
+                break
+            } else {
+                clickButton := FindOrLoseImage("Common_ColorChangeButton", 0, , 80)
+                if(clickButton) {
+                    StringSplit, pos, clickButton, `,  ; Split at ", "
+                    adbClick(pos1, pos2)
+                }
+            }
+            Delay(1)
+            failSafeTime := (A_TickCount - failSafe) // 1000
+        }
+
+        FindImageAndClick("Profile_EditNameButtonIcon", 210, 140, , 200) ; Open profile/stats page and wait
+        session.set("failSafe", A_TickCount)
+        failSafeTime := 0
+        ; Click for hamburger menu and wait for profile
+        Loop {
+            adbInputEvent("111") ;send ESC
+            if(FindOrLoseImage("Profile_UserNameArrowInSettingMenu", 0, failSafeTime)) {
+                break
+            } else {
+                clickButton := FindOrLoseImage("Common_ColorChangeButton", 0, , 80)
+                if(clickButton) {
+                    StringSplit, pos, clickButton, `,  ; Split at ", "
+                    adbClick(pos1, pos2)
+                }
+            }
+            Delay(1)
+            failSafeTime := (A_TickCount - failSafe) // 1000
+        }
+
+    }
+}
+
 SelectPack(HG := false) {
     global session
 
@@ -2860,6 +3269,8 @@ SelectPack(HG := false) {
     packx := getPackCoordXInHome()
     packy := HomeScreenAllPackY
 
+    ensureMissionUserPrefsExist()
+    InitPackOpening()
     if(HG = "First" && session.get("injectMethod") && session.get("loadedAccount") ){
         session.set("failSafe", A_TickCount)
         failSafeTime := 0
@@ -3025,7 +3436,9 @@ SelectPack(HG := false) {
 
 PackOpening() {
     global session
-
+    if (isTerminatePTCGPHelperApp()) {
+        InitPackOpening()
+    }
     session.set("failSafe", A_TickCount)
     failSafeTime := 0
     Loop {
@@ -3132,7 +3545,9 @@ PackOpening() {
 
 HourglassOpening(HG := false, NEIRestart := true) {
     global botConfig, session
-
+    if (isTerminatePTCGPHelperApp()) {
+        InitPackOpening()
+    }
     if(!HG) {
         Delay(3)
         adbClick_wbb(146, 441) ; 146 440
@@ -3287,6 +3702,288 @@ HourglassOpening(HG := false, NEIRestart := true) {
         if(failSafeTime > 45)
             restartGameInstance("Stuck at ConfirmPack")
     }
+}
+
+ReceiveGiftExtended() {
+    global session, receivedGiftOnly
+
+    if (HasFlagInMetadata(session.get("accountFileName"), "R"))
+        return false
+
+    ; Reach gift screen with a timeout to avoid endless loops on UI desync.
+    foundClaimable := false
+    foundClaimedAll := false
+    minClaimableWaitSeconds := 5
+    session.set("failSafe", A_TickCount)
+    failSafeTime := 0
+    Loop {
+        if(FindOrLoseImage("Common_ShopButtonInMain", 0)) {
+            adbClick_wbb(247, 93)
+            Delay(4)
+        }
+
+        if(FindOrLoseImage("Gift_Claimable", 0, 0, 25)) {
+            foundClaimable := true
+            break
+        }
+
+        elapsedSeconds := (A_TickCount - session.get("failSafe")) // 1000
+        if(elapsedSeconds >= minClaimableWaitSeconds && FindOrLoseImage("Gift_ClaimedAll", 0, 0, 25)) {
+            foundClaimedAll := true
+            break
+        }
+
+        failSafeTime := elapsedSeconds
+        if(failSafeTime > 45)
+            break
+    }
+    failSafeTime := 0
+    if(!foundClaimable) {
+        if(foundClaimedAll || (elapsedSeconds >= minClaimableWaitSeconds && FindOrLoseImage("Gift_ClaimedAll", 0, 0, 25)))
+            return false
+        return false
+    }
+
+    maxClaimAttempts := 12
+    claimConfirmed := false
+    Loop, %maxClaimAttempts% {
+        adbClick(212, 427)
+        Delay(3)
+        if (FindOrLoseImage("Gift_ReceivedWindowRightBorder", 0, 0, 25)) {
+            claimConfirmed := true
+            adbInputEvent("111")
+            Delay(2)
+            break
+        }
+        if(FindOrLoseImage("Pack_ReadyForOpenPack", 1, 0)){
+            claimConfirmed := true
+            adbInputEvent("111")
+            Delay(2)
+            break
+        }
+        if(FindOrLoseImage("Pack_ReadyForOpenPack2", 1, 0)) {
+            claimConfirmed := true
+            adbInputEvent("111")
+            Delay(2)
+            break
+        }
+    }
+
+    if(!claimConfirmed)
+        return false
+
+    Delay(1)
+
+    receivedGiftOnly := true
+    return true
+}
+
+HandleGiftedPacksAfterReceiveGift() {
+    global session
+
+    handledGiftPacks := 0
+    maxGiftPacks := 20
+    sawReceivedWindow := false
+    rewardSetHandled := false
+
+    session.set("failSafe", A_TickCount)
+    failSafeTime := 0
+
+    Loop {
+        if (rewardSetHandled || !FindOrLoseImage("Gift_Claimable", 0, 1)) {
+            if(FindOrLoseImage("Gift_ClaimedAll", 0, 1)) {
+                adbInputEvent("111")
+                Delay(1)
+                break
+            }
+        }
+
+        if(FindOrLoseImage("Gift_ReceivedWindowRightBorder", 0, 1)) {
+            adbInputEvent("111")
+            Delay(1)
+            sawReceivedWindow := true
+            rewardSetHandled := true
+            session.set("failSafe", A_TickCount)
+            failSafeTime := 0
+            continue
+        }
+
+        if(FindOrLoseImage("Pack_ReadyForOpenPack", 0, 1)) {
+            HandleSingleGiftPackOpening()
+            handledGiftPacks++
+            rewardSetHandled := true
+
+            if(handledGiftPacks >= maxGiftPacks)
+                break
+
+            session.set("failSafe", A_TickCount)
+            failSafeTime := 0
+            continue
+        }
+
+        if(FindOrLoseImage("Pack_ReadyForOpenPack2", 0, 1)) {
+            HandleSingleGiftPackOpening()
+            handledGiftPacks++
+            rewardSetHandled := true
+
+            if(handledGiftPacks >= maxGiftPacks)
+                break
+
+            session.set("failSafe", A_TickCount)
+            failSafeTime := 0
+            continue
+        }
+
+        if(FindOrLoseImage("Create_SwipeForRegisterDexIcon", 0, 1)) {
+            HandleGiftPackDexRegistration()
+            rewardSetHandled := true
+            session.set("failSafe", A_TickCount)
+            failSafeTime := 0
+            continue
+        }
+
+        if(FindOrLoseImage("Pack_SkipButtonAfterOpenPack", 0, 1)) {
+            adbClick_wbb(247, 500)
+        } else if(FindOrLoseImage("Pack_NextButtonAfterOpenPack", 0, 1) || FindOrLoseImage("Next2", 0, 1)) {
+            adbClick_wbb(146, 489)
+        } else if(FindOrLoseImage("Pack_ResultAfterOpenPack", 0, 1)) {
+            adbClick_wbb(247, 500)
+        } else {
+            adbClick_wbb(146, 489)
+        }
+
+        Delay(1)
+
+        failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
+        CreateStatusMessage((sawReceivedWindow ? "Finalizing gifts" : "Handling gifted packs") . "`n(" . failSafeTime . "/90 seconds)")
+        if(failSafeTime > 90)
+            break
+    }
+}
+
+SetOpenGiftSpeed(targetSpeed) {
+    if(targetSpeed != 1 && targetSpeed != 2 && targetSpeed != 3)
+        return false
+
+    SetOpenGiftSpeedByButtons(targetSpeed)
+
+    return true
+}
+
+SetOpenGiftSpeedByButtons(targetSpeed) {
+    FindImageAndClick("Common_SpeedModMenuButton", 18, 109, , 2000)
+    if(targetSpeed = 1)
+        FindImageAndClick("Common_SpeedMod1x", 21, 172)
+    else if(targetSpeed = 3)
+        FindImageAndClick("Common_SpeedMod3x", 187, 172)
+    else
+        FindImageAndClick("Common_SpeedMod2x", 106, 173)
+
+    Delay(1)
+    adbClick_wbb(51, 297)
+    Delay(1)
+    return true
+}
+
+HandleSingleGiftPackOpening() {
+    global session, adbSwipeParams
+
+    if(session.get("setSpeed") > 1) {
+        SetOpenGiftSpeed(1)
+    }
+
+    session.set("failSafe", A_TickCount)
+    failSafeTime := 0
+    Loop {
+        adbSwipe_wbb(adbSwipeParams)
+        Sleep, 100
+        ; Confirm swipe by requiring both ready markers to stay gone for a short window.
+        if(FindOrLoseImage("Pack_ReadyForOpenPack", 1, failSafeTime) && FindOrLoseImage("Pack_ReadyForOpenPack2", 1, failSafeTime)) {
+            swipeConfirmed := true
+            Loop, 4 {
+                Sleep, 150
+                if(FindOrLoseImage("Pack_ReadyForOpenPack", 0, 0, 20, 1) || FindOrLoseImage("Pack_ReadyForOpenPack2", 0, 0, 20, 1)) {
+                    swipeConfirmed := false
+                    break
+                }
+            }
+
+            if(swipeConfirmed) {
+                if(session.get("setSpeed") > 1) {
+                    SetOpenGiftSpeed(session.get("setSpeed"))
+                }
+                break
+            }
+        }
+
+        failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
+        CreateStatusMessage("Opening gifted pack`n(" . failSafeTime . "/45 seconds)")
+        if(failSafeTime > 45) {
+            if(session.get("setSpeed") > 1) {
+                SetOpenGiftSpeed(session.get("setSpeed"))
+            }
+            restartGameInstance("Stuck at gifted pack swipe")
+            return
+        }
+    }
+
+    FindImageAndClick("Gift_ResultAfterOpenPack", 252, 505, 5, 25)
+
+    session.set("failSafe", A_TickCount)
+    failSafeTime := 0
+    Loop {
+        if(FindOrLoseImage("Gift_ReceivedWindowRightBorder", 0, 1)) {
+            break
+        } else if(FindOrLoseImage("Pack_ReadyForOpenPack", 0, 1)) {
+            break
+        } else if(FindOrLoseImage("Pack_ReadyForOpenPack2", 0, 1)) {
+            break
+        } else if(FindOrLoseImage("Create_SwipeForRegisterDexIcon", 0, 1)) {
+            break
+        } else if(FindOrLoseImage("Pack_SkipButtonAfterOpenPack", 0, 1)) {
+            adbClick_wbb(247, 500)
+        } else if(FindOrLoseImage("Pack_NextButtonAfterOpenPack", 0, 1) || FindOrLoseImage("Next2", 0, 1)) {
+            adbClick_wbb(146, 489)
+        } else {
+            adbClick_wbb(146, 489)
+        }
+
+        Delay(1)
+
+        failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
+        CreateStatusMessage("Advancing gifted pack`n(" . failSafeTime . "/45 seconds)")
+        if(failSafeTime > 45)
+            break
+    }
+}
+
+HandleGiftPackDexRegistration() {
+    global session
+
+    if(session.get("setSpeed") > 1) {
+        SetOpenGiftSpeed(1)
+    }
+
+    session.set("failSafe", A_TickCount)
+    failSafeTime := 0
+    Loop {
+        adbSwipe_wbb("266 770 266 355 60")
+        Sleep, 100
+        if(FindOrLoseImage("Create_ConfirmRegisteredCard", 0, failSafeTime)) {
+            if(session.get("setSpeed") > 1) {
+                SetOpenGiftSpeed(session.get("setSpeed"))
+            }
+            break
+        }
+
+        failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
+        CreateStatusMessage("Registering cards in Dex`n(" . failSafeTime . "/30 seconds)")
+        if(failSafeTime > 30)
+            break
+    }
+
+    Delay(1)
+    adbClick_wbb(204, 371)
 }
 
 DoWonderPickOnly() {

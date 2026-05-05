@@ -1,0 +1,4124 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Card Database - for ptcgp bot</title>
+        <style>
+            :root {
+                --bg: #0b1020;
+                --panel: #121a2f;
+                --panel-2: #18223d;
+                --text: #edf2ff;
+                --muted: #aeb9d4;
+                --border: #2c385d;
+                --accent: #8eb4ff;
+                --accent-2: #b0f0d0;
+                --warn: #ffd27d;
+                --danger: #ff9d9d;
+                --shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+                --bg-layer-a: rgba(142, 180, 255, 0.16);
+                --bg-layer-b: rgba(176, 240, 208, 0.1);
+                --panel-grad-a: rgba(255, 255, 255, 0.055);
+                --panel-grad-b: rgba(255, 255, 255, 0.025);
+                --field-bg: rgba(10, 15, 30, 0.86);
+                --status-bg: rgba(0, 0, 0, 0.18);
+                --section-bg: rgba(0, 0, 0, 0.13);
+                --chip-bg: rgba(255, 255, 255, 0.035);
+                --chip-active-bg: rgba(142, 180, 255, 0.15);
+                --tabs-bg: rgba(0, 0, 0, 0.18);
+                --tab-active-bg: rgba(142, 180, 255, 0.18);
+                --row-head-bg: rgba(0, 0, 0, 0.12);
+                --row-sep: rgba(255, 255, 255, 0.06);
+                --card-bg: rgba(0, 0, 0, 0.18);
+                --card-border: rgba(255, 255, 255, 0.065);
+                --badge-border: rgba(255, 255, 255, 0.1);
+                --badge-bg: rgba(255, 255, 255, 0.05);
+                --qty-bg: rgba(11, 16, 32, 0.88);
+                --qty-border: rgba(255, 255, 255, 0.18);
+                --qty-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+                --copy-ok-bg: rgba(176, 240, 208, 0.18);
+                --copy-ok-border: rgba(176, 240, 208, 0.55);
+                --copy-ok-text: #dfffee;
+                --radius: 18px;
+                --card-w: 120px;
+            }
+
+            [data-theme="light"] {
+                --bg: #edf2fa;
+                --panel: #f6f9ff;
+                --panel-2: #ebf1fb;
+                --text: #10223d;
+                --muted: #4d5f7d;
+                --border: #bfd0ea;
+                --accent: #2c64cf;
+                --accent-2: #1f8f6a;
+                --warn: #9c5b00;
+                --danger: #b32424;
+                --shadow: 0 12px 30px rgba(26, 50, 90, 0.12);
+                --bg-layer-a: rgba(74, 126, 232, 0.12);
+                --bg-layer-b: rgba(58, 178, 144, 0.1);
+                --panel-grad-a: rgba(255, 255, 255, 0.94);
+                --panel-grad-b: rgba(241, 246, 255, 0.86);
+                --field-bg: rgba(255, 255, 255, 0.92);
+                --status-bg: rgba(239, 245, 255, 0.95);
+                --section-bg: rgba(244, 248, 255, 0.84);
+                --chip-bg: rgba(241, 246, 255, 0.92);
+                --chip-active-bg: rgba(44, 100, 207, 0.15);
+                --tabs-bg: rgba(235, 241, 251, 0.95);
+                --tab-active-bg: rgba(44, 100, 207, 0.16);
+                --row-head-bg: rgba(241, 246, 255, 0.84);
+                --row-sep: rgba(174, 193, 226, 0.46);
+                --card-bg: rgba(250, 252, 255, 0.98);
+                --card-border: rgba(189, 208, 234, 0.72);
+                --badge-border: rgba(186, 203, 228, 0.85);
+                --badge-bg: rgba(242, 247, 255, 0.95);
+                --qty-bg: rgba(238, 245, 255, 0.96);
+                --qty-border: rgba(173, 195, 228, 0.75);
+                --qty-shadow: 0 6px 16px rgba(37, 70, 125, 0.14);
+                --copy-ok-bg: rgba(31, 143, 106, 0.14);
+                --copy-ok-border: rgba(31, 143, 106, 0.4);
+                --copy-ok-text: #126447;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                color: var(--text);
+                background:
+                    radial-gradient(
+                        circle at top left,
+                        var(--bg-layer-a),
+                        transparent 38rem
+                    ),
+                    radial-gradient(
+                        circle at top right,
+                        var(--bg-layer-b),
+                        transparent 35rem
+                    ),
+                    var(--bg);
+                min-height: 100vh;
+            }
+
+            .page {
+                width: min(1440px, calc(100vw - 32px));
+                margin: 0 auto;
+                padding: 32px 0 56px;
+            }
+
+            header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 12px;
+                margin-bottom: 24px;
+            }
+
+            .header-left {
+                min-width: 0;
+            }
+
+            .theme-btn {
+                min-width: 110px;
+                padding: 8px 12px;
+                white-space: nowrap;
+            }
+
+            @media (max-width: 640px) {
+                header {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .theme-btn {
+                    align-self: flex-start;
+                }
+            }
+
+            h1 {
+                margin: 0;
+                font-size: clamp(2rem, 5vw, 4rem);
+                letter-spacing: -0.06em;
+                line-height: 0.95;
+            }
+
+            .subtitle {
+                margin: 10px 0 0;
+                color: var(--muted);
+                font-size: 1.05rem;
+            }
+
+            .panel {
+                background: linear-gradient(
+                    180deg,
+                    var(--panel-grad-a),
+                    var(--panel-grad-b)
+                );
+                border: 1px solid var(--border);
+                box-shadow: var(--shadow);
+                border-radius: var(--radius);
+            }
+
+            .section-switcher {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 18px;
+            }
+
+            .section-switcher-btn {
+                flex: 1;
+                padding: 14px 20px;
+                font-size: 1rem;
+                font-weight: 700;
+                border-radius: 12px;
+                border: 2px solid var(--border);
+                background: var(--panel-bg);
+                color: var(--muted);
+                cursor: pointer;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s,
+                    color 0.15s;
+            }
+
+            .section-switcher-btn:hover {
+                border-color: rgba(142, 180, 255, 0.45);
+                color: var(--text);
+            }
+
+            .section-switcher-btn.active {
+                border-color: rgba(142, 180, 255, 0.66);
+                background: var(--chip-active-bg);
+                color: var(--text);
+            }
+
+            .toolbar {
+                padding: 18px;
+                display: grid;
+                grid-template-columns: 1.2fr 1fr;
+                gap: 18px;
+                margin-bottom: 18px;
+            }
+
+            @media (max-width: 900px) {
+                .toolbar {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .field-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            @media (max-width: 640px) {
+                .field-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            label.field-label {
+                display: block;
+                color: var(--muted);
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                margin: 0 0 7px;
+            }
+
+            input[type="search"],
+            input[type="file"],
+            select {
+                width: 100%;
+                border: 1px solid var(--border);
+                background: var(--field-bg);
+                color: var(--text);
+                border-radius: 12px;
+                padding: 10px 11px;
+                outline: none;
+            }
+
+            input[type="file"] {
+                padding: 8px;
+                color: var(--muted);
+            }
+
+            input:focus,
+            select:focus,
+            button:focus-visible {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(142, 180, 255, 0.16);
+            }
+
+            button {
+                border: 1px solid var(--border);
+                background: var(--panel-2);
+                color: var(--text);
+                border-radius: 12px;
+                padding: 10px 12px;
+                cursor: pointer;
+                font-weight: 700;
+                transition:
+                    border-color 140ms ease,
+                    transform 140ms ease,
+                    background 140ms ease,
+                    color 140ms ease,
+                    box-shadow 140ms ease;
+            }
+
+            button:hover {
+                border-color: var(--accent);
+                transform: translateY(-1px);
+            }
+
+            button.primary {
+                background: linear-gradient(
+                    135deg,
+                    rgba(142, 180, 255, 0.24),
+                    rgba(176, 240, 208, 0.13)
+                );
+                border-color: rgba(142, 180, 255, 0.45);
+            }
+
+            button.ghost {
+                background: transparent;
+            }
+
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+            }
+
+            .button-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .status {
+                padding: 12px 14px;
+                border-radius: 14px;
+                background: var(--status-bg);
+                color: var(--muted);
+                line-height: 1.45;
+                min-height: 48px;
+                white-space: pre-line;
+            }
+
+            .status strong {
+                color: var(--text);
+            }
+
+            .status .warn {
+                color: var(--warn);
+            }
+
+            .status .danger {
+                color: var(--danger);
+            }
+
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 12px;
+                margin: 18px 0;
+            }
+
+            @media (max-width: 1000px) {
+                .stats {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 560px) {
+                .stats {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-card .value {
+                font-size: 1.7rem;
+                font-weight: 900;
+                letter-spacing: -0.04em;
+            }
+
+            .stat-card .label {
+                color: var(--muted);
+                font-size: 0.82rem;
+                margin-top: 4px;
+            }
+
+            .controls {
+                padding: 16px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                margin-bottom: 18px;
+            }
+
+            @media (max-width: 900px) {
+                .controls {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .control-section {
+                background: var(--section-bg);
+                border: 1px solid var(--row-sep);
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .control-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+
+            .control-title {
+                font-weight: 900;
+                letter-spacing: -0.02em;
+            }
+
+            .small-actions {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .small-actions button {
+                padding: 6px 8px;
+                font-size: 0.78rem;
+                border-radius: 9px;
+                color: var(--muted);
+            }
+
+            .checkbox-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                max-height: 170px;
+                overflow: auto;
+                padding: 2px 2px 2px 0;
+            }
+
+            .check-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                border: 1px solid var(--border);
+                background: var(--chip-bg);
+                border-radius: 999px;
+                padding: 7px 10px;
+                cursor: pointer;
+                color: var(--muted);
+                user-select: none;
+                font-size: 0.88rem;
+                transition:
+                    border-color 140ms ease,
+                    background 140ms ease,
+                    color 140ms ease,
+                    transform 140ms ease;
+            }
+
+            .check-chip:hover {
+                position: relative;
+                z-index: 1;
+                transform: translateY(-1px);
+            }
+
+            .check-chip.checked {
+                color: var(--text);
+                border-color: rgba(142, 180, 255, 0.66);
+                background: var(--chip-active-bg);
+            }
+
+            .check-chip input {
+                accent-color: #8eb4ff;
+                margin: 0;
+            }
+
+            .view-bar {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 14px;
+            }
+
+            .tabs {
+                display: inline-flex;
+                background: var(--tabs-bg);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 4px;
+            }
+
+            .tab {
+                border: 0;
+                background: transparent;
+                color: var(--muted);
+                padding: 9px 12px;
+                border-radius: 10px;
+                transition:
+                    background 150ms ease,
+                    color 150ms ease,
+                    transform 150ms ease;
+            }
+
+            .tab:hover {
+                transform: translateY(-1px);
+            }
+
+            .tab.active {
+                background: var(--tab-active-bg);
+                color: var(--text);
+            }
+
+            .result-note {
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+
+            .rows {
+                display: grid;
+                gap: 12px;
+            }
+
+            .db-row {
+                overflow: hidden;
+                content-visibility: auto;
+                contain-intrinsic-size: 0 80px;
+            }
+
+            .row-head {
+                width: 100%;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 12px;
+                align-items: center;
+                padding: 14px 16px;
+                background: var(--row-head-bg);
+                border-bottom: 1px solid var(--row-sep);
+            }
+
+            .row-title {
+                min-width: 0;
+            }
+
+            .row-title strong {
+                display: block;
+                font-size: 1.02rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .meta {
+                color: var(--muted);
+                font-size: 0.84rem;
+                margin-top: 4px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .meta span {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .row-actions {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .toggle-btn {
+                min-width: 102px;
+            }
+
+            .copy-btn {
+                padding: 3px 7px;
+                border-radius: 8px;
+                font-size: 0.7rem;
+                line-height: 1;
+                margin-left: 6px;
+                color: var(--muted);
+                transition:
+                    background 120ms ease,
+                    color 120ms ease,
+                    border-color 120ms ease;
+            }
+
+            .copy-btn.copied {
+                background: var(--copy-ok-bg);
+                border-color: var(--copy-ok-border);
+                color: var(--copy-ok-text);
+            }
+
+            .row-body {
+                padding: 16px;
+            }
+
+            .row-body[hidden] {
+                display: none;
+            }
+
+            .cards-grid {
+                display: grid;
+                grid-template-columns: repeat(
+                    auto-fill,
+                    minmax(var(--card-w), 1fr)
+                );
+                gap: 14px;
+            }
+
+            .card-tile.traded {
+                opacity: 0.38;
+                filter: grayscale(0.65);
+            }
+
+            .traded-btn {
+                position: absolute;
+                top: 8px;
+                left: 8px;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                background: var(--qty-bg);
+                border: 1px solid var(--qty-border);
+                color: var(--accent-2);
+                box-shadow: var(--qty-shadow);
+                cursor: pointer;
+                font-size: 1rem;
+                line-height: 1;
+                padding: 0;
+                transition:
+                    background 150ms,
+                    color 150ms,
+                    border-color 150ms;
+                z-index: 2;
+            }
+
+            .card-tile.traded .traded-btn {
+                background: var(--accent);
+                color: #fff;
+                border-color: var(--accent);
+                box-shadow: none;
+            }
+
+            .hide-traded .card-tile.traded {
+                display: none;
+            }
+
+            .card-tile {
+                min-width: 0;
+                background: var(--card-bg);
+                border: 1px solid var(--card-border);
+                border-radius: 14px;
+                padding: 9px;
+                position: relative;
+                transition:
+                    transform 170ms ease,
+                    border-color 170ms ease,
+                    box-shadow 170ms ease;
+            }
+
+            .card-tile:hover {
+                transform: translateY(-2px);
+                border-color: var(--accent);
+                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+            }
+
+            [data-theme="light"] .card-tile:hover {
+                box-shadow: 0 8px 20px rgba(37, 70, 125, 0.15);
+            }
+
+            .card-tile img {
+                width: 100%;
+                aspect-ratio: 5 / 7;
+                object-fit: contain;
+                display: block;
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.03);
+            }
+
+            .card-name {
+                margin-top: 8px;
+                font-size: 0.82rem;
+                font-weight: 800;
+                line-height: 1.15;
+                min-height: 2.3em;
+                color: var(--text);
+            }
+
+            .card-badges {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-top: 7px;
+            }
+
+            .mini-badge {
+                display: inline-flex;
+                border: 1px solid var(--badge-border);
+                background: var(--badge-bg);
+                color: var(--muted);
+                border-radius: 999px;
+                padding: 3px 7px;
+                font-size: 0.68rem;
+                line-height: 1;
+            }
+
+            .qty {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                min-width: 30px;
+                height: 30px;
+                display: inline-grid;
+                place-items: center;
+                border-radius: 999px;
+                background: var(--qty-bg);
+                border: 1px solid var(--qty-border);
+                color: var(--accent-2);
+                font-weight: 900;
+                box-shadow: var(--qty-shadow);
+            }
+
+            .empty {
+                text-align: center;
+                padding: 40px 20px;
+                color: var(--muted);
+            }
+
+            .load-more-wrap {
+                display: flex;
+                justify-content: center;
+                padding: 10px 0 0;
+            }
+
+            .hidden {
+                display: none !important;
+            }
+
+            .catalog-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+                gap: 14px;
+            }
+
+            .catalog-controls {
+                display: grid;
+                grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1fr);
+                align-items: start;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+
+            .catalog-field-stack {
+                display: grid;
+                gap: 10px;
+                align-content: start;
+            }
+
+            #catalogRarityFilters {
+                max-height: none;
+                overflow: visible;
+            }
+
+            @media (max-width: 1000px) {
+                .catalog-layout {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            @media (max-width: 700px) {
+                .catalog-controls {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .catalog-sections {
+                display: grid;
+                gap: 12px;
+                align-content: start;
+            }
+
+            .catalog-section {
+                padding: 12px;
+            }
+
+            .catalog-section-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+
+            .catalog-section-title {
+                font-weight: 900;
+                letter-spacing: -0.02em;
+            }
+
+            .catalog-section-meta {
+                color: var(--muted);
+                font-size: 0.82rem;
+            }
+
+            .catalog-card-btn {
+                all: unset;
+                display: block;
+                cursor: pointer;
+            }
+
+            .catalog-card-btn:focus-visible .card-tile {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(142, 180, 255, 0.2);
+            }
+
+            .card-tile.unavailable {
+                opacity: 0.55;
+            }
+
+            .card-tile.unavailable img {
+                filter: grayscale(1);
+            }
+
+            .card-tile.selected {
+                border-color: var(--accent);
+                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+            }
+
+            .catalog-side {
+                padding: 14px;
+                position: sticky;
+                top: 10px;
+                height: fit-content;
+            }
+
+            .catalog-side-title {
+                font-weight: 900;
+                letter-spacing: -0.02em;
+                margin-bottom: 8px;
+            }
+
+            .catalog-side-meta {
+                color: var(--muted);
+                font-size: 0.84rem;
+                margin-bottom: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .catalog-account-sort {
+                margin-bottom: 10px;
+            }
+
+            .catalog-account-list {
+                display: grid;
+                gap: 8px;
+                max-height: 58vh;
+                overflow: auto;
+                padding-right: 2px;
+            }
+
+            .catalog-account-item {
+                border: 1px solid var(--row-sep);
+                background: var(--section-bg);
+                border-radius: 12px;
+                padding: 9px;
+                display: grid;
+                gap: 8px;
+                cursor: pointer;
+                transition:
+                    border-color 150ms ease,
+                    box-shadow 150ms ease,
+                    background 150ms ease;
+            }
+
+            .catalog-account-item:hover {
+                border-color: var(--accent);
+            }
+
+            .catalog-account-item:focus-visible {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(142, 180, 255, 0.2);
+            }
+
+            .catalog-account-item.selected {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(142, 180, 255, 0.16);
+                background: rgba(142, 180, 255, 0.08);
+            }
+
+            .catalog-account-name {
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-start;
+                width: fit-content;
+                max-width: 100%;
+                padding: 6px 10px;
+                border-radius: 999px;
+                border: 1px solid var(--chip-border);
+                background: var(--chip-bg);
+                color: var(--text);
+                font-weight: 800;
+                font-size: 0.88rem;
+                word-break: break-word;
+                cursor: pointer;
+                transition:
+                    border-color 150ms ease,
+                    background 150ms ease,
+                    color 150ms ease,
+                    box-shadow 150ms ease;
+            }
+
+            .catalog-account-name:hover {
+                border-color: var(--accent);
+                color: var(--accent-2);
+            }
+
+            .catalog-account-name.selected {
+                border-color: rgba(142, 180, 255, 0.72);
+                background: var(--chip-active-bg);
+                color: var(--accent-2);
+                box-shadow: 0 0 0 2px rgba(142, 180, 255, 0.14);
+            }
+
+            .catalog-account-meta {
+                color: var(--muted);
+                font-size: 0.78rem;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .catalog-account-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .catalog-account-actions button {
+                padding: 6px 8px;
+                font-size: 0.76rem;
+                border-radius: 8px;
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                * {
+                    transition: none !important;
+                    animation: none !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="page">
+            <header>
+                <div class="header-left">
+                    <h1>Card Database</h1>
+                    <p class="subtitle">for ptcgp bot</p>
+                </div>
+                <button
+                    id="themeToggleBtn"
+                    class="ghost theme-btn"
+                    type="button"
+                >
+                    Light mode
+                </button>
+            </header>
+
+            <div
+                class="section-switcher"
+                role="tablist"
+                aria-label="Tool sections"
+            >
+                <button
+                    id="sectionDbBtn"
+                    type="button"
+                    class="section-switcher-btn active"
+                    role="tab"
+                >
+                    Database Workspace
+                </button>
+                <button
+                    id="sectionLibraryBtn"
+                    type="button"
+                    class="section-switcher-btn"
+                    role="tab"
+                >
+                    Card Library
+                </button>
+            </div>
+
+            <section
+                id="toolbarSection"
+                class="toolbar panel"
+                aria-label="Load data"
+            >
+                <div>
+                    <div class="field-grid">
+                        <div>
+                            <label class="field-label" for="csvFile"
+                                >CSV database</label
+                            >
+                            <input
+                                id="csvFile"
+                                type="file"
+                                accept=".csv,text/csv"
+                            />
+                        </div>
+                        <div>
+                            <label class="field-label" for="tradesCsvFile"
+                                >Trades CSV (optional)</label
+                            >
+                            <input
+                                id="tradesCsvFile"
+                                type="file"
+                                accept=".csv,text/csv"
+                            />
+                        </div>
+                        <div>
+                            <label class="field-label" for="cardSize"
+                                >Card image size</label
+                            >
+                            <select id="cardSize">
+                                <option value="96">Small</option>
+                                <option value="120" selected>Medium</option>
+                                <option value="150">Large</option>
+                                <option value="190">Extra large</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button
+                            class="primary"
+                            id="loadRemoteBtn"
+                            type="button"
+                        >
+                            Load / refresh card data
+                        </button>
+                        <button class="ghost" id="clearCacheBtn" type="button">
+                            Clear cached card data
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="field-label">Status</label>
+                    <div class="status" id="status">
+                        Upload your CSV to start. Card metadata is loaded from
+                        cache first, then refreshed only when needed.
+                    </div>
+                </div>
+            </section>
+
+            <section id="statsSection" class="stats" aria-label="Stats">
+                <div class="stat-card panel">
+                    <div class="value" id="statAccounts">0</div>
+                    <div class="label">Unique accounts</div>
+                </div>
+                <div class="stat-card panel">
+                    <div class="value" id="statRows">0</div>
+                    <div class="label">Entries</div>
+                </div>
+                <div class="stat-card panel">
+                    <div class="value" id="statCards">0</div>
+                    <div class="label">Cards in database</div>
+                </div>
+                <div class="stat-card panel">
+                    <div class="value" id="statUniqueCards">0</div>
+                    <div class="label">Unique card IDs</div>
+                </div>
+            </section>
+
+            <section
+                id="filtersSection"
+                class="controls panel"
+                aria-label="Filters"
+            >
+                <div class="control-section">
+                    <div class="field-grid">
+                        <div>
+                            <label class="field-label" for="accountSearch"
+                                >Search accounts</label
+                            >
+                            <input
+                                id="accountSearch"
+                                type="search"
+                                placeholder="Account name..."
+                            />
+                        </div>
+                        <div>
+                            <label class="field-label" for="cardSearch"
+                                >Search cards</label
+                            >
+                            <input
+                                id="cardSearch"
+                                type="search"
+                                placeholder="Card name or card id..."
+                            />
+                        </div>
+                        <div>
+                            <label class="field-label" for="rowSort"
+                                >Sort database rows</label
+                            >
+                            <select id="rowSort">
+                                <option value="original" selected>
+                                    CSV order
+                                </option>
+                                <option value="time-desc">Newest first</option>
+                                <option value="time-asc">Oldest first</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="accountSort"
+                                >Sort account overview</label
+                            >
+                            <div
+                                style="
+                                    display: flex;
+                                    gap: 6px;
+                                    align-items: center;
+                                "
+                            >
+                                <select id="accountSort" style="flex: 1">
+                                    <option value="shinedust" selected>
+                                        Shinedust
+                                    </option>
+                                    <option value="account">
+                                        Alphabetical
+                                    </option>
+                                    <option value="age">Age</option>
+                                </select>
+                                <button
+                                    id="accountSortDir"
+                                    type="button"
+                                    class="icon-btn"
+                                    title="Toggle sort direction"
+                                    style="
+                                        min-width: 34px;
+                                        padding: 0 8px;
+                                        font-size: 1rem;
+                                        display: inline-flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                    "
+                                >
+                                    ↓
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="control-head">
+                        <div class="control-title">Rarity</div>
+                        <div class="small-actions">
+                            <button type="button" data-rarity-action="all">
+                                All
+                            </button>
+                            <button type="button" data-rarity-action="none">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="checkbox-list" id="rarityFilters"></div>
+                </div>
+
+                <div class="control-section">
+                    <div class="control-head">
+                        <div class="control-title">Card type</div>
+                        <div class="small-actions">
+                            <button type="button" data-card-type-action="all">
+                                All
+                            </button>
+                            <button type="button" data-card-type-action="none">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="checkbox-list" id="cardTypeFilters"></div>
+                </div>
+
+                <div class="control-section" style="grid-column: 1 / -1">
+                    <div class="control-head">
+                        <div class="control-title">Packs</div>
+                        <div class="small-actions">
+                            <button type="button" data-pack-action="all">
+                                All
+                            </button>
+                            <button type="button" data-pack-action="none">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="checkbox-list" id="packFilters"></div>
+                </div>
+            </section>
+
+            <section id="viewBarSection" class="view-bar">
+                <div class="tabs">
+                    <button class="tab active" id="rowViewTab" type="button">
+                        Database rows
+                    </button>
+                    <button class="tab" id="accountViewTab" type="button">
+                        Account overview
+                    </button>
+                    <button class="tab" id="tradedViewTab" type="button">
+                        Traded cards
+                    </button>
+                </div>
+                <div
+                    class="button-row"
+                    style="margin: 0"
+                    id="accountViewActions"
+                >
+                    <button id="expandAllBtn" type="button">
+                        Expand all shown
+                    </button>
+                    <button id="compactAllBtn" type="button">
+                        Compact all
+                    </button>
+                </div>
+                <div class="result-note" id="resultNote">No CSV loaded.</div>
+            </section>
+
+            <section class="rows" id="rows"></section>
+            <div class="load-more-wrap">
+                <button id="showMoreBtn" type="button" class="hidden">
+                    Show more
+                </button>
+            </div>
+        </main>
+
+        <div
+            id="confirmOverlay"
+            style="
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.72);
+                z-index: 9999;
+                align-items: center;
+                justify-content: center;
+            "
+        >
+            <div
+                style="
+                    max-width: 360px;
+                    width: 90%;
+                    padding: 24px 22px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    background: var(--panel);
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius);
+                    box-shadow: var(--shadow);
+                "
+            >
+                <div
+                    id="confirmMsg"
+                    style="font-size: 0.95rem; line-height: 1.5"
+                ></div>
+                <div
+                    style="display: flex; gap: 10px; justify-content: flex-end"
+                >
+                    <button id="confirmCancel" type="button" class="icon-btn">
+                        Cancel
+                    </button>
+                    <button id="confirmOk" type="button" class="icon-btn">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            "use strict";
+
+            const CARDMASTER_URL =
+                "https://leanny.github.io/pocket_tcg_resources/data/cardmaster.json";
+            const LOCALISATION_URL =
+                "https://leanny.github.io/pocket_tcg_resources/data/en_US.json";
+            const CARDMAP_URL =
+                "https://leanny.github.io/pocket_tcg_resources/data/cardmap.json";
+            const IMAGE_PREFIX =
+                "https://leanny.github.io/pocket_tcg_resources/img/S/US/";
+            const LS_MASTER = "ptcgp-card-db-cardmaster-v4";
+            const LS_LOCALISATION = "ptcgp-card-db-en-us-v4";
+            const LS_CARDMAP = "ptcgp-card-db-cardmap-v4";
+            const LS_MISSING_RETRY_AT = "ptcgp-card-db-missing-retry-at-v4";
+            const LS_THEME = "ptcgp-card-db-theme-v1";
+            const LS_TRADED = "ptcgp-card-db-traded-v1";
+            const DASHBOARD_PING_PATH = "/__dashboard/ping";
+            const DASHBOARD_SHUTDOWN_PATH = "/__dashboard/shutdown";
+            const ONE_HOUR = 60 * 60 * 1000;
+            const AUTOLOAD_RETRIES = 4;
+            const AUTOLOAD_RETRY_BASE_MS = 220;
+            const INITIAL_LIMIT = 150;
+            const PAGE_SIZE = 150;
+            const DEFAULT_CARD_CSV_PATH = "./Card_Database.csv";
+            const DEFAULT_TRADES_CSV_PATH = "../Trades/Trades_Database.csv";
+
+            const RARITY_MAP = {
+                100: ["♦", "C"],
+                200: ["♦♦", "U"],
+                300: ["♦♦♦", "R"],
+                400: ["♦♦♦♦", "RR"],
+                500: ["★", "AR"],
+                600: ["★★ Rainbow", "SR"],
+                700: ["★★ Full Art", "SAR"],
+                800: ["★★★ Immersive", "IM"],
+                830: ["★ Shiny", "S"],
+                860: ["★★ Shiny", "SSR"],
+                900: ["👑 Crown Rare", "UR"],
+            };
+            const SPECIAL_RARITY_TRAINER = "__trainer__";
+            const ALL_CARD_TYPES = ["trainer", "nontrainer"];
+            const CARD_TYPE_LABELS = {
+                trainer: "Trainer",
+                nontrainer: "Non-trainer",
+            };
+
+            const state = {
+                rows: [],
+                filteredRows: [],
+                accountRows: null,
+                cardmaster: null,
+                localisation: null,
+                cardmap: null,
+                cardInfoCache: new Map(),
+                packLabelCache: new Map(),
+                cardExpansionCache: new Map(),
+                selectedPacks: new Set(),
+                selectedRarities: new Set(),
+                selectedCardTypes: new Set(),
+                allPacks: new Map(),
+                allRarities: new Set(),
+                accountShinedustMap: new Map(),
+                accountFileLabelMap: new Map(),
+                accountCount: 0,
+                rowCount: 0,
+                totalCards: 0,
+                uniqueCardCount: 0,
+                rowSort: "original",
+                accountSort: "shinedust",
+                accountSortAsc: false,
+                catalogAccountSort: "copies",
+                catalogAccountSortAsc: false,
+                catalogExpansionFilter: "__all__",
+                catalogCardSearch: "",
+                catalogSelectedRarities: new Set(),
+                catalogRaritiesInitialized: false,
+                selectedCatalogAccount: "",
+                cardCollectionNumberMap: new Map(),
+                tradedSet: new Set(),
+                hideTradedMode: "show",
+                view: "rows",
+                selectedCatalogCardId: "",
+                theme: "dark",
+                expandedRows: new Set(),
+                expandedAccounts: new Set(),
+                defaultExpanded: false,
+                displayLimit: INITIAL_LIMIT,
+                csvLoaded: false,
+            };
+
+            const el = {
+                csvFile: document.getElementById("csvFile"),
+                tradesCsvFile: document.getElementById("tradesCsvFile"),
+                cardSize: document.getElementById("cardSize"),
+                status: document.getElementById("status"),
+                loadRemoteBtn: document.getElementById("loadRemoteBtn"),
+                clearCacheBtn: document.getElementById("clearCacheBtn"),
+                statAccounts: document.getElementById("statAccounts"),
+                statRows: document.getElementById("statRows"),
+                statCards: document.getElementById("statCards"),
+                statUniqueCards: document.getElementById("statUniqueCards"),
+                accountSearch: document.getElementById("accountSearch"),
+                cardSearch: document.getElementById("cardSearch"),
+                rowSort: document.getElementById("rowSort"),
+                accountSort: document.getElementById("accountSort"),
+                accountSortDir: document.getElementById("accountSortDir"),
+                hideTradedBtn: null,
+                rowViewTab: document.getElementById("rowViewTab"),
+                accountViewTab: document.getElementById("accountViewTab"),
+                tradedViewTab: document.getElementById("tradedViewTab"),
+                viewBarSection: document.getElementById("viewBarSection"),
+                accountViewActions:
+                    document.getElementById("accountViewActions"),
+                rarityFilters: document.getElementById("rarityFilters"),
+                cardTypeFilters: document.getElementById("cardTypeFilters"),
+                packFilters: document.getElementById("packFilters"),
+                expandAllBtn: document.getElementById("expandAllBtn"),
+                compactAllBtn: document.getElementById("compactAllBtn"),
+                resultNote: document.getElementById("resultNote"),
+                rows: document.getElementById("rows"),
+                showMoreBtn: document.getElementById("showMoreBtn"),
+                themeToggleBtn: document.getElementById("themeToggleBtn"),
+                sectionDbBtn: document.getElementById("sectionDbBtn"),
+                sectionLibraryBtn: document.getElementById("sectionLibraryBtn"),
+                toolbarSection: document.getElementById("toolbarSection"),
+                statsSection: document.getElementById("statsSection"),
+                filtersSection: document.getElementById("filtersSection"),
+            };
+
+            const raf = () =>
+                new Promise((resolve) => requestAnimationFrame(resolve));
+
+            function showConfirm(message) {
+                return new Promise((resolve) => {
+                    const overlay = document.getElementById("confirmOverlay");
+                    document.getElementById("confirmMsg").textContent = message;
+                    overlay.style.display = "flex";
+                    const ok = document.getElementById("confirmOk");
+                    const cancel = document.getElementById("confirmCancel");
+                    function cleanup(result) {
+                        overlay.style.display = "none";
+                        ok.removeEventListener("click", onOk);
+                        cancel.removeEventListener("click", onCancel);
+                        resolve(result);
+                    }
+                    function onOk() {
+                        cleanup(true);
+                    }
+                    function onCancel() {
+                        cleanup(false);
+                    }
+                    ok.addEventListener("click", onOk);
+                    cancel.addEventListener("click", onCancel);
+                });
+            }
+
+            function tradedKey(account, cardId) {
+                return account + "::" + cardId;
+            }
+
+            function loadTradedState() {
+                try {
+                    const raw = localStorage.getItem(LS_TRADED);
+                    if (raw) state.tradedSet = new Set(JSON.parse(raw));
+                } catch (_) {
+                    state.tradedSet = new Set();
+                }
+            }
+
+            function saveTradedState() {
+                try {
+                    localStorage.setItem(
+                        LS_TRADED,
+                        JSON.stringify([...state.tradedSet]),
+                    );
+                } catch (_) {}
+            }
+
+            function toggleTraded(account, cardId) {
+                const key = tradedKey(account, cardId);
+                if (state.tradedSet.has(key)) state.tradedSet.delete(key);
+                else state.tradedSet.add(key);
+                saveTradedState();
+            }
+
+            function isTraded(account, cardId) {
+                return state.tradedSet.has(tradedKey(account, cardId));
+            }
+
+            function applyHideTradedClass() {
+                // no-op: hide traded mode removed
+            }
+
+            new Promise((resolve) => requestAnimationFrame(resolve));
+
+            // Faster escapeHtml — pre-built char map, no object literal per call
+            const _ESC = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;",
+            };
+            const _ESC_RE = /[&<>"']/g;
+            function escapeHtml(value) {
+                return String(value ?? "").replace(_ESC_RE, (c) => _ESC[c]);
+            }
+
+            // Cache Intl.NumberFormat instance
+            const _numFmt = new Intl.NumberFormat();
+            function formatNumber(value) {
+                return _numFmt.format(value || 0);
+            }
+
+            function normaliseSearch(value) {
+                return String(value ?? "")
+                    .normalize("NFKC")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .toLocaleLowerCase();
+            }
+            function compactHeader(value) {
+                return normaliseSearch(value).replace(/[^a-z0-9]/g, "");
+            }
+            function debounce(fn, delay = 160) {
+                let timer;
+                return (...args) => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => fn(...args), delay);
+                };
+            }
+
+            function setStatus(message, kind = "normal") {
+                const cls =
+                    kind === "warn"
+                        ? "warn"
+                        : kind === "danger"
+                          ? "danger"
+                          : "";
+                el.status.innerHTML = cls
+                    ? `<span class="${cls}">${escapeHtml(message)}</span>`
+                    : escapeHtml(message);
+            }
+            function appendStatus(message) {
+                el.status.innerHTML += "\n" + escapeHtml(message);
+            }
+
+            function waitMs(ms) {
+                return new Promise((resolve) => setTimeout(resolve, ms));
+            }
+
+            function canControlLocalDashboardServer() {
+                return (
+                    location.protocol === "http:" &&
+                    (location.hostname === "localhost" ||
+                        location.hostname === "127.0.0.1")
+                );
+            }
+
+            function notifyDashboardActive() {
+                if (!canControlLocalDashboardServer()) return;
+                fetch(DASHBOARD_PING_PATH, {
+                    method: "GET",
+                    cache: "no-store",
+                    keepalive: true,
+                }).catch(() => {});
+            }
+
+            function requestDashboardShutdown() {
+                if (!canControlLocalDashboardServer()) return;
+                const payload = "close";
+                if (navigator.sendBeacon) {
+                    try {
+                        navigator.sendBeacon(DASHBOARD_SHUTDOWN_PATH, payload);
+                        return;
+                    } catch {
+                        // Fall back to fetch keepalive.
+                    }
+                }
+                fetch(DASHBOARD_SHUTDOWN_PATH, {
+                    method: "POST",
+                    cache: "no-store",
+                    keepalive: true,
+                    headers: { "Content-Type": "text/plain" },
+                    body: payload,
+                }).catch(() => {});
+            }
+
+            function getSystemTheme() {
+                return window.matchMedia &&
+                    window.matchMedia("(prefers-color-scheme: light)").matches
+                    ? "light"
+                    : "dark";
+            }
+
+            function applyTheme(theme, persist = true) {
+                const resolved = theme === "light" ? "light" : "dark";
+                state.theme = resolved;
+                document.documentElement.setAttribute("data-theme", resolved);
+                el.themeToggleBtn.textContent =
+                    resolved === "light" ? "Dark mode" : "Light mode";
+                if (persist) {
+                    try {
+                        localStorage.setItem(LS_THEME, resolved);
+                    } catch {
+                        // Ignore storage failures, theme still applies for this session.
+                    }
+                }
+            }
+
+            function initTheme() {
+                let savedTheme = null;
+                try {
+                    savedTheme = localStorage.getItem(LS_THEME);
+                } catch {
+                    savedTheme = null;
+                }
+                const initial =
+                    savedTheme === "light" || savedTheme === "dark"
+                        ? savedTheme
+                        : getSystemTheme();
+                applyTheme(initial, false);
+            }
+
+            function readCachedJson(key) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    return parsed && parsed.data ? parsed.data : parsed;
+                } catch {
+                    return null;
+                }
+            }
+            function writeCachedJson(key, data) {
+                try {
+                    localStorage.setItem(
+                        key,
+                        JSON.stringify({ savedAt: Date.now(), data }),
+                    );
+                    return true;
+                } catch {
+                    appendStatus(
+                        "Could not save card metadata to localStorage. The page still works for this session.",
+                    );
+                    return false;
+                }
+            }
+            async function fetchJson(url) {
+                const response = await fetch(url, { cache: "no-store" });
+                if (!response.ok)
+                    throw new Error(
+                        `${response.status} ${response.statusText}`,
+                    );
+                return response.json();
+            }
+
+            function readObjectValue(source, names) {
+                if (!source || typeof source !== "object") return "";
+                for (const name of names) {
+                    if (source[name] != null) return source[name];
+                    const foundKey = Object.keys(source).find(
+                        (key) =>
+                            normaliseSearch(key).replace(/[^a-z0-9]/g, "") ===
+                            normaliseSearch(name).replace(/[^a-z0-9]/g, ""),
+                    );
+                    if (foundKey) return source[foundKey];
+                }
+                return "";
+            }
+
+            function extractExpansionIdFromCardMapEntry(entry) {
+                if (typeof entry === "string") return entry.trim();
+                return String(
+                    readObjectValue(entry, [
+                        "ExpansionID",
+                        "ExpansionId",
+                        "expansionId",
+                        "expansionID",
+                        "Expansion",
+                    ]) || "",
+                ).trim();
+            }
+
+            function buildCardCollectionNumberIndex(data) {
+                const index = new Map();
+                const readCollectionNumber = (entry) => {
+                    const raw = readObjectValue(entry, [
+                        "CollectionNumber",
+                        "collectionNumber",
+                        "CollectionNo",
+                        "CardNo",
+                        "Number",
+                    ]);
+                    if (raw == null) return null;
+                    const n = Number(raw);
+                    return Number.isFinite(n) ? n : null;
+                };
+                if (Array.isArray(data)) {
+                    for (const entry of data) {
+                        const cardId = String(
+                            readObjectValue(entry, [
+                                "CardID",
+                                "CardId",
+                                "cardId",
+                                "id",
+                                "Id",
+                            ]) || "",
+                        ).trim();
+                        const n = readCollectionNumber(entry);
+                        if (cardId && n != null) index.set(cardId, n);
+                    }
+                    return index;
+                }
+                if (data && typeof data === "object") {
+                    for (const [cardId, entry] of Object.entries(data)) {
+                        const n = readCollectionNumber(entry);
+                        if (cardId && n != null)
+                            index.set(String(cardId).trim(), n);
+                    }
+                }
+                return index;
+            }
+
+            function buildCardMapIndex(data) {
+                const index = new Map();
+                if (Array.isArray(data)) {
+                    for (const entry of data) {
+                        const cardId = String(
+                            readObjectValue(entry, [
+                                "CardID",
+                                "CardId",
+                                "cardId",
+                                "id",
+                                "Id",
+                            ]) || "",
+                        ).trim();
+                        const expansionId =
+                            extractExpansionIdFromCardMapEntry(entry);
+                        if (cardId && expansionId)
+                            index.set(cardId, expansionId);
+                    }
+                    return index;
+                }
+                if (data && typeof data === "object") {
+                    for (const [cardId, entry] of Object.entries(data)) {
+                        const expansionId =
+                            extractExpansionIdFromCardMapEntry(entry);
+                        if (cardId && expansionId)
+                            index.set(String(cardId).trim(), expansionId);
+                    }
+                }
+                return index;
+            }
+
+            function getCardExpansionId(cardId) {
+                const id = String(cardId ?? "").trim();
+                if (!id) return "";
+                if (state.cardExpansionCache.has(id))
+                    return state.cardExpansionCache.get(id);
+                if (!state.cardmap || !(state.cardmap instanceof Map))
+                    state.cardmap = buildCardMapIndex(state.cardmap || {});
+                const expansionId = state.cardmap.get(id) || "";
+                state.cardExpansionCache.set(id, expansionId);
+                return expansionId;
+            }
+
+            function splitPackList(value) {
+                return String(value ?? "")
+                    .split(",")
+                    .map((part) => part.trim())
+                    .filter(Boolean);
+            }
+
+            function splitCardsIntoExpansionBlocks(pack, cardIds) {
+                const packParts = splitPackList(pack);
+                if (packParts.length <= 1 || cardIds.length <= 1) {
+                    return [{ pack, cardIds }];
+                }
+                const blocks = [];
+                const blockByExpansion = new Map();
+                for (const cardId of cardIds) {
+                    const expansionId = getCardExpansionId(cardId);
+                    const blockKey = expansionId || pack;
+                    if (!blockByExpansion.has(blockKey)) {
+                        const block = {
+                            pack: expansionId || pack,
+                            cardIds: [],
+                        };
+                        blockByExpansion.set(blockKey, block);
+                        blocks.push(block);
+                    }
+                    blockByExpansion.get(blockKey).cardIds.push(cardId);
+                }
+                return blocks.length ? blocks : [{ pack, cardIds }];
+            }
+
+            async function loadResources(force = false) {
+                let loadedFromCache = false;
+                if (!force) {
+                    if (!state.cardmaster)
+                        state.cardmaster = readCachedJson(LS_MASTER);
+                    if (!state.localisation)
+                        state.localisation = readCachedJson(LS_LOCALISATION);
+                    if (!state.cardmap)
+                        state.cardmap = readCachedJson(LS_CARDMAP);
+                    loadedFromCache = Boolean(
+                        state.cardmaster && state.localisation && state.cardmap,
+                    );
+                }
+                if (
+                    !state.cardmaster ||
+                    !state.localisation ||
+                    !state.cardmap ||
+                    force
+                ) {
+                    setStatus(
+                        force
+                            ? "Refreshing card data..."
+                            : "Loading card data...",
+                    );
+                    try {
+                        const [master, loc, cardmap] = await Promise.all([
+                            fetchJson(CARDMASTER_URL),
+                            fetchJson(LOCALISATION_URL),
+                            fetchJson(CARDMAP_URL),
+                        ]);
+                        state.cardmaster = master;
+                        state.localisation = loc;
+                        state.cardmap = buildCardMapIndex(cardmap);
+                        state.cardCollectionNumberMap =
+                            buildCardCollectionNumberIndex(cardmap);
+                        state.cardInfoCache.clear();
+                        state.cardExpansionCache.clear();
+                        state.packLabelCache.clear();
+                        writeCachedJson(LS_MASTER, master);
+                        writeCachedJson(LS_LOCALISATION, loc);
+                        writeCachedJson(LS_CARDMAP, cardmap);
+                        setStatus("Card data loaded and cached.");
+                        if (state.rows.length)
+                            refreshDerivedDataAfterMetadataChange();
+                    } catch (err) {
+                        if (state.cardmaster && state.localisation)
+                            setStatus(
+                                `Remote refresh failed. Using cached card data.\n${err.message}`,
+                                "warn",
+                            );
+                        else
+                            setStatus(
+                                `Could not load card data.\n${err.message}`,
+                                "danger",
+                            );
+                    }
+                } else if (loadedFromCache)
+                    setStatus("Card data loaded from cache.");
+            }
+
+            async function maybeRefreshForMissingCardIds(missingIds) {
+                if (!missingIds.length) return;
+                const now = Date.now();
+                const retryAt = Number(
+                    localStorage.getItem(LS_MISSING_RETRY_AT) || "0",
+                );
+                if (retryAt && now < retryAt) {
+                    const minutes = Math.ceil((retryAt - now) / 60000);
+                    appendStatus(
+                        `Missing ${missingIds.length} card id(s). Next remote retry in about ${minutes} minute(s).`,
+                    );
+                    return;
+                }
+                appendStatus(
+                    `Missing ${missingIds.length} card id(s). Refreshing card data once...`,
+                );
+                await loadResources(true);
+                const stillMissing = missingIds.filter(
+                    (id) => !state.cardmaster || !state.cardmaster[id],
+                );
+                if (stillMissing.length) {
+                    localStorage.setItem(
+                        LS_MISSING_RETRY_AT,
+                        String(now + ONE_HOUR),
+                    );
+                    appendStatus(
+                        `Still missing ${stillMissing.length} card id(s). Will not retry again for at least 1 hour.`,
+                    );
+                } else {
+                    localStorage.removeItem(LS_MISSING_RETRY_AT);
+                    appendStatus("Missing card ids were resolved.");
+                }
+            }
+
+            // Fast CSV parser using regex split — avoids per-character branching
+            function forEachCsvRecord(text, callback) {
+                // Normalize line endings then split into lines, handling quoted newlines
+                const len = text.length;
+                let row = [],
+                    field = "",
+                    inQuotes = false,
+                    i = 0;
+                const pushRow = () => {
+                    row.push(field);
+                    field = "";
+                    if (row.some((cell) => cell.trim() !== "")) callback(row);
+                    row = [];
+                };
+                while (i < len) {
+                    const char = text.charCodeAt(i);
+                    if (char === 34) {
+                        // "
+                        if (inQuotes && text.charCodeAt(i + 1) === 34) {
+                            field += '"';
+                            i += 2;
+                            continue;
+                        }
+                        inQuotes = !inQuotes;
+                        i++;
+                        continue;
+                    }
+                    if (char === 44 && !inQuotes) {
+                        row.push(field);
+                        field = "";
+                        i++;
+                        continue;
+                    } // ,
+                    if ((char === 10 || char === 13) && !inQuotes) {
+                        if (char === 13 && text.charCodeAt(i + 1) === 10) i++;
+                        pushRow();
+                        i++;
+                        continue;
+                    }
+                    field += text[i];
+                    i++;
+                }
+                if (field || row.length) pushRow();
+            }
+
+            function findHeaderIndex(headers, candidates) {
+                const map = new Map(
+                    headers.map((header, index) => [
+                        compactHeader(header),
+                        index,
+                    ]),
+                );
+                for (const candidate of candidates)
+                    if (map.has(candidate)) return map.get(candidate);
+                return -1;
+            }
+            function splitCards(value) {
+                const text = String(value ?? "").trim();
+                if (!text) return [];
+                const separator = text.includes("|")
+                    ? /[|]+/
+                    : text.includes(";")
+                      ? /[;]+/
+                      : /\s+/;
+                return text
+                    .split(separator)
+                    .map((part) => part.trim().replace(/^["']|["']$/g, ""))
+                    .filter(Boolean);
+            }
+
+            function getCardType(cardId) {
+                return String(cardId ?? "")
+                    .trim()
+                    .toUpperCase()
+                    .startsWith("TR_")
+                    ? "trainer"
+                    : "nontrainer";
+            }
+
+            function getCardTypeLabel(cardType) {
+                return CARD_TYPE_LABELS[cardType] || cardType;
+            }
+
+            function getCardRarityFilterKey(cardId, info) {
+                const cardInfo = info || getCardInfo(cardId);
+                const rarityCode =
+                    cardInfo.rarityValue == null
+                        ? ""
+                        : String(cardInfo.rarityValue);
+                const isTrainer = getCardType(cardId) === "trainer";
+                if (isTrainer && rarityCode === "700")
+                    return SPECIAL_RARITY_TRAINER;
+                return rarityCode;
+            }
+
+            function getRarityFilterLabel(rarityKey) {
+                if (rarityKey === SPECIAL_RARITY_TRAINER) return "★★ Trainer";
+                return RARITY_MAP[rarityKey]
+                    ? RARITY_MAP[rarityKey][0]
+                    : `Unknown (${rarityKey})`;
+            }
+
+            function computeAllRarityFilters(rows) {
+                const rarityValues = new Set();
+                let hasTrainer = false;
+
+                for (const row of rows) {
+                    for (const rarity of row.rarityValues)
+                        rarityValues.add(String(rarity));
+
+                    if (!hasTrainer && row.cardTypeValues.includes("trainer"))
+                        hasTrainer = true;
+                }
+
+                const sortedNumeric = [...rarityValues].sort(
+                    (a, b) => Number(a) - Number(b),
+                );
+                if (hasTrainer) sortedNumeric.push(SPECIAL_RARITY_TRAINER);
+                return new Set(sortedNumeric);
+            }
+
+            function parseTimestampValue(value) {
+                const text = String(value ?? "").trim();
+                if (!text) return Number.NaN;
+
+                const numeric = Number(text);
+                if (Number.isFinite(numeric)) {
+                    // Unix seconds, Unix milliseconds, and spreadsheet serial dates.
+                    if (numeric > 100000000000) return numeric;
+                    if (numeric > 1000000000) return numeric * 1000;
+                    if (numeric > 20000 && numeric < 100000)
+                        return Math.round((numeric - 25569) * 86400000);
+                }
+
+                const timeOnly = text.match(
+                    /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?$/,
+                );
+                if (timeOnly) {
+                    const hours = Number(timeOnly[1]);
+                    const minutes = Number(timeOnly[2]);
+                    const seconds = Number(timeOnly[3] || 0);
+                    const millis = Number((timeOnly[4] || "").padEnd(3, "0"));
+                    if (hours < 24 && minutes < 60 && seconds < 60)
+                        return (
+                            hours * 3600000 +
+                            minutes * 60000 +
+                            seconds * 1000 +
+                            millis
+                        );
+                }
+
+                const parsed = Date.parse(text);
+                return Number.isNaN(parsed) ? Number.NaN : parsed;
+            }
+
+            function parseTimestampFromFilename(value) {
+                const text = String(value ?? "").trim();
+                if (!text) return Number.NaN;
+
+                // Common filename form: YYYYMMDDHHMMSS, optionally followed by suffixes.
+                const compact = text.match(/(\d{14})/);
+                if (compact) {
+                    const stamp = compact[1];
+                    const year = Number(stamp.slice(0, 4));
+                    const month = Number(stamp.slice(4, 6));
+                    const day = Number(stamp.slice(6, 8));
+                    const hour = Number(stamp.slice(8, 10));
+                    const minute = Number(stamp.slice(10, 12));
+                    const second = Number(stamp.slice(12, 14));
+                    const dt = new Date(
+                        year,
+                        month - 1,
+                        day,
+                        hour,
+                        minute,
+                        second,
+                        0,
+                    );
+                    const ms = dt.getTime();
+                    if (Number.isFinite(ms)) return ms;
+                }
+
+                // Fallback for formats like YYYY-MM-DD_HH-MM-SS.
+                const separated = text.match(
+                    /(\d{4})[-_](\d{2})[-_](\d{2})[^\d]?(\d{2})[-_:]?(\d{2})[-_:]?(\d{2})/,
+                );
+                if (separated) {
+                    const dt = new Date(
+                        Number(separated[1]),
+                        Number(separated[2]) - 1,
+                        Number(separated[3]),
+                        Number(separated[4]),
+                        Number(separated[5]),
+                        Number(separated[6]),
+                        0,
+                    );
+                    const ms = dt.getTime();
+                    if (Number.isFinite(ms)) return ms;
+                }
+
+                return Number.NaN;
+            }
+
+            function compareRowsByTime(a, b, direction) {
+                const aHasTime = Number.isFinite(a.timestampMs);
+                const bHasTime = Number.isFinite(b.timestampMs);
+                if (aHasTime && bHasTime && a.timestampMs !== b.timestampMs)
+                    return direction === "asc"
+                        ? a.timestampMs - b.timestampMs
+                        : b.timestampMs - a.timestampMs;
+                if (aHasTime !== bHasTime) return aHasTime ? -1 : 1;
+                return a.index - b.index;
+            }
+
+            function sortRows(rows) {
+                const mode = state.rowSort;
+                if (mode === "time-asc")
+                    rows.sort((a, b) => compareRowsByTime(a, b, "asc"));
+                else if (mode === "time-desc")
+                    rows.sort((a, b) => compareRowsByTime(a, b, "desc"));
+                return rows;
+            }
+
+            function getCardInfo(cardId) {
+                if (state.cardInfoCache.has(cardId))
+                    return state.cardInfoCache.get(cardId);
+                const master = state.cardmaster || {},
+                    loc = state.localisation || {};
+                const raw = master[cardId] || null;
+                const nameKey = raw && raw.Name;
+                const name =
+                    nameKey && loc[nameKey] ? loc[nameKey] : nameKey || cardId;
+                const rarityValue =
+                    raw && raw.Rarity != null ? Number(raw.Rarity) : null;
+                const rarityName =
+                    rarityValue != null && RARITY_MAP[rarityValue]
+                        ? RARITY_MAP[rarityValue][0]
+                        : "Unknown";
+                const illustrationId =
+                    raw && raw.IllustrationID ? raw.IllustrationID : "";
+                const info = {
+                    id: cardId,
+                    raw,
+                    name,
+                    rarityValue,
+                    rarityName,
+                    illustrationId,
+                    imageUrl: illustrationId
+                        ? `${IMAGE_PREFIX}${encodeURIComponent(illustrationId)}.png`
+                        : "",
+                };
+                state.cardInfoCache.set(cardId, info);
+                return info;
+            }
+
+            function getPackLabel(packCode) {
+                const code = String(packCode ?? "").trim();
+                if (!code) return "Unknown pack";
+                if (state.packLabelCache.has(code))
+                    return state.packLabelCache.get(code);
+
+                const loc = state.localisation || {};
+                let expansionNumber = "";
+
+                for (const [key, value] of Object.entries(loc)) {
+                    const match = key.match(/^EXPANSION_NAME_(\d+)$/);
+                    if (match && String(value ?? "").trim() === code) {
+                        expansionNumber = match[1];
+                        break;
+                    }
+                }
+
+                const longName = expansionNumber
+                    ? String(
+                          loc[`EXPANSION_NAME_LONG_${expansionNumber}`] ?? "",
+                      ).trim()
+                    : "";
+
+                const label = longName ? `${code} - ${longName}` : code;
+                state.packLabelCache.set(code, label);
+                return label;
+            }
+
+            function parseFirstInteger(value) {
+                const match = String(value ?? "").match(/(\d{1,4})/);
+                return match ? Number(match[1]) : Number.NaN;
+            }
+
+            function getCardExpansionNumber(cardId, info) {
+                // First: use CollectionNumber from cardmap (most accurate per-expansion order)
+                if (
+                    state.cardCollectionNumberMap &&
+                    state.cardCollectionNumberMap.size > 0
+                ) {
+                    const n = state.cardCollectionNumberMap.get(
+                        String(cardId ?? "").trim(),
+                    );
+                    if (Number.isFinite(n)) return n;
+                }
+                // Fallback: try raw fields from cardmaster
+                const raw = (info && info.raw) || {};
+                const directFields = [
+                    "Number",
+                    "CardNo",
+                    "CardNumber",
+                    "CollectionNo",
+                    "CollectionNumber",
+                    "DexNo",
+                    "PokedexNo",
+                ];
+                for (const field of directFields) {
+                    if (raw[field] != null) {
+                        const n = parseFirstInteger(raw[field]);
+                        if (Number.isFinite(n)) return n;
+                    }
+                }
+                // Last resort: middle 6-digit segment from PK_NN_XXXXXX_YY
+                const pkMatch = String(cardId ?? "").match(
+                    /^(?:PK|TR)_\d+_(\d{6})_\d{2}$/,
+                );
+                if (pkMatch) return Math.floor(Number(pkMatch[1]) / 10);
+                return Number.NaN;
+            }
+
+            function buildRowDerived(cardIds) {
+                const raritySet = new Set();
+                const cardTypeSet = new Set();
+                let searchText = "";
+                const missing = [];
+                for (const id of cardIds) {
+                    const info = getCardInfo(id);
+                    searchText += " " + info.name + " " + id;
+                    cardTypeSet.add(getCardType(id));
+                    if (info.rarityValue != null)
+                        raritySet.add(String(info.rarityValue)); // store as string once
+                    if (!info.raw) missing.push(id);
+                }
+                return {
+                    cardSearchBlob: normaliseSearch(searchText),
+                    rarityValues: [...raritySet],
+                    cardTypeValues: [...cardTypeSet],
+                    missing,
+                };
+            }
+
+            async function handleCsvUpload(file) {
+                if (!file) return;
+                setStatus("Reading CSV file...");
+                const text = await file.text();
+                await loadCardCsvText(text, file.name || "uploaded CSV");
+            }
+
+            async function loadCardCsvText(text, sourceLabel = "CSV") {
+                state.rows = [];
+                state.filteredRows = [];
+                state.accountRows = null;
+                state.expandedRows.clear();
+                state.expandedAccounts.clear();
+                state.defaultExpanded = false;
+                state.displayLimit = INITIAL_LIMIT;
+                updateStats(0);
+                renderCurrent();
+
+                setStatus("Loading card data before parsing CSV...");
+                await loadResources(false);
+                await raf();
+
+                await raf();
+
+                setStatus(
+                    "Parsing CSV. Large files are kept compact and rendered in pages.",
+                );
+                const parseResult = parseCsvToRows(text);
+                if (parseResult.error) {
+                    setStatus(parseResult.error, "danger");
+                    return;
+                }
+
+                state.csvLoaded = true;
+                state.rows = parseResult.rows;
+                state.accountCount = parseResult.accountCount;
+                state.rowCount = parseResult.rowCount;
+                state.totalCards = parseResult.totalCards;
+                state.uniqueCardCount = parseResult.uniqueCardCount;
+                state.allPacks = new Map(
+                    [...parseResult.packs.entries()].sort((a, b) =>
+                        a[1].localeCompare(b[1]),
+                    ),
+                );
+                state.allRarities = computeAllRarityFilters(state.rows);
+                state.selectedPacks = new Set(state.allPacks.keys());
+                state.selectedRarities = new Set(state.allRarities);
+                state.selectedCardTypes = new Set(ALL_CARD_TYPES);
+
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+                setStatus(
+                    `Loaded ${formatNumber(state.rowCount)} rows, ${formatNumber(state.totalCards)} cards, and ${formatNumber(state.accountCount)} accounts from ${sourceLabel}.`,
+                );
+                await maybeRefreshForMissingCardIds([
+                    ...parseResult.missingIds,
+                ]);
+            }
+
+            function parseCsvToRows(text) {
+                let headers = null,
+                    accountIndex = -1,
+                    packIndex = -1,
+                    cardsIndex = -1,
+                    timestampIndex = -1;
+                const rows = [],
+                    accounts = new Set(),
+                    uniqueCards = new Set(),
+                    packs = new Map(),
+                    rarities = new Set(),
+                    missingIds = new Set();
+                let totalCards = 0,
+                    rowNumber = 1,
+                    error = "";
+
+                forEachCsvRecord(text, (record) => {
+                    if (error) return;
+                    if (!headers) {
+                        headers = record.map((header) => String(header).trim());
+                        accountIndex = findHeaderIndex(headers, [
+                            "deviceaccount",
+                            "account",
+                            "accountname",
+                            "device",
+                        ]);
+                        packIndex = findHeaderIndex(headers, [
+                            "pack",
+                            "packid",
+                            "packcode",
+                            "expansion",
+                        ]);
+                        cardsIndex = findHeaderIndex(headers, [
+                            "cards",
+                            "card",
+                            "cardids",
+                            "cardlist",
+                        ]);
+                        timestampIndex = findHeaderIndex(headers, [
+                            "timestamp",
+                            "time",
+                            "date",
+                            "datetime",
+                            "created",
+                            "createdat",
+                            "createdtime",
+                            "openedat",
+                            "opentime",
+                        ]);
+                        if (accountIndex < 0 || packIndex < 0 || cardsIndex < 0)
+                            error = `CSV columns not recognised. Expected columns like DeviceAccount, Pack, and Cards.\nFound: ${headers.join(", ")}`;
+                        return;
+                    }
+
+                    rowNumber++;
+                    const account =
+                        String(record[accountIndex] ?? "").trim() ||
+                        "(blank account)";
+                    const pack =
+                        String(record[packIndex] ?? "").trim() ||
+                        "(blank pack)";
+                    const timestamp =
+                        timestampIndex >= 0
+                            ? String(record[timestampIndex] ?? "").trim()
+                            : "";
+                    const timestampMs = parseTimestampValue(timestamp);
+                    const cardIds = splitCards(record[cardsIndex]);
+                    accounts.add(account);
+                    totalCards += cardIds.length;
+                    for (const id of cardIds) uniqueCards.add(id);
+
+                    for (const block of splitCardsIntoExpansionBlocks(
+                        pack,
+                        cardIds,
+                    )) {
+                        const derived = buildRowDerived(block.cardIds);
+                        packs.set(block.pack, getPackLabel(block.pack));
+                        for (const rarity of derived.rarityValues)
+                            rarities.add(rarity); // already strings
+                        for (const id of derived.missing) missingIds.add(id);
+
+                        rows.push({
+                            index: rows.length,
+                            rowNumber,
+                            account,
+                            accountLower: normaliseSearch(account),
+                            pack: block.pack,
+                            packLabel: getPackLabel(block.pack),
+                            sourcePack: pack,
+                            timestamp,
+                            timestampMs,
+                            cardIds: block.cardIds,
+                            cardCount: block.cardIds.length,
+                            cardSearchBlob: derived.cardSearchBlob,
+                            rarityValues: derived.rarityValues,
+                            cardTypeValues: derived.cardTypeValues,
+                        });
+                    }
+                });
+
+                return {
+                    error,
+                    rows,
+                    accountCount: accounts.size,
+                    rowCount: rows.length,
+                    totalCards,
+                    uniqueCardCount: uniqueCards.size,
+                    packs,
+                    rarities,
+                    missingIds,
+                };
+            }
+
+            function parseTradesCsvToShinedustMap(text) {
+                let headers = null,
+                    accountIndex = -1,
+                    shinedustIndex = -1,
+                    cleanFilenameIndex = -1,
+                    originalFilenameIndex = -1,
+                    timestampIndex = -1,
+                    error = "";
+                const rawMap = new Map();
+                let rowNumber = 1;
+
+                forEachCsvRecord(text, (record) => {
+                    if (error) return;
+                    if (!headers) {
+                        headers = record.map((header) => String(header).trim());
+                        accountIndex = findHeaderIndex(headers, [
+                            "deviceaccount",
+                            "account",
+                            "accountname",
+                            "device",
+                        ]);
+                        shinedustIndex = findHeaderIndex(headers, [
+                            "shinedust",
+                            "dust",
+                            "shinydust",
+                        ]);
+                        cleanFilenameIndex = findHeaderIndex(headers, [
+                            "cleanfilename",
+                            "cleanfile",
+                            "cleanname",
+                        ]);
+                        originalFilenameIndex = findHeaderIndex(headers, [
+                            "originalfilename",
+                            "filename",
+                            "file",
+                        ]);
+                        timestampIndex = findHeaderIndex(headers, [
+                            "timestamp",
+                            "time",
+                            "date",
+                            "datetime",
+                            "created",
+                            "createdat",
+                        ]);
+                        if (accountIndex < 0 || shinedustIndex < 0)
+                            error = `Trades CSV columns not recognised. Expected DeviceAccount and Shinedust.\nFound: ${headers.join(", ")}`;
+                        return;
+                    }
+
+                    rowNumber++;
+                    const account = String(record[accountIndex] ?? "").trim();
+                    if (!account) return;
+
+                    const shinedustRaw = String(record[shinedustIndex] ?? "")
+                        .trim()
+                        .replace(/,/g, "");
+                    if (!shinedustRaw) return;
+
+                    const shinedustValue = Number(shinedustRaw);
+                    if (!Number.isFinite(shinedustValue) || shinedustValue < 0)
+                        return;
+
+                    const cleanFilename =
+                        cleanFilenameIndex >= 0
+                            ? String(record[cleanFilenameIndex] ?? "").trim()
+                            : "";
+                    const originalFilename =
+                        originalFilenameIndex >= 0
+                            ? String(record[originalFilenameIndex] ?? "").trim()
+                            : "";
+                    const fileLabel =
+                        cleanFilename || originalFilename
+                            ? cleanFilename || originalFilename
+                            : "";
+
+                    const timestampText =
+                        timestampIndex >= 0
+                            ? String(record[timestampIndex] ?? "").trim()
+                            : "";
+                    const timestampMs = parseTimestampValue(timestampText);
+
+                    const prev = rawMap.get(account);
+                    if (!prev) {
+                        rawMap.set(account, {
+                            value: shinedustValue,
+                            fileLabel,
+                            timestampMs,
+                            rowNumber,
+                        });
+                        return;
+                    }
+
+                    const prevHasTime = Number.isFinite(prev.timestampMs);
+                    const nextHasTime = Number.isFinite(timestampMs);
+                    const shouldReplace = nextHasTime
+                        ? !prevHasTime || timestampMs >= prev.timestampMs
+                        : !prevHasTime && rowNumber >= prev.rowNumber;
+
+                    if (shouldReplace)
+                        rawMap.set(account, {
+                            value: shinedustValue,
+                            fileLabel,
+                            timestampMs,
+                            rowNumber,
+                        });
+                });
+
+                const shinedustMap = new Map();
+                const fileLabelMap = new Map();
+                for (const [account, info] of rawMap) {
+                    shinedustMap.set(account, Math.round(info.value));
+                    if (info.fileLabel)
+                        fileLabelMap.set(account, info.fileLabel);
+                }
+                return { error, shinedustMap, fileLabelMap };
+            }
+
+            async function handleTradesCsvUpload(file) {
+                if (!file) {
+                    state.accountShinedustMap = new Map();
+                    state.accountFileLabelMap = new Map();
+                    state.accountRows = null;
+                    renderCurrent();
+                    return;
+                }
+
+                appendStatus("Reading trades CSV...");
+                const text = await file.text();
+                await loadTradesCsvText(
+                    text,
+                    file.name || "uploaded trades CSV",
+                );
+            }
+
+            async function loadTradesCsvText(text, sourceLabel = "trades CSV") {
+                const parseResult = parseTradesCsvToShinedustMap(text);
+                if (parseResult.error) {
+                    setStatus(parseResult.error, "warn");
+                    return;
+                }
+
+                state.accountShinedustMap = parseResult.shinedustMap;
+                state.accountFileLabelMap = parseResult.fileLabelMap;
+                state.accountRows = null;
+                renderCurrent();
+                appendStatus(
+                    `Linked trades data to ${formatNumber(state.accountShinedustMap.size)} account(s), including ${formatNumber(state.accountFileLabelMap.size)} filename label(s), from ${sourceLabel}.`,
+                );
+            }
+
+            async function fetchDefaultCsvText(path) {
+                let lastError = null;
+                for (let attempt = 1; attempt <= AUTOLOAD_RETRIES; attempt++) {
+                    try {
+                        const response = await fetch(path, {
+                            cache: "no-store",
+                        });
+                        if (!response.ok)
+                            throw new Error(
+                                `${response.status} ${response.statusText}`,
+                            );
+                        return response.text();
+                    } catch (err) {
+                        lastError = err;
+                        if (attempt < AUTOLOAD_RETRIES)
+                            await waitMs(AUTOLOAD_RETRY_BASE_MS * attempt);
+                    }
+                }
+                throw lastError || new Error("Unknown fetch error");
+            }
+
+            async function autoLoadDefaultFiles() {
+                let autoLoadedMain = false;
+                try {
+                    const cardText = await fetchDefaultCsvText(
+                        DEFAULT_CARD_CSV_PATH,
+                    );
+                    await loadCardCsvText(
+                        cardText,
+                        "default Card_Database.csv",
+                    );
+                    autoLoadedMain = true;
+                } catch (err) {
+                    const overHttp =
+                        location.protocol === "http:" ||
+                        location.protocol === "https:";
+                    if (!overHttp) {
+                        setStatus(
+                            `Automatic default CSV load needs http(s). Current origin: ${location.protocol}//${location.host || "(none)"}. You can still load both files manually.`,
+                            "warn",
+                        );
+                    } else {
+                        setStatus(
+                            `Automatic default CSV load failed (${err && err.message ? err.message : "unknown error"}). You can still load both files manually.`,
+                            "warn",
+                        );
+                    }
+                }
+
+                if (!autoLoadedMain) return;
+
+                try {
+                    const tradesText = await fetchDefaultCsvText(
+                        DEFAULT_TRADES_CSV_PATH,
+                    );
+                    await loadTradesCsvText(
+                        tradesText,
+                        "default Trades_Database.csv",
+                    );
+                } catch {
+                    appendStatus(
+                        "Default trades CSV not auto-loaded. Load it manually if needed.",
+                    );
+                }
+            }
+
+            function buildFileLabelMeta(rawLabel) {
+                const label = String(rawLabel ?? "").trim();
+                if (!label) return "";
+                const withoutExt = label.replace(/\.[^./\\]+$/, "");
+                const compact = withoutExt.replace(/^\d+P_/, "");
+                if (compact.length <= 26) return compact;
+                return `${compact.slice(0, 26)}...`;
+            }
+
+            function calculateAgeDays(timestampMs) {
+                if (!Number.isFinite(timestampMs)) return null;
+                const diffMs = Date.now() - timestampMs;
+                return Math.max(0, Math.floor(diffMs / 86400000));
+            }
+
+            function calculateAccountAgeDays(accountKey, fallbackTimestampMs) {
+                const rawFileLabel =
+                    state.accountFileLabelMap.get(accountKey) || "";
+                const fileTimestampMs =
+                    parseTimestampFromFilename(rawFileLabel);
+                const baseTimestampMs = Number.isFinite(fileTimestampMs)
+                    ? fileTimestampMs
+                    : fallbackTimestampMs;
+                return calculateAgeDays(baseTimestampMs);
+            }
+
+            async function copyToClipboard(text) {
+                const value = String(text ?? "").trim();
+                if (!value) return false;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    return true;
+                } catch {
+                    const ta = document.createElement("textarea");
+                    ta.value = value;
+                    ta.setAttribute("readonly", "");
+                    ta.style.position = "fixed";
+                    ta.style.opacity = "0";
+                    document.body.appendChild(ta);
+                    ta.select();
+                    let ok = false;
+                    try {
+                        ok = document.execCommand("copy");
+                    } catch {
+                        ok = false;
+                    }
+                    document.body.removeChild(ta);
+                    return ok;
+                }
+            }
+
+            function refreshDerivedDataAfterMetadataChange() {
+                const packs = new Map(),
+                    rarities = new Set();
+                for (const row of state.rows) {
+                    row.packLabel = getPackLabel(row.pack);
+                    packs.set(row.pack, row.packLabel);
+                    const derived = buildRowDerived(row.cardIds);
+                    row.cardSearchBlob = derived.cardSearchBlob;
+                    row.rarityValues = derived.rarityValues;
+                    row.cardTypeValues = derived.cardTypeValues;
+                    for (const rarity of row.rarityValues) rarities.add(rarity);
+                }
+                state.allPacks = new Map(
+                    [...packs.entries()].sort((a, b) =>
+                        a[1].localeCompare(b[1]),
+                    ),
+                );
+                state.allRarities = computeAllRarityFilters(state.rows);
+                if (!state.selectedPacks.size)
+                    state.selectedPacks = new Set(state.allPacks.keys());
+                if (!state.selectedRarities.size)
+                    state.selectedRarities = new Set(state.allRarities);
+                if (!state.selectedCardTypes.size)
+                    state.selectedCardTypes = new Set(ALL_CARD_TYPES);
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+
+            function buildFilterCheckboxes() {
+                const packParts = [];
+                for (const [packCode, packLabel] of state.allPacks) {
+                    const checked = state.selectedPacks.has(packCode);
+                    packParts.push(
+                        `<label class="check-chip ${checked ? "checked" : ""}"><input type="checkbox" value="${escapeHtml(packCode)}" ${checked ? "checked" : ""}> <span>${escapeHtml(packLabel)}</span></label>`,
+                    );
+                }
+                el.packFilters.innerHTML = packParts.join("");
+
+                const rarityParts = [];
+                for (const rarity of state.allRarities) {
+                    const checked = state.selectedRarities.has(rarity); // rarity already a string
+                    let rarityName = "";
+                    if (rarity === SPECIAL_RARITY_TRAINER)
+                        rarityName = "★★ Trainer";
+                    else
+                        rarityName = RARITY_MAP[rarity]
+                            ? RARITY_MAP[rarity][0]
+                            : `Unknown (${rarity})`;
+                    rarityParts.push(
+                        `<label class="check-chip ${checked ? "checked" : ""}"><input type="checkbox" value="${rarity}" ${checked ? "checked" : ""}> <span>${escapeHtml(rarityName)}</span></label>`,
+                    );
+                }
+                el.rarityFilters.innerHTML = rarityParts.join("");
+
+                const cardTypeParts = ALL_CARD_TYPES.map((cardType) => {
+                    const checked = state.selectedCardTypes.has(cardType);
+                    return `<label class="check-chip ${checked ? "checked" : ""}"><input type="checkbox" value="${escapeHtml(cardType)}" ${checked ? "checked" : ""}> <span>${escapeHtml(getCardTypeLabel(cardType))}</span></label>`;
+                });
+                el.cardTypeFilters.innerHTML = cardTypeParts.join("");
+            }
+
+            function readSelectedFilters() {
+                state.selectedPacks = new Set(
+                    [...el.packFilters.querySelectorAll("input:checked")].map(
+                        (input) => input.value,
+                    ),
+                );
+                state.selectedRarities = new Set(
+                    [...el.rarityFilters.querySelectorAll("input:checked")].map(
+                        (input) => input.value,
+                    ),
+                );
+                state.selectedCardTypes = new Set(
+                    [
+                        ...el.cardTypeFilters.querySelectorAll("input:checked"),
+                    ].map((input) => input.value),
+                );
+            }
+
+            function getActiveCardFilterConfig(
+                cardTerm = normaliseSearch(el.cardSearch.value),
+            ) {
+                const filterRarities =
+                    state.selectedRarities.size !== state.allRarities.size;
+                const filterCardTypes =
+                    state.selectedCardTypes.size !== ALL_CARD_TYPES.length;
+                return {
+                    cardTerm,
+                    filterRarities,
+                    selectedRarities: state.selectedRarities,
+                    filterCardTypes,
+                    selectedCardTypes: state.selectedCardTypes,
+                    active: Boolean(
+                        cardTerm || filterRarities || filterCardTypes,
+                    ),
+                };
+            }
+
+            function cardMatchesActiveFilters(cardId, config) {
+                const info = getCardInfo(cardId);
+                if (
+                    config.cardTerm &&
+                    !normaliseSearch(`${info.name} ${cardId}`).includes(
+                        config.cardTerm,
+                    )
+                )
+                    return false;
+                if (
+                    config.filterCardTypes &&
+                    !config.selectedCardTypes.has(getCardType(cardId))
+                )
+                    return false;
+                if (
+                    config.filterRarities &&
+                    (() => {
+                        const selected = config.selectedRarities;
+                        const rarityCode =
+                            info.rarityValue == null
+                                ? null
+                                : String(info.rarityValue);
+                        const isTrainer = getCardType(cardId) === "trainer";
+                        const matchesBase =
+                            !isTrainer &&
+                            rarityCode != null &&
+                            selected.has(rarityCode);
+                        const matchesTrainerDiamond =
+                            isTrainer &&
+                            rarityCode != null &&
+                            rarityCode !== "700" &&
+                            selected.has(rarityCode);
+                        const matchesTrainer =
+                            isTrainer &&
+                            rarityCode === "700" &&
+                            selected.has(SPECIAL_RARITY_TRAINER);
+                        return !(
+                            matchesBase ||
+                            matchesTrainerDiamond ||
+                            matchesTrainer
+                        );
+                    })()
+                )
+                    return false;
+                return true;
+            }
+
+            function filterCardIdsByActiveFilters(
+                cardIds,
+                config = getActiveCardFilterConfig(),
+            ) {
+                if (!config.active) return cardIds;
+                return cardIds.filter((id) =>
+                    cardMatchesActiveFilters(id, config),
+                );
+            }
+
+            function filterCardEntriesByActiveFilters(
+                cardEntries,
+                config = getActiveCardFilterConfig(),
+            ) {
+                if (!config.active) return cardEntries;
+                return cardEntries.filter((entry) =>
+                    cardMatchesActiveFilters(entry.id, config),
+                );
+            }
+
+            function applyFiltersAndRender() {
+                state.displayLimit = INITIAL_LIMIT;
+                state.accountRows = null;
+                const accountTerm = normaliseSearch(el.accountSearch.value);
+                const cardTerm = normaliseSearch(el.cardSearch.value);
+                const filterPacks =
+                    state.selectedPacks.size !== state.allPacks.size;
+                const cardFilterConfig = getActiveCardFilterConfig(cardTerm);
+                const hasNoPacks =
+                    state.allPacks.size > 0 && state.selectedPacks.size === 0;
+                const hasNoRarities =
+                    state.allRarities.size > 0 &&
+                    state.selectedRarities.size === 0;
+
+                if (hasNoPacks || hasNoRarities) {
+                    state.filteredRows = [];
+                    updateStats(0);
+                    renderCurrent();
+                    return;
+                }
+
+                const selectedPacks = state.selectedPacks;
+                const filtered = [];
+                for (const row of state.rows) {
+                    if (accountTerm) {
+                        const fileLabel = normaliseSearch(
+                            state.accountFileLabelMap.get(row.account) || "",
+                        );
+                        if (
+                            !row.accountLower.includes(accountTerm) &&
+                            !fileLabel.includes(accountTerm)
+                        )
+                            continue;
+                    }
+                    if (filterPacks && !selectedPacks.has(row.pack)) continue;
+                    if (
+                        cardFilterConfig.active &&
+                        !row.cardIds.some((id) =>
+                            cardMatchesActiveFilters(id, cardFilterConfig),
+                        )
+                    )
+                        continue;
+                    filtered.push(row);
+                }
+                sortRows(filtered);
+                state.filteredRows = filtered;
+                updateStats(filtered.length);
+                renderCurrent();
+            }
+
+            function updateStats(visibleCount) {
+                el.statAccounts.textContent = formatNumber(state.accountCount);
+                el.statRows.textContent = formatNumber(state.rowCount);
+                el.statCards.textContent = formatNumber(state.totalCards);
+                el.statUniqueCards.textContent = formatNumber(
+                    state.uniqueCardCount,
+                );
+            }
+
+            function renderCurrent() {
+                if (state.view === "rows") renderRows();
+                else if (state.view === "allcards") renderAllCardsView();
+                else if (state.view === "traded") renderTradedView();
+                else renderAccountOverview();
+            }
+
+            function renderTradedView() {
+                el.rows.innerHTML = "";
+                el.showMoreBtn.classList.add("hidden");
+                if (!state.tradedSet.size) {
+                    el.resultNote.textContent = "No traded cards marked yet.";
+                    el.rows.innerHTML = `<div class="empty panel">Click the 🔁 icon on any card to mark it as traded.</div>`;
+                    return;
+                }
+                const byAccount = new Map();
+                for (const key of state.tradedSet) {
+                    const sep = key.indexOf("::");
+                    if (sep < 0) continue;
+                    const acc = key.slice(0, sep);
+                    const cid = key.slice(sep + 2);
+                    if (!byAccount.has(acc)) byAccount.set(acc, []);
+                    byAccount.get(acc).push(cid);
+                }
+                const total = [...byAccount.values()].reduce(
+                    (s, v) => s + v.length,
+                    0,
+                );
+                el.resultNote.textContent = `${formatNumber(total)} traded card(s) across ${formatNumber(byAccount.size)} account(s).`;
+                const fragment = document.createDocumentFragment();
+                for (const [acc, cardIds] of byAccount) {
+                    const rawFileLabel =
+                        state.accountFileLabelMap.get(acc) || "";
+                    const fileLabelShort = rawFileLabel
+                        ? buildFileLabelMeta(rawFileLabel)
+                        : "";
+                    const titleMain = fileLabelShort
+                        ? `<span title="${escapeHtml(rawFileLabel)}">${escapeHtml(fileLabelShort)}</span><button type="button" class="copy-btn" data-copy-file="${escapeHtml(rawFileLabel)}">Copy</button>`
+                        : escapeHtml(acc);
+                    const article = document.createElement("article");
+                    article.className = "db-row panel";
+                    article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} traded card(s)</span></div></div></div><div class="row-body"></div>`;
+                    const body = article.querySelector(".row-body");
+                    body.appendChild(
+                        renderCardGrid(cardIds, {
+                            showQuantity: false,
+                            account: acc,
+                        }),
+                    );
+                    const copyBtn = article.querySelector("[data-copy-file]");
+                    if (copyBtn)
+                        copyBtn.addEventListener("click", async (e) => {
+                            e.stopPropagation();
+                            await copyToClipboard(
+                                copyBtn.getAttribute("data-copy-file") || "",
+                            );
+                        });
+                    fragment.appendChild(article);
+                }
+                el.rows.appendChild(fragment);
+            }
+
+            function getAllKnownCardIds() {
+                const ids = new Set();
+                if (state.cardmaster && typeof state.cardmaster === "object") {
+                    for (const id of Object.keys(state.cardmaster))
+                        ids.add(String(id));
+                }
+                for (const row of state.rows) {
+                    for (const id of row.cardIds) ids.add(String(id));
+                }
+                return [...ids];
+            }
+
+            function buildCardAccountCounts() {
+                const cardToAccounts = new Map();
+                const accountFirstSeenMs = new Map();
+                for (const row of state.rows) {
+                    if (Number.isFinite(row.timestampMs)) {
+                        const prev = accountFirstSeenMs.get(row.account);
+                        if (!Number.isFinite(prev) || row.timestampMs < prev)
+                            accountFirstSeenMs.set(
+                                row.account,
+                                row.timestampMs,
+                            );
+                    }
+                    for (const cardId of row.cardIds) {
+                        if (!cardToAccounts.has(cardId))
+                            cardToAccounts.set(cardId, new Map());
+                        const accountMap = cardToAccounts.get(cardId);
+                        accountMap.set(
+                            row.account,
+                            (accountMap.get(row.account) || 0) + 1,
+                        );
+                    }
+                }
+                return { cardToAccounts, accountFirstSeenMs };
+            }
+
+            function sortCatalogAccounts(rows) {
+                const mode = state.catalogAccountSort;
+                const asc = state.catalogAccountSortAsc;
+                const dir = asc ? 1 : -1;
+                rows.sort((a, b) => {
+                    if (mode === "shinedust") {
+                        const aDust = Number.isFinite(a.shinedust)
+                            ? a.shinedust
+                            : Number.NEGATIVE_INFINITY;
+                        const bDust = Number.isFinite(b.shinedust)
+                            ? b.shinedust
+                            : Number.NEGATIVE_INFINITY;
+                        if (aDust !== bDust) return (aDust - bDust) * dir;
+                    } else if (mode === "age") {
+                        const aAge = Number.isFinite(a.ageDays)
+                            ? a.ageDays
+                            : Number.POSITIVE_INFINITY;
+                        const bAge = Number.isFinite(b.ageDays)
+                            ? b.ageDays
+                            : Number.POSITIVE_INFINITY;
+                        if (aAge !== bAge) return (aAge - bAge) * dir;
+                    } else {
+                        if (a.count !== b.count)
+                            return (a.count - b.count) * dir;
+                    }
+                    return a.account.localeCompare(b.account);
+                });
+                return rows;
+            }
+
+            function renderAllCardsView() {
+                const activeElement = document.activeElement;
+                const preserveCatalogSearchFocus =
+                    activeElement && activeElement.id === "catalogCardSearch";
+                const catalogSearchSelectionStart = preserveCatalogSearchFocus
+                    ? activeElement.selectionStart
+                    : null;
+                const catalogSearchSelectionEnd = preserveCatalogSearchFocus
+                    ? activeElement.selectionEnd
+                    : null;
+
+                el.rows.innerHTML = "";
+                el.showMoreBtn.classList.add("hidden");
+
+                if (
+                    !state.cardmaster ||
+                    !state.localisation ||
+                    !state.cardmap
+                ) {
+                    el.resultNote.textContent = "Card metadata not loaded.";
+                    el.rows.innerHTML = `<div class="empty panel">Load card data to show the full game catalog.</div>`;
+                    return;
+                }
+
+                const searchTerm = normaliseSearch(state.catalogCardSearch);
+                const allIds = getAllKnownCardIds();
+                const { cardToAccounts, accountFirstSeenMs } =
+                    buildCardAccountCounts();
+
+                const sections = new Map();
+                const byCardId = new Map();
+                let availableCards = 0;
+                let availableCopies = 0;
+
+                for (const cardId of allIds) {
+                    const info = getCardInfo(cardId);
+                    if (
+                        searchTerm &&
+                        !normaliseSearch(`${info.name} ${cardId}`).includes(
+                            searchTerm,
+                        )
+                    )
+                        continue;
+
+                    const sectionCode =
+                        getCardExpansionId(cardId) || "__unknown__";
+                    const sectionLabel =
+                        sectionCode === "__unknown__"
+                            ? "Unknown section"
+                            : getPackLabel(sectionCode);
+
+                    const accountCounts =
+                        cardToAccounts.get(cardId) || new Map();
+                    const accountRows = [];
+                    let totalCopies = 0;
+                    for (const [account, count] of accountCounts) {
+                        if (isTraded(account, cardId)) continue;
+                        totalCopies += count;
+                        accountRows.push({
+                            account,
+                            count,
+                            shinedust: state.accountShinedustMap.has(account)
+                                ? state.accountShinedustMap.get(account)
+                                : Number.NaN,
+                            ageDays: calculateAccountAgeDays(
+                                account,
+                                accountFirstSeenMs.get(account),
+                            ),
+                        });
+                    }
+
+                    sortCatalogAccounts(accountRows);
+                    if (totalCopies > 0) {
+                        availableCards++;
+                        availableCopies += totalCopies;
+                    }
+
+                    const item = {
+                        id: cardId,
+                        info,
+                        sectionCode,
+                        sectionLabel,
+                        expansionNo: getCardExpansionNumber(cardId, info),
+                        totalCopies,
+                        accountRows,
+                    };
+                    byCardId.set(cardId, item);
+                    if (!sections.has(sectionCode))
+                        sections.set(sectionCode, {
+                            code: sectionCode,
+                            label: sectionLabel,
+                            cards: [],
+                        });
+                    sections.get(sectionCode).cards.push(item);
+                }
+
+                const sectionListAll = [...sections.values()].sort((a, b) =>
+                    a.code.localeCompare(b.code),
+                );
+                for (const section of sectionListAll)
+                    section.cards.sort((a, b) => {
+                        const an = Number.isFinite(a.expansionNo)
+                            ? a.expansionNo
+                            : Number.POSITIVE_INFINITY;
+                        const bn = Number.isFinite(b.expansionNo)
+                            ? b.expansionNo
+                            : Number.POSITIVE_INFINITY;
+                        if (an !== bn) return an - bn;
+                        return a.id.localeCompare(b.id);
+                    });
+
+                const catalogRarityKeys = new Set();
+                for (const section of sectionListAll) {
+                    for (const card of section.cards) {
+                        const rarityKey = getCardRarityFilterKey(
+                            card.id,
+                            card.info,
+                        );
+                        if (rarityKey) catalogRarityKeys.add(rarityKey);
+                    }
+                }
+
+                if (!state.catalogRaritiesInitialized) {
+                    state.catalogSelectedRarities = new Set(catalogRarityKeys);
+                    state.catalogRaritiesInitialized = true;
+                }
+
+                const rarityFilteredSections = sectionListAll
+                    .map((section) => {
+                        const cards = section.cards
+                            .filter((card) =>
+                                state.catalogSelectedRarities.has(
+                                    getCardRarityFilterKey(card.id, card.info),
+                                ),
+                            )
+                            .sort((a, b) => {
+                                const an = Number.isFinite(a.expansionNo)
+                                    ? a.expansionNo
+                                    : Number.POSITIVE_INFINITY;
+                                const bn = Number.isFinite(b.expansionNo)
+                                    ? b.expansionNo
+                                    : Number.POSITIVE_INFINITY;
+                                if (an !== bn) return an - bn;
+                                return (
+                                    a.info.name.localeCompare(b.info.name) ||
+                                    a.id.localeCompare(b.id)
+                                );
+                            });
+                        return { ...section, cards };
+                    })
+                    .filter((section) => section.cards.length > 0);
+
+                // Auto-select first available expansion instead of showing all
+                if (
+                    state.catalogExpansionFilter === "__all__" &&
+                    sectionListAll.length > 0
+                ) {
+                    state.catalogExpansionFilter = sectionListAll[0].code;
+                }
+
+                const filteredSections = rarityFilteredSections.filter(
+                    (section) => section.code === state.catalogExpansionFilter,
+                );
+
+                const hasVisibleCards = filteredSections.length > 0;
+
+                if (
+                    hasVisibleCards &&
+                    !byCardId.has(state.selectedCatalogCardId)
+                )
+                    state.selectedCatalogCardId =
+                        filteredSections[0].cards[0].id;
+
+                const selectedInFiltered = hasVisibleCards
+                    ? filteredSections
+                          .flatMap((section) => section.cards)
+                          .some(
+                              (card) => card.id === state.selectedCatalogCardId,
+                          )
+                    : false;
+                if (hasVisibleCards && !selectedInFiltered)
+                    state.selectedCatalogCardId =
+                        filteredSections[0].cards[0].id;
+
+                const selected = hasVisibleCards
+                    ? byCardId.get(state.selectedCatalogCardId)
+                    : null;
+
+                const rarityControls = [...catalogRarityKeys]
+                    .sort((a, b) => {
+                        const av =
+                            a === SPECIAL_RARITY_TRAINER ? 650 : Number(a);
+                        const bv =
+                            b === SPECIAL_RARITY_TRAINER ? 650 : Number(b);
+                        return av - bv;
+                    })
+                    .map((rarityKey) => {
+                        const checked =
+                            state.catalogSelectedRarities.has(rarityKey);
+                        return `<label class="check-chip ${checked ? "checked" : ""}"><input type="checkbox" value="${escapeHtml(rarityKey)}" ${checked ? "checked" : ""}> <span>${escapeHtml(getRarityFilterLabel(rarityKey))}</span></label>`;
+                    })
+                    .join("");
+
+                const expansionOptions = sectionListAll
+                    .map(
+                        (section) =>
+                            `<option value="${escapeHtml(section.code)}" ${
+                                state.catalogExpansionFilter === section.code
+                                    ? "selected"
+                                    : ""
+                            }>${escapeHtml(section.label)}</option>`,
+                    )
+                    .join("");
+
+                const controlsHtml = `<div class="catalog-controls"><div class="catalog-field-stack panel" style="padding:14px"><div><label class="field-label" for="catalogExpansionFilter">Expansion</label><select id="catalogExpansionFilter">${expansionOptions}</select></div><div><label class="field-label" for="catalogCardSearch">Search card</label><input id="catalogCardSearch" type="search" placeholder="Card name or card id..." value="${escapeHtml(state.catalogCardSearch)}"></div></div><div class="panel" style="padding:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px"><label class="field-label" style="margin:0" for="catalogRarityFilters">Rarity</label><div class="small-actions"><button type="button" style="padding-top:2px;padding-bottom:2px" data-catalog-rarity-action="all">All</button><button type="button" style="padding-top:2px;padding-bottom:2px" data-catalog-rarity-action="none">Clear</button></div></div><div class="checkbox-list" id="catalogRarityFilters">${rarityControls}</div></div></div>`;
+
+                const sectionsHtml = hasVisibleCards
+                    ? filteredSections
+                          .map((section) => {
+                              const cardsHtml = section.cards
+                                  .map((card) => {
+                                      const unavailable =
+                                          card.totalCopies === 0;
+                                      const selectedClass =
+                                          card.id ===
+                                          state.selectedCatalogCardId
+                                              ? " selected"
+                                              : "";
+                                      const unavailableClass = unavailable
+                                          ? " unavailable"
+                                          : "";
+                                      const imgPart = card.info.imageUrl
+                                          ? `<img src="${escapeHtml(card.info.imageUrl)}" loading="lazy" alt="${escapeHtml(card.info.name)}" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden');">`
+                                          : "";
+                                      const fallbackClass = card.info.imageUrl
+                                          ? "hidden empty"
+                                          : "empty";
+                                      return `<button type="button" class="catalog-card-btn" data-catalog-card-id="${escapeHtml(card.id)}"><div class="card-tile${selectedClass}${unavailableClass}"><div class="qty">×${formatNumber(card.totalCopies)}</div>${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="card-name">${escapeHtml(card.info.name)}</div><div class="card-badges"><span class="mini-badge">${escapeHtml(card.info.rarityName)}</span></div></div></button>`;
+                                  })
+                                  .join("");
+                              const availableInSection = section.cards.filter(
+                                  (card) => card.totalCopies > 0,
+                              ).length;
+                              return `<article class="catalog-section panel"><div class="catalog-section-head"><div class="catalog-section-title">${escapeHtml(section.label)}</div><div class="catalog-section-meta">${formatNumber(availableInSection)}/${formatNumber(section.cards.length)} available</div></div><div class="cards-grid">${cardsHtml}</div></article>`;
+                          })
+                          .join("")
+                    : `<div class="empty panel">No cards match the selected rarity filters.</div>`;
+
+                const accountRows = selected ? [...selected.accountRows] : [];
+                sortCatalogAccounts(accountRows);
+
+                if (
+                    selected &&
+                    accountRows.length &&
+                    !accountRows.some(
+                        (row) => row.account === state.selectedCatalogAccount,
+                    )
+                ) {
+                    state.selectedCatalogAccount = accountRows[0].account;
+                }
+                if (!selected || !accountRows.length)
+                    state.selectedCatalogAccount = "";
+
+                const accountItemsHtml = selected
+                    ? accountRows.length
+                        ? accountRows
+                              .map((row) => {
+                                  const noTrade =
+                                      selected.info.rarityValue === 800 ||
+                                      selected.info.rarityValue === 900;
+                                  const preferredRaw =
+                                      state.accountFileLabelMap.get(
+                                          row.account,
+                                      ) || row.account;
+                                  const preferredShort =
+                                      buildFileLabelMeta(preferredRaw);
+                                  const accountNameLabel =
+                                      preferredRaw !== row.account
+                                          ? `<span title="${escapeHtml(preferredRaw)}">${escapeHtml(preferredShort || preferredRaw)}</span>`
+                                          : escapeHtml(row.account);
+                                  const accountOriginMeta =
+                                      preferredRaw !== row.account
+                                          ? `<span>Device ${escapeHtml(row.account)}</span>`
+                                          : "";
+                                  const shinedustLabel = Number.isFinite(
+                                      row.shinedust,
+                                  )
+                                      ? `Shinedust ${formatNumber(row.shinedust)}`
+                                      : "Shinedust n/a";
+                                  const ageLabel = Number.isFinite(row.ageDays)
+                                      ? `Age ${formatNumber(row.ageDays)}d`
+                                      : "Age n/a";
+                                  const tradeBtn = noTrade
+                                      ? ""
+                                      : `<button type="button" data-mark-traded-account="${escapeHtml(row.account)}" data-mark-traded-card="${escapeHtml(selected.id)}">Mark traded</button>`;
+                                  const isSelected =
+                                      row.account ===
+                                      state.selectedCatalogAccount;
+                                  return `<div class="catalog-account-item${isSelected ? " selected" : ""}" data-select-catalog-account="${escapeHtml(row.account)}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}"><div class="catalog-account-name${isSelected ? " selected" : ""}">${accountNameLabel}</div><div class="catalog-account-meta">${accountOriginMeta}<span>Copies ${formatNumber(row.count)}</span><span>${escapeHtml(shinedustLabel)}</span><span>${escapeHtml(ageLabel)}</span></div><div class="catalog-account-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${tradeBtn}</div></div>`;
+                              })
+                              .join("")
+                        : `<div class="empty panel" style="padding:14px">No available account currently has this card.</div>`
+                    : `<div class="empty panel" style="padding:14px">Select a card to view account availability.</div>`;
+
+                const selectedMeta = selected
+                    ? `<div class="catalog-side-meta"><span>${escapeHtml(selected.info.name)}</span><span>${formatNumber(selected.totalCopies)} available copy(s)</span><span>${formatNumber(accountRows.length)} account(s)</span></div>`
+                    : "";
+
+                const sideHtml = `<aside class="catalog-side panel"><div class="catalog-side-title">Card availability</div>${selectedMeta}<div class="catalog-account-sort"><label class="field-label" for="catalogAccountSort">Sort accounts</label><div style="display:flex;gap:6px;align-items:center"><select id="catalogAccountSort" style="flex:1"><option value="copies" ${state.catalogAccountSort === "copies" ? "selected" : ""}>Copies</option><option value="shinedust" ${state.catalogAccountSort === "shinedust" ? "selected" : ""}>Shinedust</option><option value="age" ${state.catalogAccountSort === "age" ? "selected" : ""}>Age</option></select><button id="catalogAccountSortDir" type="button" class="icon-btn" title="Toggle sort direction" style="min-width:34px;padding:0 8px;font-size:1rem;display:inline-flex;align-items:center;justify-content:center">${state.catalogAccountSortAsc ? "↑" : "↓"}</button></div></div><div class="catalog-account-list">${accountItemsHtml}</div><div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"><button type="button" id="goToTradedBtn" style="width:100%;text-align:left;color:var(--muted);font-size:0.82rem;background:none;border:none;cursor:pointer;padding:4px 0">Traded cards →</button></div></aside>`;
+
+                el.rows.innerHTML = `<div class="catalog-layout"><section class="catalog-sections">${controlsHtml}${sectionsHtml}</section>${sideHtml}</div>`;
+                el.resultNote.textContent = hasVisibleCards
+                    ? `${formatNumber(availableCards)} of ${formatNumber(byCardId.size)} cards available · ${formatNumber(availableCopies)} total available copy(s).`
+                    : "No cards match the selected rarity filters.";
+
+                el.rows
+                    .querySelectorAll("[data-catalog-card-id]")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            state.selectedCatalogCardId =
+                                btn.getAttribute("data-catalog-card-id") || "";
+                            state.selectedCatalogAccount = "";
+                            renderAllCardsView();
+                        });
+                    });
+
+                el.rows
+                    .querySelectorAll("[data-select-catalog-account]")
+                    .forEach((btn) => {
+                        const selectAccount = () => {
+                            const account =
+                                btn.getAttribute(
+                                    "data-select-catalog-account",
+                                ) || "";
+                            if (state.selectedCatalogAccount === account)
+                                return;
+                            state.selectedCatalogAccount = account;
+                            // Fast path: just update CSS classes without full re-render
+                            el.rows
+                                .querySelectorAll(
+                                    "[data-select-catalog-account]",
+                                )
+                                .forEach((item) => {
+                                    const isSelected =
+                                        item.getAttribute(
+                                            "data-select-catalog-account",
+                                        ) === account;
+                                    item.classList.toggle(
+                                        "selected",
+                                        isSelected,
+                                    );
+                                    item.setAttribute(
+                                        "aria-pressed",
+                                        isSelected ? "true" : "false",
+                                    );
+                                    const nameEl = item.querySelector(
+                                        ".catalog-account-name",
+                                    );
+                                    if (nameEl)
+                                        nameEl.classList.toggle(
+                                            "selected",
+                                            isSelected,
+                                        );
+                                });
+                        };
+                        btn.addEventListener("click", (event) => {
+                            if (
+                                event.target.closest(".catalog-account-actions")
+                            )
+                                return;
+                            selectAccount();
+                        });
+                        btn.addEventListener("keydown", (event) => {
+                            if (
+                                event.key !== "Enter" &&
+                                event.key !== " " &&
+                                event.key !== "Spacebar"
+                            )
+                                return;
+                            event.preventDefault();
+                            selectAccount();
+                        });
+                    });
+
+                const sortSelect =
+                    document.getElementById("catalogAccountSort");
+                if (sortSelect)
+                    sortSelect.addEventListener("change", () => {
+                        state.catalogAccountSort = sortSelect.value;
+                        renderAllCardsView();
+                    });
+
+                const sortDirBtn = document.getElementById(
+                    "catalogAccountSortDir",
+                );
+                if (sortDirBtn)
+                    sortDirBtn.addEventListener("click", () => {
+                        state.catalogAccountSortAsc =
+                            !state.catalogAccountSortAsc;
+                        renderAllCardsView();
+                    });
+
+                const goToTradedBtn = document.getElementById("goToTradedBtn");
+                if (goToTradedBtn)
+                    goToTradedBtn.addEventListener("click", () =>
+                        setView("traded"),
+                    );
+
+                const expansionSelect = document.getElementById(
+                    "catalogExpansionFilter",
+                );
+                if (expansionSelect)
+                    expansionSelect.addEventListener("change", () => {
+                        state.catalogExpansionFilter = expansionSelect.value;
+                        renderAllCardsView();
+                    });
+
+                const searchInput =
+                    document.getElementById("catalogCardSearch");
+                if (searchInput)
+                    searchInput.addEventListener("input", () => {
+                        state.catalogCardSearch = searchInput.value;
+                        renderAllCardsView();
+                    });
+
+                if (preserveCatalogSearchFocus && searchInput) {
+                    requestAnimationFrame(() => {
+                        searchInput.focus();
+                        if (
+                            Number.isInteger(catalogSearchSelectionStart) &&
+                            Number.isInteger(catalogSearchSelectionEnd)
+                        ) {
+                            searchInput.setSelectionRange(
+                                catalogSearchSelectionStart,
+                                catalogSearchSelectionEnd,
+                            );
+                        }
+                    });
+                }
+
+                const rarityBox = document.getElementById(
+                    "catalogRarityFilters",
+                );
+                if (rarityBox)
+                    rarityBox.addEventListener("change", () => {
+                        state.catalogSelectedRarities = new Set(
+                            [
+                                ...rarityBox.querySelectorAll("input:checked"),
+                            ].map((input) => input.value),
+                        );
+                        renderAllCardsView();
+                    });
+
+                el.rows
+                    .querySelectorAll("[data-catalog-rarity-action]")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            if (btn.dataset.catalogRarityAction === "all")
+                                state.catalogSelectedRarities = new Set(
+                                    catalogRarityKeys,
+                                );
+                            else state.catalogSelectedRarities = new Set();
+                            renderAllCardsView();
+                        });
+                    });
+
+                el.rows
+                    .querySelectorAll("[data-copy-account]")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", async () => {
+                            const account =
+                                btn.getAttribute("data-copy-account") || "";
+                            if (!account) return;
+                            const ok = await copyToClipboard(account);
+                            const old = btn.textContent;
+                            btn.textContent = ok ? "Copied" : "Retry";
+                            setTimeout(() => {
+                                btn.textContent = old;
+                            }, 900);
+                        });
+                    });
+
+                el.rows
+                    .querySelectorAll(
+                        "[data-mark-traded-account][data-mark-traded-card]",
+                    )
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            const account =
+                                btn.getAttribute("data-mark-traded-account") ||
+                                "";
+                            const cardId =
+                                btn.getAttribute("data-mark-traded-card") || "";
+                            if (!account || !cardId) return;
+                            const cardName = getCardInfo(cardId).name || cardId;
+                            const preferredAccountName =
+                                state.accountFileLabelMap.get(account) ||
+                                account;
+                            showConfirm(
+                                `Mark "${cardName}" as traded for ${preferredAccountName}?`,
+                            ).then((confirmed) => {
+                                if (!confirmed) return;
+                                toggleTraded(account, cardId);
+                                renderAllCardsView();
+                            });
+                        });
+                    });
+            }
+
+            function rowIsExpanded(row) {
+                return (
+                    state.expandedRows.has(row.index) ||
+                    (state.defaultExpanded &&
+                        !state.expandedRows.has(`compact:${row.index}`))
+                );
+            }
+            function accountIsExpanded(accountKey) {
+                return (
+                    state.expandedAccounts.has(accountKey) ||
+                    (state.defaultExpanded &&
+                        !state.expandedAccounts.has(`compact:${accountKey}`))
+                );
+            }
+            function setRowExpanded(rowIndex, expanded) {
+                if (expanded) {
+                    state.expandedRows.add(rowIndex);
+                    state.expandedRows.delete(`compact:${rowIndex}`);
+                } else {
+                    state.expandedRows.delete(rowIndex);
+                    state.expandedRows.add(`compact:${rowIndex}`);
+                }
+            }
+            function setAccountExpanded(accountKey, expanded) {
+                if (expanded) {
+                    state.expandedAccounts.add(accountKey);
+                    state.expandedAccounts.delete(`compact:${accountKey}`);
+                } else {
+                    state.expandedAccounts.delete(accountKey);
+                    state.expandedAccounts.add(`compact:${accountKey}`);
+                }
+            }
+
+            function renderRows() {
+                el.rows.innerHTML = "";
+                el.showMoreBtn.classList.add("hidden");
+                if (!state.csvLoaded) {
+                    el.resultNote.textContent = "No CSV loaded.";
+                    el.rows.innerHTML = `<div class="empty panel">Upload a CSV file to show card rows.</div>`;
+                    return;
+                }
+                const total = state.filteredRows.length;
+                const shown = Math.min(state.displayLimit, total);
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching row(s).`;
+                if (!total) {
+                    el.rows.innerHTML = `<div class="empty panel">No rows match the current filters.</div>`;
+                    return;
+                }
+                const fragment = document.createDocumentFragment();
+                for (let i = 0; i < shown; i++)
+                    fragment.appendChild(
+                        createRowElement(state.filteredRows[i]),
+                    );
+                el.rows.appendChild(fragment);
+                updateShowMore(total, shown);
+            }
+
+            function createRowElement(row) {
+                const expanded = rowIsExpanded(row);
+                const article = document.createElement("article");
+                article.className = "db-row panel";
+                // In database-row view, filters decide whether the row is shown,
+                // but the expanded row still shows the full pack.
+                const visibleCardIds = row.cardIds;
+                const visibleInfos = visibleCardIds.map((id) =>
+                    getCardInfo(id),
+                );
+                const rarityNames = [
+                    ...new Set(visibleInfos.map((info) => info.rarityName)),
+                ]
+                    .slice(0, 5)
+                    .join(", ");
+                const countMeta =
+                    visibleCardIds.length !== row.cardCount
+                        ? `${formatNumber(visibleCardIds.length)} card(s) shown · ${formatNumber(row.cardCount)} total`
+                        : `${formatNumber(row.cardCount)} card(s)`;
+                const tsMeta = row.timestamp
+                    ? `<span>${escapeHtml(row.timestamp)}</span>`
+                    : "";
+                const rrMeta = rarityNames
+                    ? `<span>${escapeHtml(rarityNames)}</span>`
+                    : "";
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${escapeHtml(row.account)} · ${escapeHtml(row.packLabel)}</strong><div class="meta"><span>${countMeta}</span>${tsMeta}${rrMeta}</div></div><div class="row-actions"><button class="toggle-btn" type="button">${expanded ? "Compact" : "Expand"}</button></div></div><div class="row-body"${expanded ? "" : " hidden"}></div>`;
+                const rowHead = article.firstElementChild;
+                const body = article.lastElementChild;
+                const btn = rowHead.lastElementChild.firstElementChild;
+                if (expanded)
+                    body.appendChild(
+                        renderCardGrid(visibleCardIds, {
+                            showQuantity: false,
+                            account: row.account,
+                        }),
+                    );
+                btn.addEventListener("click", () => {
+                    setRowExpanded(row.index, !rowIsExpanded(row));
+                    renderCurrent();
+                });
+                return article;
+            }
+
+            function buildAccountOverview() {
+                if (state.accountRows) return state.accountRows;
+                const accountMap = new Map();
+                for (const row of state.filteredRows) {
+                    let account = accountMap.get(row.account);
+                    if (!account) {
+                        account = {
+                            key: row.account,
+                            account: row.account,
+                            rows: 0,
+                            totalCards: 0,
+                            packs: new Map(),
+                            cards: new Map(),
+                            firstSeenMs: Number.NaN,
+                            lastSeenMs: Number.NaN,
+                        };
+                        accountMap.set(row.account, account);
+                    }
+                    account.rows++;
+                    account.packs.set(row.pack, row.packLabel);
+                    account.totalCards += row.cardCount;
+                    if (Number.isFinite(row.timestampMs)) {
+                        if (
+                            !Number.isFinite(account.firstSeenMs) ||
+                            row.timestampMs < account.firstSeenMs
+                        )
+                            account.firstSeenMs = row.timestampMs;
+                        if (
+                            !Number.isFinite(account.lastSeenMs) ||
+                            row.timestampMs > account.lastSeenMs
+                        )
+                            account.lastSeenMs = row.timestampMs;
+                    }
+                    for (const id of row.cardIds)
+                        account.cards.set(id, (account.cards.get(id) || 0) + 1);
+                }
+                state.accountRows = [...accountMap.values()]
+                    .map((account) => {
+                        const cardEntries = [...account.cards.entries()].map(
+                            ([id, count]) => ({
+                                id,
+                                count,
+                                info: getCardInfo(id),
+                            }),
+                        );
+                        cardEntries.sort(
+                            (a, b) =>
+                                a.info.name.localeCompare(b.info.name) ||
+                                a.id.localeCompare(b.id),
+                        );
+                        return {
+                            ...account,
+                            uniqueCards: account.cards.size,
+                            ageDays: calculateAccountAgeDays(
+                                account.account,
+                                account.firstSeenMs,
+                            ),
+                            cardEntries,
+                        };
+                    })
+                    .sort((a, b) => {
+                        const asc = state.accountSortAsc;
+                        const dir = asc ? 1 : -1;
+                        if (state.accountSort === "account") {
+                            return dir * a.account.localeCompare(b.account);
+                        }
+                        if (state.accountSort === "shinedust") {
+                            const fallback = asc
+                                ? Number.POSITIVE_INFINITY
+                                : -1;
+                            const aDust = state.accountShinedustMap.has(
+                                a.account,
+                            )
+                                ? state.accountShinedustMap.get(a.account)
+                                : fallback;
+                            const bDust = state.accountShinedustMap.has(
+                                b.account,
+                            )
+                                ? state.accountShinedustMap.get(b.account)
+                                : fallback;
+                            if (aDust !== bDust) return dir * (aDust - bDust);
+                            return a.account.localeCompare(b.account);
+                        }
+                        if (state.accountSort === "age") {
+                            const fallback = asc
+                                ? Number.POSITIVE_INFINITY
+                                : -1;
+                            const aAge =
+                                a.ageDays == null ? fallback : a.ageDays;
+                            const bAge =
+                                b.ageDays == null ? fallback : b.ageDays;
+                            if (aAge !== bAge) return dir * (aAge - bAge);
+                            return a.account.localeCompare(b.account);
+                        }
+                        return a.account.localeCompare(b.account);
+                    });
+                return state.accountRows;
+            }
+
+            // Account rows are already filtered at the row level; this narrows the expanded card list
+            // to the active card search, rarity, and trainer/non-trainer selections.
+            function getVisibleAccountCardEntries(cardEntries) {
+                return filterCardEntriesByActiveFilters(cardEntries);
+            }
+
+            function renderAccountOverview() {
+                el.rows.innerHTML = "";
+                el.showMoreBtn.classList.add("hidden");
+                if (!state.csvLoaded) {
+                    el.resultNote.textContent = "No CSV loaded.";
+                    el.rows.innerHTML = `<div class="empty panel">Upload a CSV file to show account overviews.</div>`;
+                    return;
+                }
+                const accounts = buildAccountOverview();
+                const total = accounts.length;
+                const shown = Math.min(state.displayLimit, total);
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching account(s).`;
+                if (!total) {
+                    el.rows.innerHTML = `<div class="empty panel">No accounts match the current filters.</div>`;
+                    return;
+                }
+                const fragment = document.createDocumentFragment();
+                for (let i = 0; i < shown; i++)
+                    fragment.appendChild(createAccountElement(accounts[i]));
+                el.rows.appendChild(fragment);
+                applyHideTradedClass();
+                updateShowMore(total, shown);
+            }
+
+            function createAccountElement(account) {
+                const expanded = accountIsExpanded(account.key);
+                const article = document.createElement("article");
+                article.className = "db-row panel";
+                const packPreview = [...account.packs.values()]
+                    .slice(0, 6)
+                    .join(", ");
+                const ppMeta = packPreview
+                    ? `<span>${escapeHtml(packPreview)}${account.packs.size > 6 ? ", ..." : ""}</span>`
+                    : "";
+                // Active card filters narrow displayed cards — compute filtered entries for the badge counts.
+                const visibleEntries = getVisibleAccountCardEntries(
+                    account.cardEntries,
+                );
+                const visibleCount = visibleEntries.reduce(
+                    (s, e) => s + e.count,
+                    0,
+                );
+                const visibleUnique = visibleEntries.length;
+                const cardFiltersActive =
+                    visibleEntries.length !== account.cardEntries.length;
+                const countLabel = cardFiltersActive
+                    ? `${formatNumber(visibleCount)} card(s) shown · ${formatNumber(account.totalCards)} total`
+                    : `${formatNumber(account.totalCards)} total card(s)`;
+                const uniqueLabel = cardFiltersActive
+                    ? `${formatNumber(visibleUnique)} unique shown · ${formatNumber(account.uniqueCards)} total`
+                    : `${formatNumber(account.uniqueCards)} unique card id(s)`;
+                const latestShinedust = state.accountShinedustMap.has(
+                    account.account,
+                )
+                    ? state.accountShinedustMap.get(account.account)
+                    : null;
+                const shinedustLabel =
+                    latestShinedust == null
+                        ? "Shinedust n/a"
+                        : `Shinedust ${formatNumber(latestShinedust)}`;
+                const ageDays = account.ageDays;
+                const ageLabel =
+                    ageDays == null
+                        ? "Age n/a"
+                        : `Age ${formatNumber(ageDays)} day(s)`;
+                const rawFileLabel =
+                    state.accountFileLabelMap.get(account.account) || "";
+                const fileLabelShort = buildFileLabelMeta(rawFileLabel);
+                const titleMain = fileLabelShort
+                    ? `<span title="${escapeHtml(rawFileLabel)}">${escapeHtml(fileLabelShort)}</span><button type="button" class="copy-btn" data-copy-file="${escapeHtml(rawFileLabel)}">Copy</button>`
+                    : escapeHtml(account.account);
+                const accountMeta = `<span>Account ${escapeHtml(account.account)}</span>`;
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta">${accountMeta}<span>${countLabel}</span><span>${uniqueLabel}</span><span>${formatNumber(account.rows)} pack(s)</span><span>${escapeHtml(ageLabel)}</span><span>${escapeHtml(shinedustLabel)}</span></div></div><div class="row-actions"><button class="toggle-btn" type="button">${expanded ? "Compact" : "Expand"}</button></div></div><div class="row-body"${expanded ? "" : " hidden"}></div>`;
+                const rowHead = article.firstElementChild;
+                const body = article.lastElementChild;
+                const btn = rowHead.lastElementChild.firstElementChild;
+                const copyBtn = rowHead.querySelector("[data-copy-file]");
+                if (expanded)
+                    body.appendChild(
+                        renderCardGrid(visibleEntries, {
+                            showQuantity: true,
+                            entries: true,
+                            account: account.account,
+                        }),
+                    );
+                if (copyBtn)
+                    copyBtn.addEventListener("click", async (event) => {
+                        event.stopPropagation();
+                        const rawName =
+                            copyBtn.getAttribute("data-copy-file") || "";
+                        const defaultLabel = "Copy";
+                        copyBtn.disabled = true;
+                        const copied = await copyToClipboard(rawName);
+                        appendStatus(
+                            copied
+                                ? `Copied filename for ${account.account}: ${rawName}`
+                                : `Could not copy filename for ${account.account}.`,
+                        );
+                        if (copied) {
+                            copyBtn.classList.add("copied");
+                            copyBtn.textContent = "Copied";
+                            setTimeout(() => {
+                                copyBtn.classList.remove("copied");
+                                copyBtn.textContent = defaultLabel;
+                                copyBtn.disabled = false;
+                            }, 1000);
+                        } else {
+                            copyBtn.textContent = "Retry";
+                            setTimeout(() => {
+                                copyBtn.textContent = defaultLabel;
+                                copyBtn.disabled = false;
+                            }, 1200);
+                        }
+                    });
+                btn.addEventListener("click", () => {
+                    setAccountExpanded(
+                        account.key,
+                        !accountIsExpanded(account.key),
+                    );
+                    renderCurrent();
+                });
+                return article;
+            }
+
+            function renderCardGrid(items, options) {
+                const parts = [];
+                const account = options.account || "";
+                for (const item of items) {
+                    const id = options.entries ? item.id : item;
+                    const count = options.entries ? item.count : 0;
+                    const card = options.entries ? item.info : getCardInfo(id);
+                    const imgPart = card.imageUrl
+                        ? `<img src="${escapeHtml(card.imageUrl)}" loading="lazy" alt="${escapeHtml(card.name)}" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden');">`
+                        : "";
+                    const fallbackClass = card.imageUrl
+                        ? "hidden empty"
+                        : "empty";
+                    const qtyPart = options.showQuantity
+                        ? `<div class="qty">×${formatNumber(count)}</div>`
+                        : "";
+                    const noTrade =
+                        card.rarityValue === 800 || card.rarityValue === 900;
+                    const tradedClass =
+                        account && isTraded(account, id) ? " traded" : "";
+                    const tradedBtn =
+                        account && !noTrade
+                            ? `<button class="traded-btn" type="button" data-account="${escapeHtml(account)}" data-card-id="${escapeHtml(id)}" title="Mark as traded">🔁</button>`
+                            : "";
+                    parts.push(
+                        `<div class="card-tile${tradedClass}">${qtyPart}${tradedBtn}${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="card-name">${escapeHtml(card.name)}</div><div class="card-badges"><span class="mini-badge">${escapeHtml(card.rarityName)}</span></div></div>`,
+                    );
+                }
+                const grid = document.createElement("div");
+                grid.className = "cards-grid";
+                grid.innerHTML = parts.join("");
+                if (account) {
+                    grid.addEventListener("click", (e) => {
+                        const btn = e.target.closest(".traded-btn");
+                        if (!btn) return;
+                        const acc = btn.dataset.account;
+                        const cid = btn.dataset.cardId;
+                        const tile = btn.closest(".card-tile");
+                        const alreadyTraded = isTraded(acc, cid);
+                        if (alreadyTraded) {
+                            const cardName = getCardInfo(cid).name || cid;
+                            showConfirm(
+                                `Remove "${cardName}" from traded cards?`,
+                            ).then((confirmed) => {
+                                if (!confirmed) return;
+                                toggleTraded(acc, cid);
+                                tile.classList.toggle(
+                                    "traded",
+                                    isTraded(acc, cid),
+                                );
+                                applyHideTradedClass();
+                                if (state.view === "traded") {
+                                    tile.style.transition = "opacity 200ms";
+                                    tile.style.opacity = "0";
+                                    setTimeout(() => renderTradedView(), 220);
+                                }
+                            });
+                            return;
+                        }
+                        toggleTraded(acc, cid);
+                        tile.classList.toggle("traded", isTraded(acc, cid));
+                        applyHideTradedClass();
+                    });
+                }
+                return grid;
+            }
+
+            function updateShowMore(total, shown) {
+                if (shown < total) {
+                    el.showMoreBtn.textContent = `Show ${formatNumber(Math.min(PAGE_SIZE, total - shown))} more`;
+                    el.showMoreBtn.classList.remove("hidden");
+                } else el.showMoreBtn.classList.add("hidden");
+            }
+
+            function setLibraryModeLayout(isLibrary) {
+                el.toolbarSection.classList.toggle("hidden", isLibrary);
+                el.statsSection.classList.toggle("hidden", isLibrary);
+                el.filtersSection.classList.toggle("hidden", isLibrary);
+                el.viewBarSection.classList.toggle("hidden", isLibrary);
+            }
+
+            function setView(view) {
+                state.view = view;
+                state.displayLimit = INITIAL_LIMIT;
+                el.rowViewTab.classList.toggle("active", view === "rows");
+                el.accountViewTab.classList.toggle(
+                    "active",
+                    view === "accounts",
+                );
+                el.tradedViewTab.classList.toggle("active", view === "traded");
+                const inLibrary = view === "allcards";
+                el.sectionDbBtn.classList.toggle("active", !inLibrary);
+                el.sectionLibraryBtn.classList.toggle("active", inLibrary);
+                setLibraryModeLayout(inLibrary);
+                el.accountViewActions.classList.toggle(
+                    "hidden",
+                    view === "traded" || view === "allcards",
+                );
+                renderCurrent();
+            }
+
+            function selectAllPacks() {
+                state.selectedPacks = new Set(state.allPacks.keys());
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            function clearPacks() {
+                state.selectedPacks = new Set();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            function selectAllRarities() {
+                state.selectedRarities = new Set(state.allRarities);
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            function clearRarities() {
+                state.selectedRarities = new Set();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            function selectAllCardTypes() {
+                state.selectedCardTypes = new Set(ALL_CARD_TYPES);
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            function clearCardTypes() {
+                state.selectedCardTypes = new Set();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            }
+            const debouncedFilter = debounce(applyFiltersAndRender, 180);
+            el.csvFile.addEventListener("change", (event) =>
+                handleCsvUpload(event.target.files[0]),
+            );
+            el.tradesCsvFile.addEventListener("change", (event) =>
+                handleTradesCsvUpload(event.target.files[0]),
+            );
+            el.loadRemoteBtn.addEventListener("click", () =>
+                loadResources(true),
+            );
+            el.clearCacheBtn.addEventListener("click", () => {
+                localStorage.removeItem(LS_MASTER);
+                localStorage.removeItem(LS_LOCALISATION);
+                localStorage.removeItem(LS_CARDMAP);
+                localStorage.removeItem(LS_MISSING_RETRY_AT);
+                state.cardmaster = null;
+                state.localisation = null;
+                state.cardmap = null;
+                state.cardInfoCache.clear();
+                state.cardExpansionCache.clear();
+                state.packLabelCache.clear();
+                setStatus("Cleared cached card data.");
+            });
+            el.accountSearch.addEventListener("input", debouncedFilter);
+            el.cardSearch.addEventListener("input", debouncedFilter);
+            el.rowSort.addEventListener("change", () => {
+                state.rowSort = el.rowSort.value;
+                applyFiltersAndRender();
+            });
+            el.accountSort.addEventListener("change", () => {
+                state.accountSort = el.accountSort.value;
+                state.accountRows = null;
+                renderCurrent();
+            });
+            el.accountSortDir.addEventListener("click", () => {
+                state.accountSortAsc = !state.accountSortAsc;
+                el.accountSortDir.textContent = state.accountSortAsc
+                    ? "↑"
+                    : "↓";
+                state.accountRows = null;
+                renderCurrent();
+            });
+
+            el.rowViewTab.addEventListener("click", () => setView("rows"));
+            el.accountViewTab.addEventListener("click", () =>
+                setView("accounts"),
+            );
+            el.tradedViewTab.addEventListener("click", () => setView("traded"));
+            el.sectionDbBtn.addEventListener("click", () => setView("rows"));
+            el.sectionLibraryBtn.addEventListener("click", () =>
+                setView("allcards"),
+            );
+            el.cardSize.addEventListener("change", () =>
+                document.documentElement.style.setProperty(
+                    "--card-w",
+                    `${el.cardSize.value}px`,
+                ),
+            );
+            el.packFilters.addEventListener("change", () => {
+                readSelectedFilters();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            });
+            el.rarityFilters.addEventListener("change", () => {
+                readSelectedFilters();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            });
+            el.cardTypeFilters.addEventListener("change", () => {
+                readSelectedFilters();
+                buildFilterCheckboxes();
+                applyFiltersAndRender();
+            });
+            document
+                .querySelectorAll("[data-pack-action]")
+                .forEach((button) =>
+                    button.addEventListener("click", () =>
+                        button.dataset.packAction === "all"
+                            ? selectAllPacks()
+                            : clearPacks(),
+                    ),
+                );
+            document
+                .querySelectorAll("[data-rarity-action]")
+                .forEach((button) =>
+                    button.addEventListener("click", () =>
+                        button.dataset.rarityAction === "all"
+                            ? selectAllRarities()
+                            : clearRarities(),
+                    ),
+                );
+            document
+                .querySelectorAll("[data-card-type-action]")
+                .forEach((button) =>
+                    button.addEventListener("click", () =>
+                        button.dataset.cardTypeAction === "all"
+                            ? selectAllCardTypes()
+                            : clearCardTypes(),
+                    ),
+                );
+            el.themeToggleBtn.addEventListener("click", () =>
+                applyTheme(state.theme === "light" ? "dark" : "light"),
+            );
+            el.showMoreBtn.addEventListener("click", () => {
+                state.displayLimit += PAGE_SIZE;
+                renderCurrent();
+            });
+
+            el.expandAllBtn.addEventListener("click", () => {
+                state.defaultExpanded = true;
+                if (state.view === "rows") {
+                    const limit = Math.min(
+                        state.displayLimit,
+                        state.filteredRows.length,
+                    );
+                    for (let i = 0; i < limit; i++)
+                        setRowExpanded(state.filteredRows[i].index, true);
+                } else if (state.view === "accounts") {
+                    const accounts = buildAccountOverview();
+                    const limit = Math.min(state.displayLimit, accounts.length);
+                    for (let i = 0; i < limit; i++)
+                        setAccountExpanded(accounts[i].key, true);
+                }
+                renderCurrent();
+            });
+
+            el.compactAllBtn.addEventListener("click", () => {
+                state.defaultExpanded = false;
+                state.expandedRows.clear();
+                state.expandedAccounts.clear();
+                renderCurrent();
+            });
+
+            state.cardmaster = readCachedJson(LS_MASTER);
+            state.localisation = readCachedJson(LS_LOCALISATION);
+            const rawCardmapCache = readCachedJson(LS_CARDMAP);
+            if (rawCardmapCache) {
+                state.cardmap =
+                    rawCardmapCache instanceof Map
+                        ? rawCardmapCache
+                        : buildCardMapIndex(rawCardmapCache);
+                state.cardCollectionNumberMap =
+                    buildCardCollectionNumberIndex(rawCardmapCache);
+            }
+            loadTradedState();
+            if (state.cardmaster && state.localisation && state.cardmap)
+                setStatus("Cached card data found. Upload your CSV to start.");
+
+            notifyDashboardActive();
+            window.addEventListener("pageshow", notifyDashboardActive);
+            window.addEventListener("beforeunload", requestDashboardShutdown);
+            setInterval(notifyDashboardActive, 2000);
+
+            initTheme();
+            autoLoadDefaultFiles();
+        </script>
+    </body>
+</html>

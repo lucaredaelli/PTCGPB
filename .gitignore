@@ -19,6 +19,13 @@ Accounts/Saved/**/*.xml
 Accounts/Trades/*.csv
 Accounts/Trades/*.json
 Lab
+tmp.ahk
+*.bak
+Scripts/temp
+Card_Database.csv
+CardImageCache
+cardmaster.json
+Helper/*.txt
 
 # macOS metadata files
 ._*

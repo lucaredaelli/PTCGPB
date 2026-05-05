@@ -1,4 +1,4 @@
-﻿;===============================================================================
+;===============================================================================
 ; FriendManager.ahk - Friend Management Functions
 ;===============================================================================
 ; This file contains functions for managing in-game friends.
@@ -32,8 +32,8 @@ AddFriends(renew := false, getFC := false) {
     } else {
         session.set("friendIDs", false)
     }
-	if(!getFC && !session.get("friendIDs") && botConfig.get("FriendID") = "")
-		return false
+    if(!getFC && !session.get("friendIDs") && botConfig.get("FriendID") = "")
+        return false
 
     session.set("friended", true)
 
@@ -69,30 +69,25 @@ AddFriends(renew := false, getFC := false) {
         failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
         CreateStatusMessage("Waiting for Social`n(" . failSafeTime . "/90 seconds)")
     }
-    
+
     GoToFriendsList(true, false)
 
     if(getFC) {
         Delay(3)
-
         Clipboard := ""
-
         friendCode := ""
         Loop, 3 {
             adbClick_wbb(214, 200)
             ClipWait, 2
             copiedValue := RegExReplace(Clipboard, "\D", "")
-
             if (RegExMatch(copiedValue, "^\d{14,17}$")) {
                 friendCode := copiedValue
                 break
             }
-
             Clipboard := ""
             Delay(1)
         }
         Delay(1)
-
         session.set("friendCode", friendCode)
         return session.get("friendCode")
     }
@@ -185,10 +180,10 @@ AddFriends(renew := false, getFC := false) {
             failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
             CreateStatusMessage("Processing add friends for `n(" . failSafeTime . "/45 seconds)")
         }
-        
+
         if(isContinue)
             continue
-        
+
         if(friendIDIdx != session.get("friendIDs").maxIndex()) {
             FindImageAndClick("Friend_SearchFriendWindowCancelButtonCorner", 143, 518, , 1000)
             FindImageAndClick("Friend_FriendIDInputReady", 138, 265, , 1000)
@@ -213,12 +208,12 @@ AddFriends(renew := false, getFC := false) {
         FindImageAndClick("Menu_InventoryIconInMenu", 240, 494)
         FindImageAndClick("Menu_MiscMenuLeftTop", 105, 435, , 750)
         DelayH(600)
-        
+
         clickX := 137
         clickY := 430
         if(FindOrLoseImage("Menu_GoToTitleButton_Down", 0, , 60))
             clickY := 470
-        
+
         FindImageAndClick("Create_DownloadAlertWindow", clickX, clickY)
 
         Loop, {
@@ -228,7 +223,7 @@ AddFriends(renew := false, getFC := false) {
                 break
         }
         session.set("isReloadAfterAddFriends", true)
-    } 
+    }
     else {
         Loop {
             if(FindOrLoseImage("Friend_BottomDarkHomeIcon", 0))
@@ -262,7 +257,7 @@ RemoveFriends() {
         return false
     }
 
-	session.set("friendIDs", ReadFile("ids"))
+    session.set("friendIDs", ReadFile("ids"))
 
     if(!session.get("friendIDs") && botConfig.get("FriendID") = "") {
         session.set("friended", false)
@@ -297,8 +292,8 @@ RemoveFriends() {
             if(clickButton) {
                 StringSplit, pos, clickButton, `,  ; Split at ", "
                 adbClick_wbb(pos1, pos2)
-                }
             }
+        }
         Sleep, 500
         failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
         CreateStatusMessage("Waiting for Social`n(" . failSafeTime . "/90 seconds)")
@@ -310,7 +305,7 @@ RemoveFriends() {
     Delay(2)
     adbClick(167, 472) ; extra click since failing to get into requests sometimes
     session.set("failSafe", A_TickCount)
-    failSafeTime := 0    
+    failSafeTime := 0
     interceptProc := true
     Loop{
         if (FindOrLoseImage("Friend_ActivatedClearAllButton", 0, failSafeTime))
@@ -319,7 +314,7 @@ RemoveFriends() {
         Delay(1)
         if (FindOrLoseImage("Friend_RemoveConfirmButtonInFriendDetails", 0, failSafeTime))
             adbClick(210, 372)
-        
+
         Delay(1)
 
         isErrorOccurred := interceptErrorCheck("CLEARALL")
@@ -362,7 +357,7 @@ RemoveFriends() {
             accepted := false
 
             FindImageAndClick("Friend_RemoveConfirmButtonInFriendDetails", 145, 407)
-            
+
             interceptProc := true
             isContinue := false
             Loop, {
@@ -399,7 +394,7 @@ RemoveFriends() {
 
     ; Exit friend removal process
     CreateStatusMessage("Friend removal completed. Processed " . friendsProcessed . " friends. Returning to main...",,,, false)
-	IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
+    IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
     session.set("friended", false)
     CreateStatusMessage("Friends removed successfully!",,,, false)
 
@@ -478,7 +473,7 @@ showcaseLikes() {
             filteredIDs.Push(trimmed)
     }
 
-	Loop % filteredIDs.Length()
+    Loop % filteredIDs.Length()
     {
         showcaseID := filteredIDs[A_Index]
         ; Log for debugging
@@ -559,8 +554,9 @@ GoToFriendsList(isKeepSearch := false, skipTutorialProc := false) {
         }
         else{
             ; For Tutorial Window
-            if(!skipTutorialProc)
+            if(!skipTutorialProc) {
                 adbClick_wbb(155, 425)
+            }
         }
         Delay(0.25)
         failSafeTime := (A_TickCount - session.get("failSafe")) // 1000

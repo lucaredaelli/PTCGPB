@@ -1,4 +1,4 @@
-﻿class Coordinate{
+class Coordinate{
     startX := 0
     startY := 0
     endX := 0
@@ -56,7 +56,7 @@ needlesDict.Add(new Needle("Friend_BottomDarkHomeIcon", "Home", new Coordinate(2
 needlesDict.Add(new Needle("Friend_ActivatedClearAllButton", "clearAll", new Coordinate(191, 493, 200, 509)))
 needlesDict.Add(new Needle("Friend_FriendListEmpty", "empty", new Coordinate(42, 163, 66, 185)))
 needlesDict.Add(new Needle("99ko", "99ko", new Coordinate(63, 106, 102, 120)))
-needlesDict.Add(new Needle("99en", "99en", new Coordinate(63, 106, 102, 120)))
+needlesDict.Add(new Needle("Friend_FriendList99", "99en", new Coordinate(130, 109, 154, 116)))
 needlesDict.Add(new Needle("Friend_HamburgerMenuButtonInIntro", "MainHamburgerMenuButton", new Coordinate(241, 68, 258, 84)))
 
 ; Friend - Search
@@ -108,6 +108,9 @@ needlesDict.Add(new Needle("Shinedust_CloseButtonInDetailWindow", "wrongItem", n
 ; Receive Gift
 needlesDict.Add(new Needle("Gift_ClaimAllButton", "ClaimAll", new Coordinate(170, 434, 216, 447)))
 needlesDict.Add(new Needle("Gift_ReceivedWindowRightBorder", "GiftReceiveWindowBorder", new Coordinate(260, 200, 265, 205)))
+needlesDict.Add(new Needle("Gift_ResultAfterOpenPack", "OpeningGift", new Coordinate(167, 494, 178, 505)))
+needlesDict.Add(new Needle("Gift_Claimable", "Claimable", new Coordinate(22, 105, 27, 112)))
+needlesDict.Add(new Needle("Gift_ClaimedAll", "ClaimedAll", new Coordinate(257, 410, 267, 435)))
 
 ;==============================================================================================================================
 
@@ -166,6 +169,7 @@ needlesDict.Add(new Needle("Pack_ActivatedBSeriesTab", "ExpansionSeries", new Co
 needlesDict.Add(new Needle("Pack_SkipButtonAfterOpenPack", "Skip", new Coordinate(245, 495, 256, 507)))
 needlesDict.Add(new Needle("Pack_ResultAfterOpenPack", "Opening", new Coordinate(175, 96, 267, 115)))
 needlesDict.Add(new Needle("Pack_ReadyForOpenPack", "Pack", new Coordinate(198, 271, 202, 282)))
+needlesDict.Add(new Needle("Pack_ReadyForOpenPack2", "Pack2", new Coordinate(113, 295, 116, 299)))
 needlesDict.Add(new Needle("Pack_NextButtonAfterOpenPack", "Next", new Coordinate(131, 74, 140, 84)))
 needlesDict.Add(new Needle("Next2", "Next2", new Coordinate(131, 74, 140, 84)))  ; ------------------------------ Finding
 needlesDict.Add(new Needle("Pack_BackButtonInSelectPackScreen", "ConfirmPack", new Coordinate(127, 462, 137, 475)))

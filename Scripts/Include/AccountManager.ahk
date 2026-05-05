@@ -1,4 +1,4 @@
-﻿;===============================================================================
+;===============================================================================
 ; AccountManager.ahk - Account Management Functions
 ;===============================================================================
 ; This file contains functions for managing game accounts.
@@ -77,17 +77,17 @@ loadAccount() {
                     break
                 }
 
-				if(InStr(fileLines[1], "T")) {
-					; account has a pack under test
+                if(InStr(fileLines[1], "T")) {
+                    ; account has a pack under test
 
-				}
-				if (accountModifiedTimeDiff >= 24){
-					if(!InStr(fileLines[1], "T") || accountModifiedTimeDiff >= 5*24) {
-						; otherwise account has a pack under test
-						session.set("accountFileName", fileLines[1])
-						break
-					}
-				}
+                }
+                if (accountModifiedTimeDiff >= 24){
+                    if(!InStr(fileLines[1], "T") || accountModifiedTimeDiff >= 5*24) {
+                        ; otherwise account has a pack under test
+                        session.set("accountFileName", fileLines[1])
+                        break
+                    }
+                }
 
                 if (foundValidAccount)
                     break
@@ -137,6 +137,7 @@ loadAccount() {
     currentAccountInfo .= "Account: " . session.get("accountFileName") . "`nDeviceAccount: " . session.get("deviceAccount")
     CreateStatusMessage(currentAccountInfo, "AccountInfo", 0, 46, false)
     SetTimer, DestoryAccountInfoUI, -15000
+
     getMetaData()
 
     return loadFile
@@ -181,6 +182,43 @@ MarkAccountAsUsed() {
 
     ; Track as used with timestamp
     TrackUsedAccount(session.get("accountFileName"))
+
+    ; Reset tracking
+    session.set("currentLoadedAccountIndex", 0)
+}
+
+;-------------------------------------------------------------------------------
+; MarkAccountAsClaimed - Mark account as claimed (Inject Rewards) without 24h lock
+;-------------------------------------------------------------------------------
+MarkAccountAsClaimed() {
+    global session
+
+    if (!session.get("currentLoadedAccountIndex") || !session.get("accountFileName")) {
+        LogToFile("Warning: MarkAccountAsClaimed called but no current account tracked")
+        return
+    }
+
+    saveDir := A_ScriptDir "\..\Accounts\Saved\" . session.get("scriptName")
+    outputTxt := saveDir . "\list_current.txt"
+
+    ; Remove the account from list_current.txt (so this session doesn't reprocess it)
+    if FileExist(outputTxt) {
+        FileRead, fileContent, %outputTxt%
+        fileLines := StrSplit(fileContent, "`n", "`r")
+
+        newListContent := ""
+        Loop, % fileLines.MaxIndex() {
+            if (A_Index != session.get("currentLoadedAccountIndex"))
+                newListContent .= fileLines[A_Index] "`r`n"
+        }
+
+        FileDelete, %outputTxt%
+        FileAppend, %newListContent%, %outputTxt%
+    }
+
+    ; Do NOT call TrackUsedAccount - account stays available for pack-opening immediately
+    if(botConfig.get("verboseLogging"))
+        LogToFile("Marked account as claimed (no 24h lock): " . session.get("accountFileName"))
 
     ; Reset tracking
     session.set("currentLoadedAccountIndex", 0)
@@ -386,10 +424,12 @@ UpdateAccount() {
         FileMove, % session.get("accountFile"), %accountNewFile% ;TODO enable
         FileSetTime,, %accountNewFile%
         session.set("accountFileName", AccountNewName)
+        ; Update GUI field with new account name
+        GuiControl,, ui_AccountName, %AccountNewName%
     }
 
     updateTotalTime()
-    
+
     session.set("VRAMUsage", GetVRAMByScriptName(session.get("scriptName")))
     ; Direct display of metrics rather than calling function
     CreateStatusMessage(generateStatusText(), "AvgRuns", 0, 605, false, true)
@@ -403,7 +443,7 @@ getMetaData() {
 
     session.get("missionDoneList")["beginnerMissionsDone"] := 0
     session.get("missionDoneList")["soloBattleMissionDone"] := 0
-    
+
     session.get("missionDoneList")["intermediateMissionsDone"] := 0
     session.get("missionDoneList")["specialMissionsDone"] := 0
     session.get("missionDoneList")["accountHasPackInTesting"] := 0
@@ -668,6 +708,11 @@ CreateAccountList(instance) {
         minPacks := 96
         maxPacks := 9999
     }
+    else if (botConfig.get("deleteMethod") = "Inject Rewards") {
+        parseInjectType := "Inject Rewards"
+        minPacks := 0
+        maxPacks := 9999
+    }
 
     ; Load used accounts from cleaned up log (will be empty if we just cleared it)
     usedAccountsLog := saveDir . "\used_accounts.txt"
@@ -707,6 +752,13 @@ CreateAccountList(instance) {
             continue
         }
 
+        ; For Inject Rewards: skip accounts already processed (X flag)
+        if (botConfig.get("deleteMethod") = "Inject Rewards" && HasFlagInMetadata(A_LoopFileName, "R")) {
+            if (botConfig.get("verboseLogging"))
+                LogToFile("Skipping already claimed account: " . A_LoopFileName)
+            continue
+        }
+
         ; Get file modification time
         modTime := ""
         FileGetTime, modTime, %xml%, M
@@ -727,7 +779,7 @@ CreateAccountList(instance) {
         if(HasFlagInMetadata(A_LoopFileName, "T")) {
             if(hoursDiff < 5*24) {  ; Always 5 days for T-flagged accounts
                 ; if (verboseLogging)
-                    ; LogToFile("Skipping account with T flag (testing): " . A_LoopFileName . " (age: " . hoursDiff . " hours, needs 5 days)")
+                ; LogToFile("Skipping account with T flag (testing): " . A_LoopFileName . " (age: " . hoursDiff . " hours, needs 5 days)")
                 continue
             }
         }
@@ -741,13 +793,13 @@ CreateAccountList(instance) {
         } else {
             packCount := 10  ; Default for unrecognized formats
             ; if (verboseLogging)
-                ; LogToFile("Unknown filename format: " . A_LoopFileName . ", assigned default pack count: 10")
+            ; LogToFile("Unknown filename format: " . A_LoopFileName . ", assigned default pack count: 10")
         }
 
         ; Check if pack count fits the current injection range
         if (packCount < minPacks || packCount > maxPacks) {
             ; if (verboseLogging)
-                ; LogToFile("  - SKIPPING: " . A_LoopFileName . " - Pack count " . packCount . " outside range " . minPacks . "-" . maxPacks)
+            ; LogToFile("  - SKIPPING: " . A_LoopFileName . " - Pack count " . packCount . " outside range " . minPacks . "-" . maxPacks)
             continue
         }
 
@@ -756,7 +808,7 @@ CreateAccountList(instance) {
         fileTimes.Push(modTime)
         packCounts.Push(packCount)
         ; if (verboseLogging)
-            ; LogToFile("  - KEEPING: " . A_LoopFileName . " - Pack count " . packCount . " inside range " . minPacks . "-" . maxPacks . " (age: " . hoursDiff . " hours)")
+        ; LogToFile("  - KEEPING: " . A_LoopFileName . " - Pack count " . packCount . " inside range " . minPacks . "-" . maxPacks . " (age: " . hoursDiff . " hours)")
     }
 
     ; Log counts

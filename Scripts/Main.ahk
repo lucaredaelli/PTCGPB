@@ -1,4 +1,4 @@
-﻿#SingleInstance on
+#SingleInstance on
 SetMouseDelay, -1
 SetDefaultMouseSpeed, 0
 SetBatchLines, -1
@@ -23,6 +23,7 @@ CoordMode, Pixel, Screen
 #Include CardDetection.ahk
 #Include AccountManager.ahk
 #Include FriendManager.ahk
+#Include Dictionary.ahk
 
 #Include Coords.ahk
 #Include Error.ahk
@@ -55,6 +56,7 @@ session.set("gpTestFirstRun", true)
 session.set("friendOpsCount", 0)
 session.set("friendOpsWindowStart", A_TickCount)
 session.set("rateLimitAction", "")
+session.set("manualGPTestModeActive", false)
 
 session.set("gptest_nonFriends", {})
 
@@ -70,7 +72,6 @@ session.set("isDead", isDeadValue)
 if (!botConfig.get("groupRerollEnabled")) {
     session.set("autoUseGPTest", 0)
     session.set("TestTime", 3600)
-    session.set("hasUnopenedPack", 0)
 }
 
 session.set("vipListTrimMode", (!botConfig.get("vipListTrimMode")) ? "bottom" : botConfig.get("vipListTrimMode"))
@@ -100,7 +101,7 @@ Loop {
         y4 := y + Height - 4 + 2
         buttonWidth := 50
 
-        Gui, ToolBar:New, +Owner%OwnerWND% -AlwaysOnTop +ToolWindow -Caption +LastFound -DPIScale 
+        Gui, ToolBar:New, +Owner%OwnerWND% -AlwaysOnTop +ToolWindow -Caption +LastFound -DPIScale
         Gui, ToolBar:Default
         Gui, ToolBar:Margin, 4, 4  ; Set margin for the GUI
         Gui, ToolBar:Font, s5 cGray Norm Bold, Segoe UI  ; Normal font for input labels
@@ -140,7 +141,6 @@ if(botConfig.get("heartBeat"))
     IniWrite, 1, %A_ScriptDir%\..\HeartBeat.ini, HeartBeat, Main
 FindImageAndClick("Common_ActivatedSocialInMainMenu", 143, 518, , 1000, 150)
 
-/*
 global 99Configs := {}
 99Configs["en"] := {leftx: 123, rightx: 162}
 99Configs["es"] := {leftx: 68, rightx: 107}
@@ -155,7 +155,7 @@ global 99Configs := {}
 99Path := "99" . botConfig.get("clientLanguage")
 99Leftx := 99Configs[botConfig.get("clientLanguage")].leftx
 99Rightx := 99Configs[botConfig.get("clientLanguage")].rightx
-*/
+
 Loop {
     if (session.get("autoUseGPTest") && botConfig.get("groupRerollEnabled")) {
         session.set("autotest_time", (A_TickCount - session.get("autotest")) // 1000)
@@ -164,7 +164,7 @@ Loop {
             session.set("A_gptest", 1)
             session.set("autotest", A_TickCount)
             ToggleTestScript()
-        }        
+        }
     }
 
     if (session.get("GPTest")) {
@@ -184,15 +184,15 @@ Loop {
     FindImageAndClick("Common_ActivatedSocialInMainMenu", 143, 518, , 1000, 30)
     FindImageAndClick("Friend_AddButtonInFriendList", 38, 460, , 500)
     FindImageAndClick("Friend_BlankFriendSlotAreaInApproveSubmenu", 228, 464)
-    /* ; Deny all option
-    if(firstRun) {
-        Sleep, 1000
-        adbClick(205, 510)
-        Sleep, 1000
-        adbClick(210, 372)
-        firstRun := false
-    }
-    */
+/* ; Deny all option
+if(firstRun) {
+    Sleep, 1000
+    adbClick(205, 510)
+    Sleep, 1000
+    adbClick(210, 372)
+    firstRun := false
+}
+*/
     done := false
     Loop 3 {
         Delay(1)
@@ -203,34 +203,10 @@ Loop {
                 Delay(1)
                 clickButton := FindOrLoseImage("Common_ColorChangeButton", 0, failSafeTime, 80)
                 requestAlreadyClosed := FindOrLoseImage("Friend_RequestAlreadyClosedInApproveSubmenu", 0, failSafeTime)
-                if(FindOrLoseImage("Friend_FriendList99", 0, failSafeTime)) {
+                if(FindOrLoseImage(99Path, 0, failSafeTime)) {
                     done := true
                     break
-                }
-                else if(FindOrLoseImage("Friend_AcceptButtonInApproveSubmenu", 0, failSafeTime)) {
-                    if (session.get("GPTest"))
-                        break
-                    Loop{
-                        if FindOrLoseImage("Friend_StuckMessageBackground", 0, failSafeTime){
-                            Delay(2)
-                        }else{
-                            adbClick(237, 202)
-                            Delay(1)
-                            if FindOrLoseImage("Friend_StuckMessageBackground", 0, failSafeTime){
-                                Loop{
-                                    if FindOrLoseImage("Friend_StuckMessageBackground", 1, failSafeTime){
-                                        break
-                                    }else{
-                                        Delay(1)
-                                    }
-                                }
-                                FindImageAndClick("Friend_StuckMessageBackground", 202, 202, , 1000)
-                            }
-                            break
-                        }
-                    }
-                }
-                else if(FindOrLoseImage("Common_Error", 0, failSafeTime)) {
+                } else if(FindOrLoseImage("Common_Error", 0, failSafeTime)) {
                     ; Handle communication error
                     CreateStatusMessage("Error message detected. Clicking retry...",,,, false)
                     LogToFile("Error message in Main " . session.get("scriptName") . ". Clicking retry...")
@@ -466,7 +442,7 @@ resetWindows(){
 
             y := MonitorTop + (currentRow * rowHeight) + (currentRow * botConfig.get("rowGap"))
             x := MonitorLeft + (Mod((instanceIndex - 1), botConfig.get("Columns")) * (scaleParam - borderWidth * 2))
-            
+
             WinSet, Style, -0xC00000, %Title%
             WinMove, %Title%, , %x%, %y%, %scaleParam%, %rowHeight%
             WinSet, Style, +0xC00000, %Title%
@@ -490,7 +466,7 @@ restartGameInstance(reason, RL := true){
 
     if(botConfig.get("heartBeatOwnerWebHookURL") != "")
         LogToDiscord(A_ScriptName . " instance has begin restart. Please verify that GodPack has not disappeared upon entering the main screen.\nReasion: " . reason,, true,,, botConfig.get("heartBeatOwnerWebHookURL"))
-    
+
     initializeAdbShell()
 
     if (Debug)
@@ -591,7 +567,8 @@ StopScript:
         CreateStatusMessage("Stopping script...",,,, false)
         ExitApp
     }
-    savedStopPreferenceMain := botConfig.get("savedStopPreferenceMain")
+    settingsPath := A_ScriptDir . "\..\Settings.ini"
+    IniRead, savedStopPreferenceMain, %settingsPath%, Extra, stopPreferenceMain, none
     if (savedStopPreferenceMain = "immediate") {
         CreateStatusMessage("Stopping script...",,,, false)
         ExitApp
@@ -603,19 +580,17 @@ StopScript:
         Gui, StopMain:Add, Text, x20 y15 w220 Center, What would you like to do?
         Gui, StopMain:Add, Button, x20 y45 w220 h30 gStopMainImmediately, Stop Immediately
         Gui, StopMain:Add, Button, x20 y80 w220 h30 gStopMainAfterGPTestButton, Run GP Test then Stop
-        Gui, StopMain:Add, Checkbox, x20 y120 w220 hwndhRememberStopPreferenceMain, Remember my choice
+        Gui, StopMain:Add, Checkbox, x20 y120 w220 vui_RememberStopPreferenceMain, Remember my choice
         Gui, StopMain:Show, w260 h150, Stop Main Instance
-
-        session.set("RememberStopPreferenceMainHwnd", hRememberStopPreferenceMain)
     }
 return
 
 StopMainImmediately:
-    targetHwnd := session.get("RememberStopPreferenceMainHwnd")    
-    GuiControlGet, RememberStopPreferenceMain, , %targetHwnd%
+    Gui, StopMain:Submit, NoHide
+    GuiControlGet, RememberStopPreferenceMain, , ui_RememberStopPreferenceMain
     if (RememberStopPreferenceMain) {
-        botConfig.set("stopPreferenceMain", "immediate", "Extra")
-        botConfig.saveConfigToSettings("Extra")
+        settingsPath := A_ScriptDir . "\..\Settings.ini"
+        IniWrite, immediate, %settingsPath%, Extra, stopPreferenceMain
     }
     Gui, StopMain:Destroy
     CreateStatusMessage("Stopping script...",,,, false)
@@ -623,13 +598,12 @@ StopMainImmediately:
 return
 
 StopMainAfterGPTestButton:
-    targetHwnd := session.get("RememberStopPreferenceMainHwnd")    
-    GuiControlGet, RememberStopPreferenceMain, , %targetHwnd%
     Gui, StopMain:Submit, NoHide
     Gui, StopMain:Destroy
+    GuiControlGet, RememberStopPreferenceMain, , ui_RememberStopPreferenceMain
     if (RememberStopPreferenceMain) {
-        botConfig.set("stopPreferenceMain", "gp_test", "Extra")
-        botConfig.saveConfigToSettings("Extra")
+        settingsPath := A_ScriptDir . "\..\Settings.ini"
+        IniWrite, gp_test, %settingsPath%, Extra, stopPreferenceMain
     }
 
 StopMainAfterGPTest:
@@ -712,12 +686,22 @@ ReloadScript:
 return
 
 TestScript:
-    ToggleTestScript()
+    ToggleTestScript(true)
 return
 
-ToggleTestScript() {
-    global session
+ToggleTestScript(manualTrigger := false) {
+    global session, botConfig
     if(!session.get("GPTest")) {
+        if (manualTrigger) {
+            selectedMode := PromptManualGPTestMode()
+            if (selectedMode = "" || selectedMode = "cancel")
+                return
+            session.set("hasUnopenedPack", selectedMode)
+            session.set("manualGPTestModeActive", true)
+        } else {
+            session.set("hasUnopenedPack", botConfig.get("hasUnopenedPack"))
+            session.set("manualGPTestModeActive", false)
+        }
         session.set("GPTest", true)
         session.set("triggerTestNeeded", true)
         session.set("testStartTime", A_TickCount)
@@ -728,6 +712,10 @@ ToggleTestScript() {
     else {
         session.set("GPTest", false)
         session.set("triggerTestNeeded", false)
+        if (session.get("manualGPTestModeActive")) {
+            session.set("hasUnopenedPack", botConfig.get("hasUnopenedPack"))
+            session.set("manualGPTestModeActive", false)
+        }
         totalTestTime := (A_TickCount - session.get("testStartTime")) // 1000
         if (session.get("testStartTime") != "" && (totalTestTime >= 180))
         {
@@ -738,12 +726,47 @@ ToggleTestScript() {
     }
 }
 
+PromptManualGPTestMode() {
+    global session
+    session.set("manualGPTestModeChoice", "")
+    Gui, GPTestMode:Destroy
+    Gui, GPTestMode:New, +AlwaysOnTop +ToolWindow, GP Test Mode
+    Gui, GPTestMode:Font, s9, Segoe UI
+    Gui, GPTestMode:Add, Text, x15 y12 w230 Center, Select GP Test mode for this run:
+    Gui, GPTestMode:Add, Button, x15 y42 w110 h30 gGPTestMode_Standard, Standard
+    Gui, GPTestMode:Add, Button, x135 y42 w110 h30 gGPTestMode_Unopened, Unopened Pack
+    Gui, GPTestMode:Show, w260 h85
+
+    while (session.get("manualGPTestModeChoice") = "")
+        Sleep, 50
+
+    choice := session.get("manualGPTestModeChoice")
+    session.set("manualGPTestModeChoice", "")
+    return choice
+}
+
+GPTestMode_Standard:
+    session.set("manualGPTestModeChoice", 0)
+    Gui, GPTestMode:Destroy
+return
+
+GPTestMode_Unopened:
+    session.set("manualGPTestModeChoice", 1)
+    Gui, GPTestMode:Destroy
+return
+
+GPTestModeGuiClose:
+GPTestModeGuiEscape:
+    session.set("manualGPTestModeChoice", "cancel")
+    Gui, GPTestMode:Destroy
+return
+
 ~+F5::SafeReload()
 ~+F6::Pause
 ~+F10::
     Gosub, StopScript
 return
-~+F9::ToggleTestScript() ; hoytdj Add
+~+F9::ToggleTestScript(true) ; hoytdj Add
 
 bboxAndPause(X1, Y1, X2, Y2, doPause := False) {
     BoxWidth := X2-X1
@@ -824,7 +847,7 @@ GPTestScript() {
 ; In auto GP Test mode, returns false when the rate limit is reached ? caller should abort.
 ; In manual GP Test mode, waits for the 5-minute window to reset and returns true.
 CheckFriendOpsRateLimit() {
-    static RateLimitText
+        static RateLimitText
     global session
     if (session.get("friendOpsCount") = 0) {
         ; First operation of this window ? start the clock now
@@ -878,7 +901,7 @@ CheckFriendOpsRateLimit() {
     return true
 }
 
-; FavoriteVipFriends - Mark all VIP friends as favourites 
+; FavoriteVipFriends - Mark all VIP friends as favourites
 FavoriteVipFriends() {
     global session, interceptProc
 
@@ -891,7 +914,7 @@ FavoriteVipFriends() {
         Loop, Read, %gptestedFile%
         {
             line := A_LoopReadLine
-            ; N: prefix indicates code was tested and is not a friend, 
+            ; N: prefix indicates code was tested and is not a friend,
             ; F: prefix indicates code was tested and is already favourited.
             if (SubStr(line, 1, 2) = "N:") {
                 parts := StrSplit(SubStr(line, 3), "|")
@@ -1097,7 +1120,7 @@ FavoriteVipFriends() {
                             }
                             FindImageAndClick("Friend_AddButtonInFriendList", 38, 460, , 500)
                             FindImageAndClick("Friend_SearchFriendButton", 240, 120)
-                            Delay(2)                        
+                            Delay(2)
                             FindImageAndClick("Friend_SearchFriendWindowCancelButtonCorner", 75, 440)
                             FindImageAndClick("Friend_FriendIDInputReady", 138, 265)
                             rateLimitHit := true
@@ -1233,7 +1256,7 @@ RemoveNonVipFriends() {
         vipFriendsArray.push(manualVipFriendsArray*)
     }
 
-    ; Scroll to the bottom of the friend list 
+    ; Scroll to the bottom of the friend list
     ; Might be too much of a scroll, but ensures all *99* friends are loaded and visible
     CreateStatusMessage("Scrolling to bottom of friend list...",,,, false)
     Loop, 20 {
@@ -1272,7 +1295,7 @@ RemoveNonVipFriends() {
             ; Wait for profile to fully load ? any of the three states confirms it
             failSafe2 := A_TickCount
             Loop {
-                ; Might happen that a friend removed us while we were busy scrolling the list 
+                ; Might happen that a friend removed us while we were busy scrolling the list
                 ; and we only realise it after clicking on their profile
                 if (FindOrLoseImage("GPTest_FriendRequestButtonInUserDetails", 0)) {
                     CreateStatusMessage("Friend removed us. Skipping...",,,, false)
@@ -1314,7 +1337,7 @@ RemoveNonVipFriends() {
             break
         }
 
-        ; Not favourited ? OCR check again VIP list in case we missed them during favouriting, 
+        ; Not favourited ? OCR check again VIP list in case we missed them during favouriting,
         ; then remove if still not VIP
         parseFriendResult := ParseFriendInfo(friendCode, friendName, parseFriendCodeResult, parseFriendNameResult, includesIdsAndNames)
         friendAccount := new FriendAccount(friendCode, friendName)
@@ -1957,7 +1980,7 @@ Gdip_ImageSearch_wbb(pBitmapHaystack,pNeedle,ByRef OutputList=""
 
 DirectlyPositionWindow() {
     global botConfig, session
-    
+
     scaleParam := 283
     rowGap := botConfig.get("RowGap")
 
