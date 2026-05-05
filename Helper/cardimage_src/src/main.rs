@@ -20,46 +20,50 @@ struct Cli {
     output: PathBuf,
     #[arg(long, default_value_t = 6)]
     cols: usize,
-    #[arg(long, default_value = "cardmaster.json")]
+    #[arg(long, default_value = "cardmap.json")]
     cardmaster: PathBuf,
     #[arg(long, default_value = "CardImageCache")]
     cache_dir: PathBuf,
 }
 
 #[derive(Deserialize)]
-struct CardEntry {
+struct CardMapEntry {
     #[serde(rename = "IllustrationID")]
     illustration_id: Option<String>,
+    #[serde(rename = "ExpansionID")]
+    expansion_id: Option<String>,
+    #[serde(rename = "CollectionNumber")]
+    collection_number: Option<u32>,
 }
 
-type Cardmaster = HashMap<String, CardEntry>;
+type CardMap = HashMap<String, CardMapEntry>;
 
-const CARDMASTER_URL: &str =
-    "https://leanny.github.io/pocket_tcg_resources/data/cardmaster.json";
+const CARDMAP_URL: &str =
+    "https://leanny.github.io/pocket_tcg_resources/data/cardmap.json";
 
-async fn load_cardmaster(path: &Path) -> anyhow::Result<Cardmaster> {
+async fn load_cardmaster(path: &Path) -> anyhow::Result<CardMap> {
     let data = match fs::read_to_string(path).await {
         Ok(data) => data,
         Err(err) if err.kind() == ErrorKind::NotFound => {
             println!(
-                "  {:?} not found; downloading cardmaster.json…",
+                "  {:?} not found; downloading cardmap.json…",
                 path
             );
 
             let data = Client::new()
-                .get(CARDMASTER_URL)
+                .get(CARDMAP_URL)
                 .send()
                 .await
-                .context("Could not download cardmaster.json")?
+                .context("Could not download cardmap.json")?
                 .error_for_status()
-                .context("cardmaster.json download returned an error status")?
+                .context("cardmap.json download returned an error status")?
                 .text()
                 .await
-                .context("Could not read downloaded cardmaster.json")?;
+                .context("Could not read downloaded cardmap.json")?;
 
             // Validate before saving, so we do not cache a bad file.
-            serde_json::from_str::<Cardmaster>(&data)
-                .context("Downloaded cardmaster.json was not valid JSON")?;
+            serde_json::from_str::<CardMap>(&data)
+                .context("Downloaded cardmap.json was not valid JSON")?;
 
             if let Some(parent) = path.parent() {
                 if !parent.as_os_str().is_empty() {
@@ -69,22 +73,38 @@ async fn load_cardmaster(path: &Path) -> anyhow::Result<Cardmaster> {
 
             fs::write(path, &data)
                 .await
-                .with_context(|| format!("Could not save downloaded cardmaster.json to {:?}", path))?;
+                .with_context(|| format!("Could not save downloaded cardmap.json to {:?}", path))?;
 
             data
         }
         Err(err) => {
             return Err(err)
-                .with_context(|| format!("Could not read cardmaster file at {:?}", path));
+                .with_context(|| format!("Could not read cardmap file at {:?}", path));
         }
     };
 
     serde_json::from_str(&data)
-        .with_context(|| format!("Could not parse cardmaster JSON at {:?}", path))
+        .with_context(|| format!("Could not parse cardmap JSON at {:?}", path))
 }
 
-fn get_ill_id<'a>(card_id: &str, cm: &'a Cardmaster) -> Option<&'a str> {
+fn get_ill_id<'a>(card_id: &str, cm: &'a CardMap) -> Option<&'a str> {
     cm.get(card_id)?.illustration_id.as_deref()
+}
+
+fn card_sort_key(card_id: &str, cm: &CardMap) -> (String, u32) {
+    if let Some(entry) = cm.get(card_id) {
+        let exp = entry.expansion_id.clone().unwrap_or_default();
+        let num = entry.collection_number.unwrap_or(u32::MAX);
+        return (exp, num);
+    }
+    // Fallback: derive from card ID segments (PK_NN_XXXXXX_YY)
+    let parts: Vec<&str> = card_id.split('_').collect();
+    let num = if parts.len() >= 3 {
+        parts[2].parse::<u32>().map(|n| n / 10).unwrap_or(u32::MAX)
+    } else {
+        u32::MAX
+    };
+    (String::new(), num)
 }
 
 async fn fetch_one(client: Arc<Client>, url: String, dest: PathBuf) -> bool {
@@ -205,10 +225,13 @@ fn composite(
     font: &FontArc,
 ) -> RgbaImage {
     let total = cards.len();
-    let cols = total.min(max_cols) as u32;
+    // Fixed width: always use max_cols for canvas width
+    let cols = max_cols as u32;
     let rows = total.div_ceil(max_cols) as u32;
 
+    // Fixed width canvas (based on max_cols)
     let canvas_w = PADDING + cols * (CARD_W + PADDING);
+    // Variable height (based on rows)
     let canvas_h = PADDING + rows * (CARD_H + PADDING);
 
     let mut canvas: RgbaImage = ImageBuffer::from_pixel(canvas_w, canvas_h, BG);
@@ -216,7 +239,22 @@ fn composite(
     for (idx, (card_id, img_opt)) in cards.iter().enumerate() {
         let col = (idx % max_cols) as u32;
         let row = (idx / max_cols) as u32;
-        let x = PADDING + col * (CARD_W + PADDING);
+
+        // Calculate cards in this row for centering
+        let cards_in_row = if row == rows - 1 {
+            // Last row might be incomplete
+            let remainder = total % max_cols;
+            if remainder == 0 { max_cols } else { remainder }
+        } else {
+            // Full rows always have max_cols cards
+            max_cols
+        };
+
+        // Center cards horizontally when row is not full
+        let unused_slots = max_cols - cards_in_row;
+        let center_offset = (unused_slots as u32 * (CARD_W + PADDING)) / 2;
+
+        let x = PADDING + center_offset + col * (CARD_W + PADDING);
         let y = PADDING + row * (CARD_H + PADDING);
 
         let card_img: RgbaImage = match img_opt {
@@ -260,6 +298,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let cardmaster = load_cardmaster(&cli.cardmaster).await?;
+    // cardmaster here is actually cardmap.json (has ExpansionID + CollectionNumber + IllustrationID)
     fs::create_dir_all(&cli.cache_dir).await?;
 
     let base_url = "https://leanny.github.io/pocket_tcg_resources/img/S/US";
@@ -306,6 +345,13 @@ async fn main() -> anyhow::Result<()> {
         });
         cards.push((cid.clone(), img));
     }
+
+    // Sort by ExpansionID (alphabetical: A1 < A1a < A2 ...) then CollectionNumber (numeric)
+    cards.sort_by(|a, b| {
+        let ka = card_sort_key(&a.0, &cardmaster);
+        let kb = card_sort_key(&b.0, &cardmaster);
+        ka.cmp(&kb)
+    });
 
     let font_data = include_bytes!("font.ttf");
     let font = FontArc::try_from_slice(font_data as &[u8]).expect("embedded font");
