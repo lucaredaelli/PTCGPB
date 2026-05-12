@@ -28,6 +28,8 @@ Helper/*.txt
 Helper/*.json
 Helper/*_src/target/
 Accounts/Cards/accounts/
+Accounts/GodPacks
+SpecialEvents/Events
 
 # macOS metadata files
 ._*
