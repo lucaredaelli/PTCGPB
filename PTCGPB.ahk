@@ -44,7 +44,7 @@ OnError("ErrorHandler")
 githubUser := "kevnITG"
     ,repoName := "PTCGPB"
     ,localVersion := "v9.6.4"
-    ,modVersion := "v0.9.1"
+    ,modVersion := "v0.9.2"
     ,scriptFolder := A_ScriptDir
     ,zipPath := A_Temp . "\update.zip"
     ,extractPath := A_Temp . "\update"
@@ -1442,6 +1442,8 @@ Save:
         additionalSettings .= dict["Confirm_ClaimMissions"] . "`n"
     if (botConfig.get("showcaseEnabled"))
         additionalSettings .= "• Showcase Likes`n"
+    if (botConfig.get("ocrShinedust") && botConfig.get("s4tEnabled"))
+        additionalSettings .= "• Track Shinedust`n"
     if (InStr(botConfig.get("deleteMethod"), "Inject")) {
         additionalSettings .= dict["Confirm_SortBy"] . " "
         if (botConfig.get("injectSortMethod") = "ModifiedAsc")
@@ -1511,13 +1513,7 @@ Save:
         confirmMsg .= s4tSettings
     }
 
-    if (botConfig.get("s4tSendAccountXml") && botConfig.get("s4tEnabled")) {
-        confirmMsg .= "`n" . dict["Confirm_XMLWarning"] . "`n"
-    }
-    if (botConfig.get("ocrShinedust") && botConfig.get("s4tEnabled")) {
-        confirmMsg .= "• Track Shinedust`n"
-    }
-    if (DiscordShouldSendAccountXml()) {
+    if ((botConfig.get("s4tSendAccountXml") && botConfig.get("s4tEnabled")) || DiscordShouldSendAccountXml()) {
         confirmMsg .= "`n" . dict["Confirm_XMLWarning"] . "`n"
     }
 
@@ -1529,23 +1525,26 @@ Save:
             return
     }
     if (botConfig.get("deleteMethod") = "Inject Rewards") {
-        if (!botConfig.get("claimSpecialMissions") && !botConfig.get("receiveGift") && !botConfig.get("wonderpickForEventMissions") && !(botConfig.get("ocrShinedust") && botConfig.get("s4tEnabled"))) {
-            g_irDialogResult := "cancel"
-            Gui, InjectReqDlg:New, +AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Setting Warning
-            Gui, InjectReqDlg:Font, s9, Segoe UI
-            Gui, InjectReqDlg:Add, Text, x12 y12 w285, No actions are enabled for 'Inject Rewards'. Select actions here, or continue with none selected to only log in and out.
-            Gui, InjectReqDlg:Add, Checkbox, x12 y60 vui_irClaim, Claim Special Missions
-            Gui, InjectReqDlg:Add, Checkbox, x12 y82 vui_irGift, Receive Gift
-            Gui, InjectReqDlg:Add, Checkbox, x12 y104 vui_irWP, Wonderpick
-            Gui, InjectReqDlg:Add, Checkbox, x12 y126 vui_irShinedust, Track Shinedust
-            Gui, InjectReqDlg:Add, Button, x12 y160 w80 h26 gInjectReqDlgOK Default, OK
-            Gui, InjectReqDlg:Add, Button, x102 y160 w80 h26 gInjectReqDlgCancel, Cancel
-            Gui, InjectReqDlg:Show, w310 h200
-            irDlgHwnd := WinExist()
-            WinWaitClose, ahk_id %irDlgHwnd%
-            if (g_irDialogResult = "cancel")
-                return
-        }
+        irClaimChecked := botConfig.get("claimSpecialMissions") ? "Checked" : ""
+        irGiftChecked := botConfig.get("receiveGift") ? "Checked" : ""
+        irWPChecked := botConfig.get("wonderpickForEventMissions") ? "Checked" : ""
+        irShinedustChecked := botConfig.get("ocrShinedust") ? "Checked" : ""
+
+        g_irDialogResult := "cancel"
+        Gui, InjectReqDlg:New, +AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Inject Rewards Options
+        Gui, InjectReqDlg:Font, s9, Segoe UI
+        Gui, InjectReqDlg:Add, Text, x12 y12 w285, Confirm the actions for 'Inject Rewards'. You can leave every option unchecked to only log in and out.
+        Gui, InjectReqDlg:Add, Checkbox, x12 y60 vui_irClaim %irClaimChecked%, Claim Special Missions
+        Gui, InjectReqDlg:Add, Checkbox, x12 y82 vui_irGift %irGiftChecked%, Receive Gift
+        Gui, InjectReqDlg:Add, Checkbox, x12 y104 vui_irWP %irWPChecked%, Wonderpick
+        Gui, InjectReqDlg:Add, Checkbox, x12 y126 vui_irShinedust %irShinedustChecked%, Track Shinedust
+        Gui, InjectReqDlg:Add, Button, x12 y160 w80 h26 gInjectReqDlgOK Default, OK
+        Gui, InjectReqDlg:Add, Button, x102 y160 w80 h26 gInjectReqDlgCancel, Cancel
+        Gui, InjectReqDlg:Show, w310 h200
+        irDlgHwnd := WinExist()
+        WinWaitClose, ahk_id %irDlgHwnd%
+        if (g_irDialogResult = "cancel")
+            return
     }
 
     isIncorrectEventSetting := false
@@ -1952,14 +1951,10 @@ Return
 
 InjectReqDlgOK:
     Gui, InjectReqDlg:Submit, NoHide
-    if (ui_irClaim)
-        botConfig.set("claimSpecialMissions", 1, "ToolsAndSystem")
-    if (ui_irGift)
-        botConfig.set("receiveGift", 1, "ToolsAndSystem")
-    if (ui_irWP)
-        botConfig.set("wonderpickForEventMissions", 1, "ToolsAndSystem")
-    if (ui_irShinedust)
-        botConfig.set("ocrShinedust", 1, "SaveForTrade")
+    botConfig.set("claimSpecialMissions", ui_irClaim, "ToolsAndSystem")
+    botConfig.set("receiveGift", ui_irGift, "ToolsAndSystem")
+    botConfig.set("wonderpickForEventMissions", ui_irWP, "ToolsAndSystem")
+    botConfig.set("ocrShinedust", ui_irShinedust, "SaveForTrade")
     botConfig.saveConfigToSettings("ALL")
     g_irDialogResult := "ok"
     Gui, InjectReqDlg:Destroy
