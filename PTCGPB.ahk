@@ -44,7 +44,7 @@ OnError("ErrorHandler")
 githubUser := "kevnITG"
     ,repoName := "PTCGPB"
     ,localVersion := "v9.6.4"
-    ,modVersion := "v0.9.2"
+    ,modVersion := "v0.9.3"
     ,scriptFolder := A_ScriptDir
     ,zipPath := A_Temp . "\update.zip"
     ,extractPath := A_Temp . "\update"
@@ -1383,8 +1383,9 @@ ClearSpecialMissionHistory:
     IfMsgBox, Yes
     {
         changed := AccountMetadata_ClearFlagEverywhere("X")
+        changed := changed = "" ? 0 : changed + 0
 
-        MsgBox, 64, Clear Special Mission History Complete, % "Done`nAccounts changed: " changed
+        MsgBox, 64, Clear Special Mission History Complete, % "Done`nAccounts changed: " . changed
     }
 return
 
@@ -1393,8 +1394,9 @@ ClearReceiveGiftHistory:
     IfMsgBox, Yes
     {
         changed := AccountMetadata_ClearFlagEverywhere("R")
+        changed := changed = "" ? 0 : changed + 0
 
-        MsgBox, 64, Clear Receive Gift History Complete, % "Done`nAccounts changed: " changed
+        MsgBox, 64, Clear Receive Gift History Complete, % "Done`nAccounts changed: " . changed
     }
 return
 
@@ -1593,6 +1595,8 @@ BalanceXMLs:
                 command .= " --ocr-shinedust"
             if (botConfig.get("s4tEnabled"))
                 command .= " --s4t-enabled"
+            if (botConfig.get("spendHourGlass"))
+                command .= " --spend-hourglass"
             balanceOk := BalanceXMLs_RunWithProgress(command)
             resultPath := A_ScriptDir . "\Accounts\Saved\balance_result.txt"
             counter := 0
@@ -1608,7 +1612,7 @@ BalanceXMLs:
                     FileRead, errorText, %errorPath%
                 MsgBox, 0x40000, XML Balance, % "carddb balance-xmls failed.`n`n" . errorText
             } else {
-                MsgBox, 0x40000, XML Balance, % "Done balancing XMLs between " botConfig.get("Instances") " instances.`nEligible for injection now: " counter
+                MsgBox, 0x40000, XML Balance, % XMLBalanceResultMessage(botConfig.get("Instances"), counter)
             }
             return
         }
@@ -1722,10 +1726,12 @@ BalanceXMLs:
         ToolTip, Updating metadata indexes...please wait
         AccountMetadata_BulkMoveToInstances(metadataMoves)
 
-        instanceOneDir := saveDir . "1"
         counter := 0
         ToolTip, Counting XMLs older than 24 hours...
-        Loop, Files, %instanceOneDir%\*.xml
+        Loop, % botConfig.get("Instances")
+        {
+            instanceDir := saveDir . A_Index
+            Loop, Files, %instanceDir%\*.xml
         {
             FileGetTime, fileModifiedTime, %A_LoopFileFullPath%, M
             if (fileModifiedTime = "")
@@ -1735,11 +1741,19 @@ BalanceXMLs:
             if (fileModifiedTimeDiff >= 24)
                 counter++
         }
+        }
 
         Tooltip
-        MsgBox, 0x40000, XML Balance, % "Done balancing XMLs between " botConfig.get("Instances") " instances.`nEligible for injection now: " counter
+        MsgBox, 0x40000, XML Balance, % XMLBalanceResultMessage(botConfig.get("Instances"), counter)
     }
 return
+
+XMLBalanceResultMessage(instances, eligibleCount) {
+    instances += 0
+    eligibleCount += 0
+    averagePerInstance := instances > 0 ? Round(eligibleCount / instances, 0) : 0
+    return "Done balancing XMLs between " instances " instances.`nEligible for injection now: " eligibleCount "`nAverage per instance: " averagePerInstance
+}
 
 BalanceXMLs_RunWithProgress(command) {
     resultPath := A_ScriptDir . "\Accounts\Saved\balance_result.txt"

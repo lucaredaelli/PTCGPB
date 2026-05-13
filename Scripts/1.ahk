@@ -236,7 +236,9 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
     startPreProcess(botConfig.get("deleteMethod"))
     if (session.get("injectMethod") && session.get("loadedAccount") && session.get("deviceAccount") != "") {
         AccountMetadata_SetLastLoggedInNow(session.get("deviceAccount"), session.get("scriptName"), session.get("accountFileName"))
+        SetSpendHourglassMetadataFlag()
         GetHistoryOfAccount()
+        GetAccountCreationDate()
         new_packcount := EvaluatePackCount()
         if (new_packcount != 0) {
             accountMeta := AccountMetadata_Get(session.get("scriptName"), session.get("accountFileName"), session.get("loadedAccount"))
@@ -406,7 +408,9 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
         startPreProcess(botConfig.get("deleteMethod"))
         if (session.get("injectMethod") && session.get("loadedAccount") && session.get("deviceAccount") != "") {
             AccountMetadata_SetLastLoggedInNow(session.get("deviceAccount"), session.get("scriptName"), session.get("accountFileName"))
+            SetSpendHourglassMetadataFlag()
             GetHistoryOfAccount()
+            GetAccountCreationDate()
             new_packcount := EvaluatePackCount()
             if (new_packcount != 0) {
                 accountMeta := AccountMetadata_Get(session.get("scriptName"), session.get("accountFileName"), session.get("loadedAccount"))
@@ -1503,6 +1507,52 @@ menuDeleteStart() {
     }
 }
 
+GetAccountCreationDate() {
+    global session
+
+    if (!session.get("injectMethod") || !session.get("loadedAccount") || session.get("accountFileName") = "")
+        return false
+
+    accountPath := A_ScriptDir . "\..\Accounts\Saved\" . session.get("scriptName") . "\" . session.get("accountFileName")
+    accountMeta := AccountMetadata_Get(session.get("scriptName"), session.get("accountFileName"), accountPath)
+    if (accountMeta["createdAt"] != "" && accountMeta["createdAt"] != "0")
+        return true
+
+    adbWriteRaw("mkdir -p /data/ptcgp &&  if [ ! -e /data/ptcgp/ptcgpb ]; then curl -L -o /data/ptcgp/ptcgpb https://leanny.github.io/ptcgpb-helper/ptcgpb-helper-android && chmod +x /data/ptcgp/ptcgpb; fi")
+    earliestOutput := adbWriteRaw("/data/ptcgp/ptcgpb earliest", true)
+    earliestOutput := StrReplace(earliestOutput, "`r")
+    earliestOutput := Trim(earliestOutput, "`n`t ")
+    if (!RegExMatch(earliestOutput, "(\d{9,12})", earliestMatch))
+        return false
+
+    earliestUnix := earliestMatch1 + 0
+    latestUnix := earliestUnix + 86400
+    creationDate := AccountCreationDate_FromUnix(latestUnix)
+
+    if (RegExMatch(session.get("accountFileName"), "^\d+P_(\d{14})_", fileMatch)) {
+        fileCreationDate := fileMatch1
+        fileCreationUnix := AccountCreationDate_ToUnix(fileCreationDate)
+        if (fileCreationUnix >= earliestUnix && fileCreationUnix <= latestUnix)
+            creationDate := fileCreationDate
+    }
+
+    accountMeta["deviceAccount"] := GetCurrentDeviceAccountForMetadata()
+    accountMeta["createdAt"] := creationDate
+    return AccountMetadata_SaveAccount(session.get("scriptName"), session.get("accountFileName"), accountMeta)
+}
+
+AccountCreationDate_FromUnix(unixTimestamp) {
+    creationDate := "19700101000000"
+    EnvAdd, creationDate, %unixTimestamp%, Seconds
+    return creationDate
+}
+
+AccountCreationDate_ToUnix(creationDate) {
+    unixTimestamp := creationDate
+    EnvSub, unixTimestamp, 19700101000000, Seconds
+    return unixTimestamp + 0
+}
+
 GetHistoryOfAccount() {
     global session
     if (!session.get("injectMethod") || !session.get("loadedAccount") || session.get("accountFileName") = "")
@@ -1521,6 +1571,8 @@ GetHistoryOfAccount() {
     helperPath := AccountMetadata_HelperPath()
     if (!FileExist(helperPath))
         return false
+
+    CreateStatusMessage("Importing Pack History... Please wait a bit.")
 
     safeName := RegExReplace(deviceAccount, "[^A-Za-z0-9_.-]", "_")
     filename := "history_" . safeName . ".txt"
@@ -1613,7 +1665,7 @@ PullPackOpeningMissionUserPrefsSnapshot(kind, failedDir, uniquePrefix) {
 }
 
 ReportPackRecognitionFailure(reason := "Card Recognition Failed, use fallback mechanism") {
-    global session
+    global session, botConfig
 
     root := getScriptBaseFolder()
     failedDir := root . "\Logs\failed"
@@ -1622,7 +1674,7 @@ ReportPackRecognitionFailure(reason := "Card Recognition Failed, use fallback me
     preSnapshot := PullPackOpeningMissionUserPrefsSnapshot("pre", failedDir, uniquePrefix)
     postSnapshot := PullPackOpeningMissionUserPrefsSnapshot("post", failedDir, uniquePrefix)
 
-    message := reason . "\nPlease submit these MissionUserPrefs files for the bug report as well."
+    message := reason . "\nPlease submit these files for the bug report as well."
     for _, snapshot in [preSnapshot, postSnapshot] {
         localPathForMessage := StrReplace(snapshot.localPath, "\", "/")
         if (snapshot.exists) {
@@ -1634,7 +1686,11 @@ ReportPackRecognitionFailure(reason := "Card Recognition Failed, use fallback me
         }
     }
 
-    LogToDiscord(message)
+    ownerWebhookURL := botConfig.get("heartBeatOwnerWebHookURL")
+    if (ownerWebhookURL != "")
+        LogToDiscord(message,, false,,, ownerWebhookURL)
+    else
+        LogToFile("Owner Discord webhook URL is not configured. Card recognition failure message was not sent.", "Discord.txt")
 }
 
 RemoveOldFiles() {
@@ -1651,21 +1707,7 @@ TerminateHelper() {
     adbWriteRaw("pkill -f /data/ptcgp/ptcgpb")
 }
 
-EvaluatePack() {
-    global session
-    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
-    Loop, 10 {
-        RunWait, % adbCommand . " shell test -f /data/ptcgp/result.rc", , Hide
-        if (ErrorLevel = 0)
-            break
-        Sleep, 300
-    }
-    adbWriteRaw("pkill -f /data/ptcgp/ptcgpb")
-    waitadb()
-
-    SavePackOpeningMissionUserPrefsSnapshot("post")
-
-    output := GetStdout(adbCommand . " shell cat /data/ptcgp/result.rc")
+ParsePackResultOutput(output) {
     output := StrReplace(output, "`r")
     output := Trim(output, "`n ")
     lines := StrSplit(output, "`n")
@@ -1687,6 +1729,24 @@ EvaluatePack() {
     return { cards: cards, pack: pack, rarity: rarity, raw: raw_msg }
 }
 
+EvaluatePack() {
+    global session
+    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
+    Loop, 10 {
+        RunWait, % adbCommand . " shell test -f /data/ptcgp/result.rc", , Hide
+        if (ErrorLevel = 0)
+            break
+        Sleep, 300
+    }
+    adbWriteRaw("pkill -f /data/ptcgp/ptcgpb")
+    waitadb()
+
+    SavePackOpeningMissionUserPrefsSnapshot("post")
+
+    output := GetStdout(adbCommand . " shell cat /data/ptcgp/result.rc")
+    return ParsePackResultOutput(output)
+}
+
 EvaluatePackCount() {
     global session
 
@@ -1702,8 +1762,25 @@ EvaluatePackCount() {
     return output + 0
 }
 
+RecoverPack() {
+    global session
+    adbCommand := session.get("adbPath") . " -s 127.0.0.1:" . session.get("adbPort")
+
+    pre := PackOpeningMissionUserPrefsSnapshotPath("pre")
+    post := PackOpeningMissionUserPrefsSnapshotPath("post")
+
+    adbWriteRaw("rm -f /data/ptcgp/result.rc")
+    adbWriteRaw("/data/ptcgp/ptcgpb diff-files " . pre . " " . post)
+
+    output := GetStdout(adbCommand . " shell cat /data/ptcgp/result.rc")
+    return ParsePackResultOutput(output)
+}
+
 CheckPack(stopEarly := false) {
     result := EvaluatePack()
+    if (!result) {
+        result := RecoverPack()
+    }
     if (!result) {
         ReportPackRecognitionFailure()
         if (!stopEarly) {
@@ -4220,6 +4297,21 @@ SetWonderPickMetadataFlag() {
     AccountMetadata_SetFlag(session.get("scriptName"), session.get("accountFileName"), "W", 1, validUntil)
 }
 
+SetSpendHourglassMetadataFlag() {
+    global session, botConfig
+
+    if (!session.get("injectMethod") || !session.get("loadedAccount") || session.get("accountFileName") = "")
+        return
+    if (!botConfig.get("spendHourGlass"))
+        return
+    if (botConfig.get("deleteMethod") != "Inject 13P+" && botConfig.get("deleteMethod") != "Inject Wonderpick 96P+")
+        return
+
+    validUntil := A_Now
+    validUntil += 24, Hours
+    AccountMetadata_SetFlag(session.get("scriptName"), session.get("accountFileName"), "SH", 1, validUntil)
+}
+
 DoWonderPick() {
     global session
 
@@ -4488,7 +4580,6 @@ GetAllRewards(tomain := true, dailies := false) {
     session.set("failSafe", A_TickCount)
     failSafeTime := 0
     Loop {
-        adbClick(261, 478)
         Delay(1)
         if FindOrLoseImage("Mission_ActivatedBeginnerMissionTabButton", 0, failSafeTime)
             break
@@ -4500,6 +4591,7 @@ GetAllRewards(tomain := true, dailies := false) {
         }
         else if FindOrLoseImage("Mission_DailyMissionImage", 0, failSafeTime)
             break
+        adbClick(261, 478)
         failSafeTime := (A_TickCount - session.get("failSafe")) // 1000
     }
 

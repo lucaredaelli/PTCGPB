@@ -208,7 +208,7 @@ AccountMetadata_NewAccount(instance, fileName) {
     account["shinedust"] := AccountMetadata_NewShinedust()
     account["flags"] := {}
 
-    flags := ["B", "X", "T", "R", "W", "H"]
+    flags := ["B", "X", "T", "R", "W", "H", "SH"]
     Loop, % flags.MaxIndex()
         account["flags"][flags[A_Index]] := AccountMetadata_NewFlag(0)
 
@@ -220,6 +220,8 @@ AccountMetadata_ExtractPackCount(fileName) {
 }
 
 AccountMetadata_ExtractCreatedAt(fileName) {
+    if (RegExMatch(fileName, "^\d+P_(\d{14})_", match))
+        return match1
     return "0"
 }
 
@@ -492,7 +494,7 @@ AccountMetadata_ParseAccount(accountJson) {
     flagsBrace := flagsPos ? InStr(accountJson, "{", false, flagsPos) : 0
     flagsBody := AccountMetadata_ExtractObjectBody(accountJson, flagsBrace)
     if (flagsBody != "") {
-        flags := ["B", "X", "T", "R", "W", "H"]
+        flags := ["B", "X", "T", "R", "W", "H", "SH"]
         Loop, % flags.MaxIndex() {
             flag := flags[A_Index]
             flagPos := InStr(flagsBody, """" . flag . """")
@@ -530,7 +532,7 @@ AccountMetadata_SerializeStore(store) {
 }
 
 AccountMetadata_SerializeAccount(account, indent := "") {
-    flags := ["B", "X", "T", "R", "W", "H"]
+    flags := ["B", "X", "T", "R", "W", "H", "SH"]
     json := "{`r`n"
     firstField := true
 
@@ -675,7 +677,7 @@ AccountMetadata_EnsureAccount(ByRef store, instance, fileName, filePath := "", d
         store["accounts"][key]["deviceAccount"] := deviceAccount
     store["accounts"][key]["instance"] := instance
     store["accounts"][key]["fileName"] := fileName
-    if (store["accounts"][key]["createdAt"] = "")
+    if (store["accounts"][key]["createdAt"] = "" || store["accounts"][key]["createdAt"] = "0")
         store["accounts"][key]["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
 
     return store["accounts"][key]
@@ -696,7 +698,7 @@ AccountMetadata_MergeAccount(baseAccount, patchAccount) {
         baseAccount["packCount"] := patchAccount["packCount"] + 0
     if (patchAccount["lastModified"] != "")
         baseAccount["lastModified"] := patchAccount["lastModified"]
-    if (patchAccount["createdAt"] != "")
+    if (patchAccount["createdAt"] != "" && patchAccount["createdAt"] != "0")
         baseAccount["createdAt"] := patchAccount["createdAt"]
     if (patchAccount["lastPackPulled"] != "" && patchAccount["lastPackPulled"] != "0")
         baseAccount["lastPackPulled"] := patchAccount["lastPackPulled"]
@@ -709,7 +711,7 @@ AccountMetadata_MergeAccount(baseAccount, patchAccount) {
 
     if (!IsObject(baseAccount["flags"]))
         baseAccount["flags"] := {}
-    flags := ["B", "X", "T", "R", "W", "H"]
+    flags := ["B", "X", "T", "R", "W", "H", "SH"]
     Loop, % flags.MaxIndex() {
         flag := flags[A_Index]
         patchFlag := patchAccount["flags"][flag]
@@ -956,7 +958,9 @@ AccountMetadata_SaveAccount(instance, fileName, account) {
     key := AccountMetadata_FindKey(store, instance, fileName, "", account["deviceAccount"])
     account["instance"] := instance
     account["fileName"] := fileName
-    if (account["createdAt"] = "")
+    if ((account["createdAt"] = "" || account["createdAt"] = "0") && store["accounts"].HasKey(key) && store["accounts"][key]["createdAt"] != "" && store["accounts"][key]["createdAt"] != "0")
+        account["createdAt"] := store["accounts"][key]["createdAt"]
+    else if (account["createdAt"] = "" || account["createdAt"] = "0")
         account["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
     if (store["accounts"].HasKey(key))
         account["shinedust"] := AccountMetadata_NormalizeShinedust(store["accounts"][key]["shinedust"])
@@ -1025,7 +1029,7 @@ AccountMetadata_MoveToInstanceInStore(ByRef store, fileName, newInstance, filePa
     account["fileName"] := fileName
     if (account["packCount"] = "")
         account["packCount"] := AccountMetadata_ExtractPackCount(fileName)
-    if (account["createdAt"] = "")
+    if (account["createdAt"] = "" || account["createdAt"] = "0")
         account["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
 
     newKey := account["deviceAccount"] != "" ? AccountMetadata_DeviceKey(account["deviceAccount"]) : AccountMetadata_Key(newInstance, fileName)
@@ -1080,7 +1084,7 @@ AccountMetadata_BulkMoveToInstances(moves) {
             account["fileName"] := fileName
             if (account["packCount"] = "")
                 account["packCount"] := AccountMetadata_ExtractPackCount(fileName)
-            if (account["createdAt"] = "")
+            if (account["createdAt"] = "" || account["createdAt"] = "0")
                 account["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
 
             newKey := account["deviceAccount"] != "" ? AccountMetadata_DeviceKey(account["deviceAccount"]) : AccountMetadata_Key(newInstance, fileName)
@@ -1246,7 +1250,7 @@ AccountMetadata_SetLastPackPulledNow(deviceAccount, instance := "", fileName := 
         account["instance"] := instance
     if (fileName != "") {
         account["fileName"] := fileName
-        if (account["createdAt"] = "")
+        if (account["createdAt"] = "" || account["createdAt"] = "0")
             account["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
     }
 
@@ -1293,7 +1297,7 @@ AccountMetadata_SetLastLoggedInNow(deviceAccount, instance := "", fileName := ""
         account["instance"] := instance
     if (fileName != "") {
         account["fileName"] := fileName
-        if (account["createdAt"] = "")
+        if (account["createdAt"] = "" || account["createdAt"] = "0")
             account["createdAt"] := AccountMetadata_ExtractCreatedAt(fileName)
     }
 
@@ -1339,6 +1343,9 @@ AccountMetadata_GetFlag(instance, fileName, flag, ByRef found) {
 }
 
 AccountMetadata_ClearFlagEverywhere(flag) {
+    if (AccountMetadata_MigrationNeeded())
+        AccountMetadata_Ensure()
+
     helperPath := AccountMetadata_HelperPath()
     if (FileExist(helperPath)) {
         root := getScriptBaseFolder()
@@ -1392,10 +1399,15 @@ AccountMetadata_ClearFlagEverywhere(flag) {
 
         if (FileExist(resultPath)) {
             FileRead, resultText, %resultPath%
-            return resultText + 0
+            resultText := Trim(resultText, "`r`n ")
+            return resultText = "" ? 0 : resultText + 0
         }
         return 0
     }
+
+    changed := AccountMetadata_ClearFlagInAccountFiles(flag)
+    if (changed != "")
+        return changed + 0
 
     hMutex := AccountMetadata_AcquireLock()
     if (!hMutex)
@@ -1414,5 +1426,37 @@ AccountMetadata_ClearFlagEverywhere(flag) {
 
     AccountMetadata_WriteStoreUnlocked(store)
     AccountMetadata_ReleaseLock(hMutex)
+    return changed
+}
+
+AccountMetadata_ClearFlagInAccountFiles(flag) {
+    accountDir := AccountMetadata_AccountDir()
+    if (!FileExist(accountDir))
+        return ""
+
+    changed := 0
+    foundAny := false
+    Loop, Files, %accountDir%\*.json, F
+    {
+        foundAny := true
+        SplitPath, A_LoopFileName,,,, deviceAccount
+        if (deviceAccount = "")
+            continue
+
+        account := AccountMetadata_ReadAccountUnlocked(deviceAccount)
+        if (!IsObject(account["flags"]) || !account["flags"].HasKey(flag))
+            continue
+        if (!account["flags"][flag]["value"])
+            continue
+
+        account["flags"][flag]["value"] := 0
+        account["flags"][flag]["setAt"] := ""
+        account["flags"][flag]["validUntil"] := ""
+        AccountMetadata_WriteAccountUnlocked(deviceAccount, account)
+        changed++
+    }
+
+    if (!foundAny)
+        return ""
     return changed
 }
