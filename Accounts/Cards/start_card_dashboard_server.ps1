@@ -226,6 +226,25 @@ function Update-InjectIni {
     [System.IO.File]::WriteAllLines($IniPath, $output, $encoding)
 }
 
+function Normalize-InjectExtraFriendIdsText {
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+    $t = [string]$Text
+    $t = $t -replace "[\r\n\t]+", ","
+    $t = $t -replace "\|", ","
+    $t = $t -replace ",+", ","
+    $t = $t.Trim().Trim(",").Trim()
+    $parts = @(
+        $t.Split(",") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne "" } |
+            ForEach-Object { $_ -replace "[=\[\]\r\n]", "" } |
+            Where-Object { $_ -ne "" }
+    )
+    if ($parts.Count -eq 0) { return "" }
+    return ($parts -join ",")
+}
+
 function Resolve-AutoHotkeyExe {
     $candidates = @(
         "$env:ProgramFiles\AutoHotkey\AutoHotkey.exe",
@@ -475,6 +494,10 @@ function Invoke-InjectAccount {
         fileName = $fileNameNoExt
         selectedFilePath = $xmlPath
         sendFriendRequestAfterInject = if ($sendFriendRequest) { 1 } else { 0 }
+    }
+    $injectExtraProp = $payload.PSObject.Properties["injectExtraFriendIds"]
+    if ($null -ne $injectExtraProp) {
+        $iniValues["injectExtraFriendIDs"] = Normalize-InjectExtraFriendIdsText -Text ([string]$injectExtraProp.Value)
     }
     if (-not [string]::IsNullOrWhiteSpace($winTitle)) {
         # Reject anything weird so we don't write garbage that breaks the ini.

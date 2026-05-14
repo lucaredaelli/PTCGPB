@@ -194,7 +194,27 @@ NextStep:
 
     ; =================== UI - Bot Settings ===================
     sectionColor := "c39FF14"
-    Gui, Add, GroupBox, x5 y185 w240 h220 %sectionColor%, % dict["BotSettings"]
+    ; Center the control stack vertically inside the group box (title band + symmetric padding).
+    botSettings_grpY := 185
+    botSettings_grpH := 220
+    botSettings_titleBand := 22
+    botSettings_origY1 := 207
+    botSettings_origYLast := 342
+    botSettings_lastRowH := 22
+    botSettings_innerTop := botSettings_grpY + botSettings_titleBand
+    botSettings_innerBot := botSettings_grpY + botSettings_grpH
+    botSettings_stackH := (botSettings_origYLast + botSettings_lastRowH) - botSettings_origY1
+    botSettings_innerH := botSettings_innerBot - botSettings_innerTop
+    botSettings_yShift := (botSettings_innerTop + Floor((botSettings_innerH - botSettings_stackH) / 2)) - botSettings_origY1
+    botY207 := botSettings_origY1 + botSettings_yShift
+    botY227 := 227 + botSettings_yShift
+    botY257 := 257 + botSettings_yShift
+    botY277 := 277 + botSettings_yShift
+    botY297 := 297 + botSettings_yShift
+    botY322 := 322 + botSettings_yShift
+    botY342 := 342 + botSettings_yShift
+
+    Gui, Add, GroupBox, x5 y%botSettings_grpY% w240 h%botSettings_grpH% %sectionColor%, % dict["BotSettings"]
 
     defaultDelete := 1
     botMethod := botConfig.get("deleteMethod")
@@ -206,14 +226,14 @@ NextStep:
         defaultDelete := 3
     else if (botMethod = "Inject Rewards")
         defaultDelete := 4
-    Gui, Add, Text, x20 y207 %sectionColor%, Bot Mode
-    Gui, Add, DropDownList, vui_deleteMethod gdeleteSettings choose%defaultDelete% x20 y227 w200 Background2A2A2A cWhite, Create Bots (13P)|Inject 13P+|Inject Wonderpick 96P+|Inject Rewards
+    Gui, Add, Text, x20 y%botY207% %sectionColor%, Bot Mode
+    Gui, Add, DropDownList, vui_deleteMethod gdeleteSettings choose%defaultDelete% x20 y%botY227% w200 Background2A2A2A cWhite, Create Bots (13P)|Inject 13P+|Inject Wonderpick 96P+|Inject Rewards
 
-    Gui, Add, Checkbox, % (botConfig.get("packMethod") ? "Checked" : "") " vui_packMethod x20 y257 " . sectionColor . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), % dict["Txt_packMethod"]
-    Gui, Add, Checkbox, % (botConfig.get("openExtraPack") ? "Checked" : "") " vui_openExtraPack gopenExtraPackSettings x20 y277 " . sectionColor . ((botMethod = "Inject Wonderpick 96P+" || botMethod = "Inject 13P+") ? "" : " Hidden"), % dict["Txt_openExtraPack"]
-    Gui, Add, Checkbox, % (botConfig.get("spendHourGlass") ? "Checked" : "") " vui_spendHourGlass gspendHourGlassSettings x20 y297 " . sectionColor . ((botMethod = "Create Bots (13P)" || botMethod = "Inject Rewards")? " Hidden":""), % dict["Txt_spendHourGlass"]
+    Gui, Add, Checkbox, % (botConfig.get("packMethod") ? "Checked" : "") " vui_packMethod x20 y" . botY257 . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), % dict["Txt_packMethod"]
+    Gui, Add, Checkbox, % (botConfig.get("openExtraPack") ? "Checked" : "") " vui_openExtraPack gopenExtraPackSettings x20 y" . botY277 . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+" || botMethod = "Inject 13P+") ? "" : " Hidden"), % dict["Txt_openExtraPack"]
+    Gui, Add, Checkbox, % (botConfig.get("spendHourGlass") ? "Checked" : "") " vui_spendHourGlass gspendHourGlassSettings x20 y" . botY297 . " " . sectionColor . ((botMethod = "Create Bots (13P)" || botMethod = "Inject Rewards")? " Hidden":""), % dict["Txt_spendHourGlass"]
 
-    Gui, Add, Text, x20 y322 %sectionColor% vui_SortByText, % GuiLabel(dict["SortByText"])
+    Gui, Add, Text, x20 y%botY322% %sectionColor% vui_SortByText, % GuiLabel(dict["SortByText"])
     sortOption := 1
     if (botConfig.get("injectSortMethod") = "ModifiedDesc")
         sortOption := 2
@@ -221,10 +241,10 @@ NextStep:
         sortOption := 3
     else if (botConfig.get("injectSortMethod") = "PacksDesc")
         sortOption := 4
-    Gui, Add, DropDownList, vui_SortByDropdown gSortByDropdownHandler choose%sortOption% x20 y342 w130 Background2A2A2A cWhite, Oldest First|Newest First|Fewest Packs First|Most Packs First
+    Gui, Add, DropDownList, vui_SortByDropdown gSortByDropdownHandler choose%sortOption% x20 y%botY342% w130 Background2A2A2A cWhite, Oldest First|Newest First|Fewest Packs First|Most Packs First
 
-    Gui, Add, Text, x20 y277 %sectionColor% vui_AccountNameText, % GuiLabel(dict["Txt_AccountName"])
-    Gui, Add, Edit, vui_AccountName w90 x130 y277 h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("AccountName")
+    Gui, Add, Text, x20 y%botY277% %sectionColor% vui_AccountNameText, % GuiLabel(dict["Txt_AccountName"])
+    Gui, Add, Edit, vui_AccountName w90 x130 y%botY277% h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("AccountName")
 
     GuiControlGet, curMethod, , ui_deleteMethod
     if (curMethod = "Create Bots (13P)") {
@@ -338,7 +358,8 @@ deleteSettings:
 
     GuiControlGet, curDeleteMethod, , ui_deleteMethod
     if (curDeleteMethod != "Inject Wonderpick 96P+") {
-        ClearCardDetectionSettings()
+        ; Keep InjectWP Card Detection / Min GP 2★ in [Wonderpick] — do not zero them
+        ; when switching bot mode (same keys, no duplicate profile).
         botConfig.set("s4tWP", 0, "SaveForTrade")
         botConfig.set("s4tWPMinCards", 1, "SaveForTrade")
     }
@@ -396,6 +417,7 @@ deleteSettings:
         visible := isMainChecked ? "Show" : "Hide"
         GuiControl, %visible%, ui_Mains
     }
+    UpdateCardDetectionButtonText()
 return
 
 openExtraPackSettings:
@@ -755,27 +777,20 @@ CancelPackSelection:
 return
 
 ; =================== UI - Inject WP Card Detection(New Window, Details) ===================
-ClearCardDetectionSettings() {
-    botConfig.set("FullArtCheck", 0, "Wonderpick")
-    botConfig.set("TrainerCheck", 0, "Wonderpick")
-    botConfig.set("RainbowCheck", 0, "Wonderpick")
-    botConfig.set("PseudoGodPack", 0, "Wonderpick")
-    botConfig.set("InvalidCheck", 0, "Wonderpick")
-    botConfig.set("minStars", 0, "Wonderpick")
-
-    ; Update GUI controls if they exist
-    GuiControl,, ui_FullArtCheck_Popup, 0
-    GuiControl,, ui_TrainerCheck_Popup, 0
-    GuiControl,, ui_RainbowCheck_Popup, 0
-    GuiControl,, ui_PseudoGodPack_Popup, 0
-    GuiControl,, ui_InvalidCheck_Popup, 0
-    GuiControl,, ui_minStars_Popup, 0
-
-    UpdateCardDetectionButtonText()
-}
-
 UpdateCardDetectionButtonText() {
     global botConfig
+
+    curDm := ""
+    GuiControlGet, curDm,, ui_deleteMethod
+    if (ErrorLevel || curDm = "")
+        curDm := botConfig.get("deleteMethod")
+
+    if (curDm != "Inject Wonderpick 96P+") {
+        Gui, Font, s8 cGray, Segoe UI
+        GuiControl, Font, ui_CardDetectionButton
+        GuiControl,, ui_CardDetectionButton, Inject 96P+ only
+        return
+    }
 
     enabledOptions := []
 

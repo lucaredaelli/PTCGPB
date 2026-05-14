@@ -14,6 +14,12 @@ IniRead, fileName, InjectAccount.ini, UserSettings, fileName, name
 IniRead, folderPath, InjectAccount.ini, UserSettings, folderPath, C:\Program Files\Netease
 IniRead, selectedFilePath, InjectAccount.ini, UserSettings, selectedFilePath, ""
 IniRead, sendFriendRequestAfterInject, InjectAccount.ini, UserSettings, sendFriendRequestAfterInject, 0
+IniRead, injectExtraFriendIDsIni, InjectAccount.ini, UserSettings, injectExtraFriendIDs,
+if (injectExtraFriendIDsIni = "ERROR")
+    injectExtraFriendIDsIni := ""
+injectExtraFriendIDsDisplay := injectExtraFriendIDsIni
+StringReplace, injectExtraFriendIDsDisplay, injectExtraFriendIDsDisplay, |, `,, All
+StringReplace, injectExtraFriendIDsDisplay, injectExtraFriendIDsDisplay, `,, `n, All
 
 ; --- Headless mode (called from the Card Dashboard HTML server) ---------
 headless := false
@@ -60,33 +66,35 @@ if (instanceList != "") {
         }
     }
 }
-Gui, Add, Text, x10 y+15, Instance Name:
-Gui, Add, DropDownList, x10 y+5 vwinTitle w200 Choose%selectedIndex%, %instanceList%
-Gui, Add, Button, x+10 yp w80 gRefreshInstances, Refresh
+Gui, Add, Text, x10 y+15 w450, Instance Name:
+Gui, Add, DropDownList, x10 y+5 vwinTitle w340 Choose%selectedIndex%, %instanceList%
+Gui, Add, Button, x+10 yp w100 gRefreshInstances, Refresh
 
 ; File section
-Gui, Add, Text, x10 y+15 cDCDCDC, File Name (without spaces and without .xml):
-Gui, Add, Edit, x10 y+5 vfileName w300 c000000 BackgroundFFFFFF, %fileName%
-Gui, Add, Button, x+10 yp w80 gBrowseFile, Browse
+Gui, Add, Text, x10 y+15 w450 cDCDCDC, File Name (without spaces and without .xml):
+Gui, Add, Edit, x10 y+5 vfileName w340 c000000 BackgroundFFFFFF, %fileName%
+Gui, Add, Button, x+10 yp w100 gBrowseFile, Browse
 
 ; Folder section
-Gui, Add, Text, x10 y+15 cDCDCDC, MuMu Folder same as main script (C:\Program Files\Netease)
-Gui, Add, Edit, x10 y+5 vfolderPath w300 c000000 BackgroundFFFFFF, %folderPath%
+Gui, Add, Text, x10 y+15 w450 cDCDCDC, MuMu Folder same as main script (C:\Program Files\Netease)
+Gui, Add, Edit, x10 y+5 vfolderPath w450 c000000 BackgroundFFFFFF, %folderPath%
 
 ; Friend request option
-friendCheckText := "Send friend request after inject (uses FriendID in Settings.ini)"
-Gui, Add, Checkbox, x10 y+15 vsendFriendRequestAfterInject Checked%sendFriendRequestAfterInject% cDCDCDC, %friendCheckText%
+friendCheckText := "Send friend request(s) after inject"
+Gui, Add, Checkbox, x10 y+12 vsendFriendRequestAfterInject Checked%sendFriendRequestAfterInject% cDCDCDC, %friendCheckText%
+Gui, Add, Text, x10 y+6 w450 cGray, Optional extra friend IDs (in addition to [General] FriendID in Settings.ini).`nLeave empty to send only to that FriendID. Max 10 codes total (primary + extras).
+Gui, Add, Edit, x10 y+4 w450 h72 vextraFriendIDs Multi c000000 BackgroundFFFFFF, %injectExtraFriendIDsDisplay%
 
 ; Add another separator
-Gui, Add, Text, x10 y+15 w450 h1 0x10 c3F3F3F ; Darker separator
+Gui, Add, Text, x10 y+12 w450 h1 0x10 c3F3F3F ; Darker separator
 
-Gui, Add, Text, x10 y+12 w450 vInjectStatusText c8FD18A, Ready.
+Gui, Add, Text, x10 y+10 w450 vInjectStatusText c8FD18A, Ready.
 Gui, Add, Progress, x10 y+6 w450 h8 vInjectProgress c4AAE3A Background303030, 0
 Gui, Add, Button, x130 y+16 w100 h40 vSubmitBtn gSaveSettings cBlue, Submit
 Gui, Add, Button, x+10 yp w100 h40 vRunInstanceBtn gRunInstance cGreen, Run Instance
 
 ; Show the GUI with a proper size
-Gui, Show, w470 h470, Arturo's Account Injection Tool ;'
+Gui, Show, w470 h580, Arturo's Account Injection Tool ;'
 Return
 
 OnGuiClose:
@@ -109,6 +117,13 @@ SaveSettings:
     if (injectInProgress)
         return
     Gui, Submit, NoHide
+    settingsIni := A_ScriptDir . "\..\Settings.ini"
+    IniRead, prSid, %settingsIni%, General, FriendID, ERROR
+    mergedN := FriendRequestMergedCount(prSid, extraFriendIDs)
+    if (mergedN > 10) {
+        MsgBox, 48, Friend codes, Maximum 10 friend codes total (Settings.ini FriendID + optional extras in this window).`n`nYou have: %mergedN%.
+        return
+    }
     injectInProgress := 1
     SetInjectUiBusy(true)
     UpdateInjectUi("Saving settings...", 5)
@@ -118,6 +133,17 @@ SaveSettings:
     IniWrite, %folderPath%, InjectAccount.ini, UserSettings, folderPath
     IniWrite, %selectedFilePath%, InjectAccount.ini, UserSettings, selectedFilePath
     IniWrite, %sendFriendRequestAfterInject%, InjectAccount.ini, UserSettings, sendFriendRequestAfterInject
+    extraFriendForIni := extraFriendIDs
+    StringReplace, extraFriendForIni, extraFriendForIni, `r`n, `,, All
+    StringReplace, extraFriendForIni, extraFriendForIni, `n, `,, All
+    StringReplace, extraFriendForIni, extraFriendForIni, `r, `,, All
+    Loop {
+        if (!InStr(extraFriendForIni, ",,"))
+            break
+        StringReplace, extraFriendForIni, extraFriendForIni, `,,`,, All
+    }
+    extraFriendForIni := Trim(extraFriendForIni, " `t,")
+    IniWrite, %extraFriendForIni%, InjectAccount.ini, UserSettings, injectExtraFriendIDs
 ; fall through into RunInjectFlow
 
 RunInjectFlow:
@@ -210,7 +236,7 @@ RunInjectFlow:
     ; image-search + ADB primitives (same as 1.ahk) and runs a focused
     ; friend-request flow only.
     if (sendFriendRequestAfterInject) {
-        UpdateInjectUi("Sending friend request...", 92)
+        UpdateInjectUi("Sending friend request(s)...", 92)
         sendFRScript := A_ScriptDir . "\_SendFriendRequest.ahk"
         if (FileExist(sendFRScript)) {
             RunWait, %A_AhkPath% "%sendFRScript%" "%winTitle%" "%folderPath%"
@@ -495,6 +521,43 @@ GetInstanceList(baseFolder) {
     return instanceList
 }
 
+; Count unique 16-digit friend codes after merging Settings.ini FriendID + optional extra field (same rules as _SendFriendRequest.ahk).
+FriendListHasId(list, id) {
+    if (!IsObject(list) || !list.MaxIndex())
+        return false
+    Loop, % list.MaxIndex()
+    {
+        if (list[A_Index] = id)
+            return true
+    }
+    return false
+}
+
+FriendRequestMergedCount(primaryRaw, extraGuiText) {
+    list := []
+    sid := Trim(primaryRaw)
+    if (sid != "" && sid != "ERROR" && RegExMatch(sid, "^\d{16}$"))
+        list.Push(sid)
+    cleaned := RegExReplace(extraGuiText, "[\r\n]+", ",")
+    cleaned := RegExReplace(cleaned, "\|+", ",")
+    cleaned := RegExReplace(cleaned, "[\t; ]+", ",")
+    Loop {
+        if (!InStr(cleaned, ",,"))
+            break
+        StringReplace, cleaned, cleaned, `,,`,, All
+    }
+    cleaned := Trim(cleaned, " `t,")
+    Loop, Parse, cleaned, `,
+    {
+        id := Trim(A_LoopField)
+        if (!RegExMatch(id, "^\d{16}$"))
+            continue
+        if (!FriendListHasId(list, id))
+            list.Push(id)
+    }
+    return list.MaxIndex() ? list.MaxIndex() : 0
+}
+
 ; Refresh button handler
 RefreshInstances:
     refreshedList := GetInstanceList(folderPath)
@@ -508,6 +571,27 @@ RunInstance:
     SetInjectUiBusy(true)
     UpdateInjectUi("Starting selected instance...", 12)
     Gui, Submit, NoHide
+    settingsIni := A_ScriptDir . "\..\Settings.ini"
+    IniRead, prSid, %settingsIni%, General, FriendID, ERROR
+    mergedN := FriendRequestMergedCount(prSid, extraFriendIDs)
+    if (mergedN > 10) {
+        MsgBox, 48, Friend codes, Maximum 10 friend codes total (Settings.ini FriendID + optional extras in this window).`n`nYou have: %mergedN%.
+        SetInjectUiBusy(false)
+        injectInProgress := 0
+        return
+    }
+    extraFriendForIni := extraFriendIDs
+    StringReplace, extraFriendForIni, extraFriendForIni, `r`n, `,, All
+    StringReplace, extraFriendForIni, extraFriendForIni, `n, `,, All
+    StringReplace, extraFriendForIni, extraFriendForIni, `r, `,, All
+    Loop {
+        if (!InStr(extraFriendForIni, ",,"))
+            break
+        StringReplace, extraFriendForIni, extraFriendForIni, `,,`,, All
+    }
+    extraFriendForIni := Trim(extraFriendForIni, " `t,")
+    IniWrite, %extraFriendForIni%, InjectAccount.ini, UserSettings, injectExtraFriendIDs
+    IniWrite, %sendFriendRequestAfterInject%, InjectAccount.ini, UserSettings, sendFriendRequestAfterInject
     mumuFolder := getMumuFolder(folderPath)
     ; Find the instance number matching the selected name
     instanceNum := ""
