@@ -107,11 +107,16 @@ if (!hwnd) {
 
 ; Strip caption + force the canonical 283x532 client size the needle
 ; coordinates are calibrated against (matches DirectlyPositionWindow in 1.ahk).
-WinGetPos, wx, wy, , , ahk_id %hwnd%
-WinSet, Style, -0xC00000, ahk_id %hwnd%
-WinMove, ahk_id %hwnd%, , %wx%, %wy%, 283, 532
-WinSet, Redraw, , ahk_id %hwnd%
-Sleep, 400
+WinGetPos, wx, wy, ww, wh, ahk_id %hwnd%
+WinGet, curStyle, Style, ahk_id %hwnd%
+needsCaptionStrip := (curStyle & 0x00C00000) != 0
+needsResize := (ww != 283 || wh != 532)
+if (needsCaptionStrip)
+    WinSet, Style, -0xC00000, ahk_id %hwnd%
+if (needsResize)
+    WinMove, ahk_id %hwnd%, , %wx%, %wy%, 283, 532
+if (needsCaptionStrip || needsResize)
+    Sleep, 180
 
 setADBBaseInfo()
 ConnectAdb()

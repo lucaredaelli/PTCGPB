@@ -347,10 +347,15 @@ function Invoke-ListInstances {
         return
     }
     $instances = Get-MumuInstances -BaseFolder $folderPath
+    $injectExtraFriendIds = ""
+    if ($settings.ContainsKey("injectExtraFriendIDs")) {
+        $injectExtraFriendIds = Normalize-InjectExtraFriendIdsText -Text ([string]$settings["injectExtraFriendIDs"])
+    }
     Write-JsonResponse -Context $Context -StatusCode 200 -Payload @{
         ok = $true
         folderPath = $folderPath
         defaultInstance = if ($settings.ContainsKey("winTitle")) { $settings["winTitle"] } else { "" }
+        injectExtraFriendIds = $injectExtraFriendIds
         instances = $instances
     }
 }
@@ -860,6 +865,25 @@ try {
             }
             $shutdownAt = (Get-Date).AddSeconds(3)
             Write-TextResponse -Context $context -StatusCode 202 -Body "shutdown scheduled"
+            continue
+        }
+
+        if ($request.Url.AbsolutePath -eq "/__dashboard/settings-friend-id" -and $request.HttpMethod -eq "GET") {
+            if (-not (Is-LocalRequest -Context $context)) {
+                Write-JsonResponse -Context $context -StatusCode 403 -Payload @{ ok = $false; error = "Local requests only" }
+                continue
+            }
+            $settingsPath = Join-Path $resolvedRoot "Settings.ini"
+            $fid = ""
+            if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+                $sec = Read-IniSection -IniPath $settingsPath -Section "General"
+                if ($sec.ContainsKey("FriendID")) {
+                    $fid = [string]$sec["FriendID"]
+                }
+                $fid = $fid.Trim()
+                if ($fid -ieq "ERROR") { $fid = "" }
+            }
+            Write-JsonResponse -Context $context -StatusCode 200 -Payload @{ ok = $true; friendId = $fid }
             continue
         }
 

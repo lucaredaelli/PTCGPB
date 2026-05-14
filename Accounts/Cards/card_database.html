@@ -1314,9 +1314,114 @@
                 display: none;
             }
 
+            /* Wishlist heart button on Card Library tiles + Wishlist page */
+            .wishlist-heart-btn {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                left: auto;
+                width: 30px;
+                height: 30px;
+                border-radius: 999px;
+                background: var(--qty-bg);
+                border: 1px solid var(--qty-border);
+                color: #ff7a90;
+                font-size: 1.1rem;
+                line-height: 1;
+                font-weight: 900;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                padding: 0;
+                z-index: 3;
+                box-shadow: var(--qty-shadow);
+                transition: transform 120ms ease, background 120ms ease,
+                    color 120ms ease, border-color 120ms ease;
+            }
+            .wishlist-heart-btn:hover {
+                transform: scale(1.08);
+                background: var(--qty-bg);
+                color: #ff5872;
+                border-color: var(--qty-border);
+            }
+            .wishlist-heart-btn.on {
+                color: #fff;
+                background: linear-gradient(135deg, #ff4d6d, #e8254f);
+                border-color: rgba(255, 200, 210, 0.55);
+                box-shadow: 0 4px 12px rgba(232, 37, 79, 0.32);
+            }
+            .wishlist-heart-btn.on:hover {
+                transform: scale(1.08);
+                background: linear-gradient(135deg, #ff5c7c, #ee355d);
+            }
+            [data-theme="light"] .wishlist-heart-btn {
+                background: var(--qty-bg);
+                border-color: var(--qty-border);
+                color: #d8345f;
+            }
+            [data-theme="light"] .wishlist-heart-btn:hover {
+                background: var(--qty-bg);
+                color: #b81d44;
+                border-color: var(--qty-border);
+            }
+            [data-theme="light"] .wishlist-heart-btn.on {
+                color: #fff;
+                background: linear-gradient(135deg, #e8254f, #b81d44);
+                border-color: rgba(184, 29, 68, 0.5);
+                box-shadow: 0 4px 12px rgba(184, 29, 68, 0.28);
+            }
+            [data-theme="light"] .wishlist-heart-btn.on:hover {
+                background: linear-gradient(135deg, #f23560, #c8214e);
+            }
+
+            .card-tile.wishlisted {
+                border-color: rgba(232, 37, 79, 0.55);
+                box-shadow: 0 0 0 1px rgba(232, 37, 79, 0.22) inset;
+            }
+
+            .wishlist-page {
+                display: grid;
+                gap: 14px;
+            }
+            .wishlist-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .wishlist-title {
+                margin: 0;
+                font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+                font-weight: 900;
+                letter-spacing: -0.03em;
+            }
+            .wishlist-summary {
+                color: var(--muted);
+                font-size: 0.92rem;
+            }
+            .wishlist-groups {
+                display: grid;
+                gap: 14px;
+            }
+            .wishlist-section {
+                padding: 14px;
+                display: grid;
+                gap: 12px;
+            }
+            .wishlist-section .catalog-section-head {
+                margin-bottom: 0;
+            }
+            .wishlist-section [data-wishlist-tile] {
+                cursor: pointer;
+            }
+
             .card-tile {
                 contain: layout paint style;
                 min-width: 0;
+                display: flex;
+                flex-direction: column;
                 background:
                     radial-gradient(circle at 18% -8%, rgba(255, 255, 255, 0.12), transparent 42%),
                     linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
@@ -1419,14 +1524,32 @@
                 background: rgba(255, 255, 255, 0.03);
             }
 
+            .card-media > .empty {
+                width: 100%;
+                aspect-ratio: 5 / 7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.03);
+                padding: 0 !important;
+                font-size: 0.72rem;
+            }
+
             .card-name {
                 margin-top: 8px;
                 font-size: 0.82rem;
                 font-weight: 800;
                 line-height: 1.15;
                 min-height: 2.3em;
+                max-height: 2.3em;
                 color: var(--text);
                 text-align: center;
+                overflow: hidden;
+                display: -webkit-box;
+                line-clamp: 2;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
 
             .card-badges {
@@ -2896,6 +3019,31 @@
                 margin-left: auto;
             }
 
+            #instancePickerFriendGrid .instance-picker-friend-slot {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            #instancePickerFriendGrid .instance-picker-friend-slot label {
+                display: inline-block !important;
+                width: 22px;
+                margin: 0 !important;
+                text-align: right;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas,
+                    monospace;
+                font-size: 0.82rem !important;
+                line-height: 1;
+                color: var(--muted);
+                cursor: default;
+                user-select: none;
+            }
+
+            #instancePickerFriendGrid .instance-picker-friend-slot input {
+                flex: 1;
+                min-width: 0;
+            }
+
             @media (prefers-reduced-motion: reduce) {
                 * {
                     transition: none !important;
@@ -2948,6 +3096,14 @@
                     role="tab"
                 >
                     Multi-card Search
+                </button>
+                <button
+                    id="sectionWishlistBtn"
+                    type="button"
+                    class="section-switcher-btn"
+                    role="tab"
+                >
+                    Wishlist
                 </button>
             </div>
 
@@ -3227,7 +3383,7 @@
         >
             <div
                 style="
-                    max-width: 440px;
+                        max-width: 520px;
                     width: 92%;
                     padding: 24px 22px;
                     display: flex;
@@ -3316,65 +3472,318 @@
                 </label>
                 <div
                     style="
+                        font-size: 0.78rem;
+                        color: var(--muted);
+                        line-height: 1.35;
+                        margin-top: 2px;
+                    "
+                >
+                    Friend IDs (max 10). 1 = Settings.ini, 2-10 = extra.
+                </div>
+                <div
+                    id="instancePickerFriendGrid"
+                    style="
                         display: flex;
-                        flex-direction: column;
-                        gap: 6px;
+                        gap: 12px;
+                        align-items: flex-start;
                         margin-top: 4px;
                     "
                 >
-                    <label
-                        for="instancePickerExtraFriendIds"
-                        style="
-                            font-size: 0.85rem;
-                            color: var(--text);
-                            cursor: pointer;
-                            user-select: none;
-                        "
-                        >Extra friend codes
-                        <span
-                            style="
-                                color: var(--muted);
-                                font-weight: normal;
-                                font-size: 0.78rem;
-                            "
-                            >(optional)</span
-                        ></label
-                    >
                     <div
                         style="
-                            font-size: 0.78rem;
-                            color: var(--muted);
-                            line-height: 1.4;
-                            margin-top: -2px;
+                            flex: 1;
+                            min-width: 0;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 6px;
                         "
                     >
-                        Additional IDs only: the primary is
-                        <code>FriendID</code> in Settings.ini. Leave this box
-                        empty to send friend requests only to that ID (max 10
-                        codes total including primary).
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend1"
+                                style="
+                                    font-size: 0.78rem;
+                                    color: var(--muted);
+                                    display: block;
+                                    margin-bottom: 2px;
+                                "
+                                >1</label
+                            >
+                            <input
+                                id="instancePickerFriend1"
+                                type="text"
+                                readonly
+                                disabled
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--muted);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend2"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >2</label
+                            >
+                            <input
+                                id="instancePickerFriend2"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend3"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >3</label
+                            >
+                            <input
+                                id="instancePickerFriend3"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend4"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >4</label
+                            >
+                            <input
+                                id="instancePickerFriend4"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend5"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >5</label
+                            >
+                            <input
+                                id="instancePickerFriend5"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
                     </div>
-                    <textarea
-                        id="instancePickerExtraFriendIds"
-                        rows="3"
-                        spellcheck="false"
-                        autocomplete="off"
-                        placeholder="Optional extras; comma or one per line. Empty = Settings.ini FriendID only."
+                    <div
                         style="
-                            width: 100%;
-                            box-sizing: border-box;
-                            resize: vertical;
-                            min-height: 3.2rem;
-                            font-family: ui-monospace, SFMono-Regular, Menlo,
-                                Consolas, monospace;
-                            font-size: 0.82rem;
-                            line-height: 1.35;
-                            padding: 8px 10px;
-                            border-radius: var(--radius);
-                            border: 1px solid var(--border);
-                            background: var(--panel2, var(--panel));
-                            color: var(--text);
+                            flex: 1;
+                            min-width: 0;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 6px;
                         "
-                    ></textarea>
+                    >
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend6"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >6</label
+                            >
+                            <input
+                                id="instancePickerFriend6"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend7"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >7</label
+                            >
+                            <input
+                                id="instancePickerFriend7"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend8"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >8</label
+                            >
+                            <input
+                                id="instancePickerFriend8"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend9"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >9</label
+                            >
+                            <input
+                                id="instancePickerFriend9"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                        <div class="instance-picker-friend-slot">
+                            <label
+                                for="instancePickerFriend10"
+                                class="field-label"
+                                style="font-size: 0.78rem"
+                                >10</label
+                            >
+                            <input
+                                id="instancePickerFriend10"
+                                type="text"
+                                inputmode="numeric"
+                                spellcheck="false"
+                                autocomplete="off"
+                                style="
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    font-family: ui-monospace, SFMono-Regular,
+                                        Menlo, Consolas, monospace;
+                                    font-size: 0.8rem;
+                                    padding: 6px 8px;
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                    background: var(--panel2, var(--panel));
+                                    color: var(--text);
+                                "
+                            />
+                        </div>
+                    </div>
                 </div>
                 <div
                     style="display: flex; gap: 10px; justify-content: flex-end"
@@ -3552,6 +3961,7 @@
             const LS_TRADED_META = "ptcgp-card-db-traded-meta-v1";
             const LS_SHARED = "ptcgp-card-db-shared-v1";
             const LS_SHARED_META = "ptcgp-card-db-shared-meta-v1";
+            const LS_WISHLIST = "ptcgp-card-db-wishlist-v1";
             const LS_PAGE_SIZE = "ptcgp-card-db-page-size-v1";
             const DASHBOARD_PING_PATH = "/__dashboard/ping";
             const DASHBOARD_SHUTDOWN_PATH = "/__dashboard/shutdown";
@@ -3853,6 +4263,7 @@
                 tradedMeta: new Map(),
                 sharedSet: new Set(),
                 sharedMeta: new Map(),
+                wishlistSet: new Set(),
                 hideTradedMode: "show",
                 view: "rows",
                 selectedCatalogCardId: "",
@@ -3903,6 +4314,7 @@
                 sectionDbBtn: document.getElementById("sectionDbBtn"),
                 sectionLibraryBtn: document.getElementById("sectionLibraryBtn"),
                 sectionMultiBtn: document.getElementById("sectionMultiBtn"),
+                sectionWishlistBtn: document.getElementById("sectionWishlistBtn"),
                 toolbarSection: document.getElementById("toolbarSection"),
                 statsSection: document.getElementById("statsSection"),
                 filtersSection: document.getElementById("filtersSection"),
@@ -4247,6 +4659,84 @@
                 return payload;
             }
 
+            function parseExtraFriendIdsCsvToNine(text) {
+                const parts = String(text || "")
+                    .split(/[\s,;|]+/)
+                    .map((t) => t.trim())
+                    .filter(Boolean);
+                const out = [];
+                for (let i = 0; i < 9; i++) {
+                    out.push(i < parts.length ? parts[i] : "");
+                }
+                return out;
+            }
+            function sanitizeDashboardFriendSlotValue(value) {
+                return String(value || "")
+                    .replace(/\D+/g, "")
+                    .slice(0, 16);
+            }
+            function applyDashboardExtraFriendInputs(savedCsv) {
+                const nine = parseExtraFriendIdsCsvToNine(savedCsv);
+                for (let j = 0; j < 9; j++) {
+                    const el = document.getElementById(
+                        `instancePickerFriend${j + 2}`,
+                    );
+                    if (el)
+                        el.value = sanitizeDashboardFriendSlotValue(
+                            nine[j] || "",
+                        );
+                }
+            }
+            function setupDashboardFriendSlotRules() {
+                for (let i = 2; i <= 10; i++) {
+                    const el = document.getElementById(
+                        `instancePickerFriend${i}`,
+                    );
+                    if (!el) continue;
+                    el.maxLength = 16;
+                    el.value = sanitizeDashboardFriendSlotValue(el.value);
+                    if (!el.dataset.friendSanitizeBound) {
+                        el.addEventListener("input", () => {
+                            const clean = sanitizeDashboardFriendSlotValue(
+                                el.value,
+                            );
+                            if (el.value !== clean) el.value = clean;
+                        });
+                        el.dataset.friendSanitizeBound = "1";
+                    }
+                }
+            }
+            function collectDashboardExtraFriendCsv() {
+                const parts = [];
+                for (let i = 2; i <= 10; i++) {
+                    const el = document.getElementById(
+                        `instancePickerFriend${i}`,
+                    );
+                    const v = el
+                        ? sanitizeDashboardFriendSlotValue(el.value)
+                        : "";
+                    if (v) parts.push(v);
+                }
+                return parts.join(",");
+            }
+            function validateDashboardFriendSlots() {
+                const parts = [];
+                for (let i = 2; i <= 10; i++) {
+                    const el = document.getElementById(
+                        `instancePickerFriend${i}`,
+                    );
+                    if (!el) continue;
+                    const v = sanitizeDashboardFriendSlotValue(el.value);
+                    el.value = v;
+                    if (!v) continue;
+                    if (!/^\d{16}$/.test(v)) {
+                        return { ok: false, slot: i, element: el };
+                    }
+                    parts.push(v);
+                }
+                return { ok: true, csv: parts.join(",") };
+            }
+
             /**
              * Show the MuMu instance picker. Resolves to
              * `{ winTitle, sendFriendRequest, injectExtraFriendIds }` or null if cancelled.
@@ -4277,8 +4767,8 @@
                     const sendFRChk = document.getElementById(
                         "instancePickerSendFR",
                     );
-                    const extraFriendTa = document.getElementById(
-                        "instancePickerExtraFriendIds",
+                    const friendGrid = document.getElementById(
+                        "instancePickerFriendGrid",
                     );
                     const previouslyFocused = document.activeElement;
 
@@ -4297,15 +4787,34 @@
                         } catch (_) {}
                         sendFRChk.checked = initialFR;
                     }
-                    if (extraFriendTa) {
-                        try {
-                            extraFriendTa.value =
-                                localStorage.getItem(
-                                    "ptcgp-card-db-extra-friend-ids",
-                                ) || "";
-                        } catch (_) {
-                            extraFriendTa.value = "";
+                    if (friendGrid) {
+                        setupDashboardFriendSlotRules();
+                        const f1 = document.getElementById(
+                            "instancePickerFriend1",
+                        );
+                        if (f1) f1.value = "";
+                        for (let i = 2; i <= 10; i++) {
+                            const el = document.getElementById(
+                                `instancePickerFriend${i}`,
+                            );
+                            if (el) el.value = "";
                         }
+                        fetch("/__dashboard/settings-friend-id")
+                            .then((r) => r.json())
+                            .then((payload) => {
+                                const el = document.getElementById(
+                                    "instancePickerFriend1",
+                                );
+                                if (
+                                    el &&
+                                    payload &&
+                                    payload.ok &&
+                                    payload.friendId != null
+                                ) {
+                                    el.value = String(payload.friendId);
+                                }
+                            })
+                            .catch(() => {});
                     }
                     overlay.style.display = "flex";
 
@@ -4344,8 +4853,22 @@
                         } catch (_) {}
                         _lastPickedInstance = value;
                         let injectExtraFriendIds = "";
-                        if (extraFriendTa) {
-                            injectExtraFriendIds = extraFriendTa.value || "";
+                        if (friendGrid) {
+                            const check = validateDashboardFriendSlots();
+                            if (!check.ok) {
+                                showToast(
+                                    `Friend ID slot ${check.slot} must contain exactly 16 digits.`,
+                                    "error",
+                                    4200,
+                                );
+                                if (check.element) {
+                                    try {
+                                        check.element.focus();
+                                    } catch (_) {}
+                                }
+                                return;
+                            }
+                            injectExtraFriendIds = check.csv;
                             try {
                                 localStorage.setItem(
                                     "ptcgp-card-db-extra-friend-ids",
@@ -4368,11 +4891,10 @@
                             cleanup(null);
                         } else if (e.key === "Enter" && !okBtn.disabled) {
                             if (
-                                extraFriendTa &&
-                                (e.target === extraFriendTa ||
-                                    e.target?.closest?.(
-                                        "#instancePickerExtraFriendIds",
-                                    ))
+                                friendGrid &&
+                                e.target &&
+                                typeof e.target.closest === "function" &&
+                                e.target.closest("#instancePickerFriendGrid")
                             ) {
                                 return;
                             }
@@ -4455,6 +4977,20 @@
                             : "Loading instances\u2026";
                         try {
                             const data = await fetchMumuInstances({ force });
+                            if (friendGrid) {
+                                const iniExtras =
+                                    data &&
+                                    data.injectExtraFriendIds != null
+                                        ? String(data.injectExtraFriendIds)
+                                        : "";
+                                applyDashboardExtraFriendInputs(iniExtras);
+                                try {
+                                    localStorage.setItem(
+                                        "ptcgp-card-db-extra-friend-ids",
+                                        iniExtras,
+                                    );
+                                } catch (_) {}
+                            }
                             const list = Array.isArray(data.instances)
                                 ? data.instances
                                 : [];
@@ -4622,6 +5158,39 @@
                 } catch (_) {
                     state.sharedMeta = new Map();
                 }
+            }
+
+            function loadWishlist() {
+                try {
+                    const raw = localStorage.getItem(LS_WISHLIST);
+                    if (raw) state.wishlistSet = new Set(JSON.parse(raw));
+                } catch (_) {
+                    state.wishlistSet = new Set();
+                }
+            }
+            const saveWishlist = makeDebouncedSaver(() => {
+                try {
+                    localStorage.setItem(
+                        LS_WISHLIST,
+                        JSON.stringify([...state.wishlistSet]),
+                    );
+                } catch (_) {}
+            });
+            function isWishlisted(cardId) {
+                return state.wishlistSet.has(String(cardId));
+            }
+            function toggleWishlist(cardId) {
+                const id = String(cardId);
+                let nowOn;
+                if (state.wishlistSet.has(id)) {
+                    state.wishlistSet.delete(id);
+                    nowOn = false;
+                } else {
+                    state.wishlistSet.add(id);
+                    nowOn = true;
+                }
+                saveWishlist();
+                return nowOn;
             }
 
             const saveSharedMeta = makeDebouncedSaver(() => {
@@ -7426,6 +7995,7 @@
                 else if (state.view === "allcards") renderAllCardsView();
                 else if (state.view === "multisearch")
                     renderMultiCardSearchView();
+                else if (state.view === "wishlist") renderWishlistView();
                 else if (state.view === "traded") renderTradedView();
                 else if (state.view === "shared") renderSharedView();
                 else renderAccountOverview();
@@ -9349,6 +9919,216 @@
                 el.rows.innerHTML = `<div class="empty panel">Preparing card catalog...</div>`;
             }
 
+            function renderWishlistPlaceholder() {
+                el.showMoreBtn.classList.add("hidden");
+                el.resultNote.textContent = "";
+                el.rows.innerHTML = `<div class="empty panel">Loading wishlist...</div>`;
+            }
+
+            function buildWishlistTilesHtml(cardIds) {
+                return cardIds
+                    .map((id) => {
+                        const info = getCardInfo(id);
+                        const imgPart = info.imageUrl
+                            ? `<img src="${escapeHtml(info.imageUrl)}" loading="lazy" alt="${escapeHtml(info.name)}" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden');">`
+                            : "";
+                        const fallbackClass = info.imageUrl
+                            ? "hidden empty"
+                            : "empty";
+                        const rarityHtml = getRarityIconHtml(
+                            getCardRarityFilterKey(id, info),
+                        );
+                        return `<div class="card-tile wishlisted" data-wishlist-tile="${escapeHtml(id)}"><div class="card-media"><button type="button" class="wishlist-heart-btn on" data-wishlist-card="${escapeHtml(id)}" aria-pressed="true" title="Remove from wishlist" aria-label="Remove from wishlist">♥</button>${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div></div><div class="card-name">${escapeHtml(info.name)}</div><div class="card-badges"><span class="mini-badge">${rarityHtml}</span></div></div>`;
+                    })
+                    .join("");
+            }
+
+            // Group wishlisted cards by expansion, preserving the same section
+            // order Card Library uses (so users see a consistent ordering
+            // across both views). Within each section, sort by rarity desc
+            // then name.
+            function buildWishlistGroups() {
+                const wishIds = state.wishlistSet;
+                if (!wishIds.size) return [];
+                const base = buildCatalogBaseModel();
+                const groups = [];
+                const seen = new Set();
+                for (const section of base.sectionListAll) {
+                    const matching = section.cards.filter((c) =>
+                        wishIds.has(c.id),
+                    );
+                    if (!matching.length) continue;
+                    matching.sort((a, b) => {
+                        const ar = getRaritySortValue(a.id, a.info);
+                        const br = getRaritySortValue(b.id, b.info);
+                        if (ar !== br) return br - ar;
+                        return (
+                            a.info.name.localeCompare(b.info.name) ||
+                            a.id.localeCompare(b.id)
+                        );
+                    });
+                    const cardIds = matching.map((c) => {
+                        seen.add(c.id);
+                        return c.id;
+                    });
+                    groups.push({
+                        code: section.code,
+                        label: section.label,
+                        iconUrl: getPackIconUrl(section.code),
+                        cardIds,
+                    });
+                }
+                // Cards not in any known section (legacy or missing
+                // expansion mapping) — bucket them under "Other".
+                const orphans = [];
+                for (const id of wishIds)
+                    if (!seen.has(id)) orphans.push(id);
+                if (orphans.length) {
+                    orphans.sort((a, b) => {
+                        const ai = getCardInfo(a);
+                        const bi = getCardInfo(b);
+                        const ar = getRaritySortValue(a, ai);
+                        const br = getRaritySortValue(b, bi);
+                        if (ar !== br) return br - ar;
+                        return (
+                            ai.name.localeCompare(bi.name) ||
+                            a.localeCompare(b)
+                        );
+                    });
+                    groups.push({
+                        code: "__other__",
+                        label: "Other",
+                        iconUrl: "",
+                        cardIds: orphans,
+                    });
+                }
+                return groups;
+            }
+
+            function buildWishlistGroupsHtml(groups) {
+                return groups
+                    .map((g) => {
+                        const tilesHtml = buildWishlistTilesHtml(g.cardIds);
+                        const iconHtml = g.iconUrl
+                            ? `<img class="catalog-section-logo" src="${escapeHtml(g.iconUrl)}" alt="${escapeHtml(g.label)}" title="${escapeHtml(g.label)}" loading="lazy" onerror="this.outerHTML='<div class=\\'catalog-section-title\\'>${escapeHtml(g.label).replace(/'/g, "\\'")}</div>'">`
+                            : `<div class="catalog-section-title">${escapeHtml(g.label)}</div>`;
+                        return `<article class="wishlist-section panel" data-wishlist-section="${escapeHtml(g.code)}"><div class="catalog-section-head"><span></span><div class="catalog-section-logo-wrap">${iconHtml}</div><div class="catalog-section-meta">${formatNumber(g.cardIds.length)} card(s)</div></div><div class="cards-grid">${tilesHtml}</div></article>`;
+                    })
+                    .join("");
+            }
+
+            // Surgically replace just the .wishlist-groups container when a
+            // single card is removed. Falls back to a full re-render if the
+            // wishlist became empty or the page hasn't been mounted yet.
+            function rebuildWishlistContent() {
+                const root = el.rows.querySelector(".wishlist-page");
+                if (!root) {
+                    renderWishlistView();
+                    return;
+                }
+                const ids = [...state.wishlistSet];
+                if (!ids.length) {
+                    renderWishlistView();
+                    return;
+                }
+                const summary = root.querySelector(".wishlist-summary");
+                if (summary)
+                    summary.textContent = `${formatNumber(ids.length)} card(s) in your wishlist`;
+                const groupsRoot = root.querySelector(".wishlist-groups");
+                if (groupsRoot) {
+                    groupsRoot.innerHTML = buildWishlistGroupsHtml(
+                        buildWishlistGroups(),
+                    );
+                    _attachWishlistListeners();
+                }
+            }
+
+            function _attachWishlistListeners() {
+                el.rows
+                    .querySelectorAll(
+                        ".wishlist-groups [data-wishlist-card]",
+                    )
+                    .forEach((btn) => {
+                        btn.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            btn.blur();
+                            const cardId =
+                                btn.getAttribute("data-wishlist-card") || "";
+                            if (!cardId) return;
+                            toggleWishlist(cardId);
+                            const tile = btn.closest(
+                                "[data-wishlist-tile]",
+                            );
+                            if (tile) {
+                                tile.style.transition =
+                                    "opacity 160ms ease, transform 160ms ease";
+                                tile.style.opacity = "0";
+                                tile.style.transform = "scale(0.94)";
+                                setTimeout(rebuildWishlistContent, 170);
+                            } else {
+                                rebuildWishlistContent();
+                            }
+                        });
+                    });
+                el.rows
+                    .querySelectorAll(
+                        ".wishlist-groups [data-wishlist-tile]",
+                    )
+                    .forEach((tile) => {
+                        tile.addEventListener("click", (event) => {
+                            const heartBtn = event.target.closest(
+                                "[data-wishlist-card]",
+                            );
+                            if (heartBtn) return;
+                            const cardId =
+                                tile.getAttribute("data-wishlist-tile") || "";
+                            if (!cardId) return;
+                            const info = getCardInfo(cardId);
+                            const rarityKey = getCardRarityFilterKey(
+                                cardId,
+                                info,
+                            );
+                            if (rarityKey)
+                                state.catalogSelectedRarities.add(rarityKey);
+                            state.catalogExpansionFilter = "__all__";
+                            state.catalogCardSearch = cardId;
+                            state.selectedCatalogCardId = cardId;
+                            state.selectedCatalogAccount = "";
+                            setView("allcards");
+                        });
+                    });
+            }
+
+            function renderWishlistView() {
+                el.showMoreBtn.classList.add("hidden");
+                el.resultNote.textContent = "";
+                if (!state.cardmaster || !state.localisation) {
+                    el.rows.innerHTML = `<div class="empty panel">Card metadata not loaded.</div>`;
+                    return;
+                }
+                const ids = [...state.wishlistSet];
+                if (!ids.length) {
+                    el.rows.innerHTML = `<div class="empty panel"><div style="font-size:1.1rem;font-weight:800;margin-bottom:6px">Your wishlist is empty</div><div style="color:var(--muted)">Open <strong>Card Library</strong>, then tap the ♡ button on any card you want to track here.</div></div>`;
+                    return;
+                }
+                const groups = buildWishlistGroups();
+                const groupsHtml = buildWishlistGroupsHtml(groups);
+                el.rows.innerHTML = `<section class="wishlist-page"><header class="wishlist-head"><div><h2 class="wishlist-title">Wishlist</h2><div class="wishlist-summary">${formatNumber(ids.length)} card(s) in your wishlist</div></div><button type="button" id="wishlistClearBtn" class="ghost" title="Clear wishlist">Clear all</button></header><div class="wishlist-groups">${groupsHtml}</div></section>`;
+                _attachWishlistListeners();
+                const clearBtn = document.getElementById("wishlistClearBtn");
+                if (clearBtn)
+                    clearBtn.addEventListener("click", async () => {
+                        const ok = await showConfirm(
+                            `Remove all ${ids.length} card(s) from your wishlist?`,
+                        );
+                        if (!ok) return;
+                        state.wishlistSet.clear();
+                        saveWishlist();
+                        renderWishlistView();
+                    });
+            }
+
             function buildCardAccountCounts() {
                 if (
                     state.catalogAccountCountsCache &&
@@ -9721,7 +10501,21 @@
                                               .imageUrl
                                               ? "hidden empty"
                                               : "empty";
-                                          return `<button type="button" class="catalog-card-btn" data-catalog-card-id="${escapeHtml(card.id)}"><div class="card-tile${selectedClass}${unavailableClass}"><div class="card-media">${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="qty">×${formatNumber(card.totalCopies)}</div></div><div class="card-name">${escapeHtml(card.info.name)}</div><div class="card-badges"><span class="mini-badge">${getRarityIconHtml(getCardRarityFilterKey(card.id, card.info))}</span></div></div></button>`;
+                                          const wishOn = isWishlisted(
+                                              card.id,
+                                          );
+                                          const wishClass = wishOn
+                                              ? " wishlisted"
+                                              : "";
+                                          // Use a <span> here (not <button>)
+                                          // because the catalog tile is
+                                          // already wrapped in a <button>
+                                          // (data-catalog-card-id). Nested
+                                          // buttons are invalid HTML — the
+                                          // parser would auto-close the
+                                          // outer one and shatter the grid.
+                                          const wishBtn = `<span class="wishlist-heart-btn${wishOn ? " on" : ""}" role="button" tabindex="-1" data-wishlist-card="${escapeHtml(card.id)}" aria-pressed="${wishOn ? "true" : "false"}" title="${wishOn ? "Remove from wishlist" : "Add to wishlist"}" aria-label="${wishOn ? "Remove from wishlist" : "Add to wishlist"}">${wishOn ? "♥" : "♡"}</span>`;
+                                          return `<button type="button" class="catalog-card-btn" data-catalog-card-id="${escapeHtml(card.id)}"><div class="card-tile${selectedClass}${unavailableClass}${wishClass}"><div class="card-media">${wishBtn}${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="qty">×${formatNumber(card.totalCopies)}</div></div><div class="card-name">${escapeHtml(card.info.name)}</div><div class="card-badges"><span class="mini-badge">${getRarityIconHtml(getCardRarityFilterKey(card.id, card.info))}</span></div></div></button>`;
                                       })
                                       .join("");
                                   const availableInSection =
@@ -9856,9 +10650,44 @@
                     el.resultNote.textContent += clippedNote;
 
                 el.rows
+                    .querySelectorAll("[data-wishlist-card]")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            btn.blur();
+                            const cardId =
+                                btn.getAttribute("data-wishlist-card") || "";
+                            if (!cardId) return;
+                            const nowOn = toggleWishlist(cardId);
+                            btn.classList.toggle("on", nowOn);
+                            btn.setAttribute(
+                                "aria-pressed",
+                                nowOn ? "true" : "false",
+                            );
+                            btn.title = nowOn
+                                ? "Remove from wishlist"
+                                : "Add to wishlist";
+                            btn.setAttribute(
+                                "aria-label",
+                                nowOn
+                                    ? "Remove from wishlist"
+                                    : "Add to wishlist",
+                            );
+                            btn.textContent = nowOn ? "♥" : "♡";
+                            const tile = btn.closest(".card-tile");
+                            if (tile)
+                                tile.classList.toggle("wishlisted", nowOn);
+                        });
+                    });
+
+                el.rows
                     .querySelectorAll("[data-catalog-card-id]")
                     .forEach((btn) => {
                         btn.addEventListener("click", (event) => {
+                            // Skip if click came from the wishlist heart.
+                            if (event.target.closest("[data-wishlist-card]"))
+                                return;
                             event.preventDefault();
                             event.stopPropagation();
                             btn.blur();
@@ -11076,10 +11905,16 @@
                 el.sharedViewTab.classList.toggle("active", view === "shared");
                 const inLibrary = view === "allcards";
                 const inMultiSearch = view === "multisearch";
-                const inStandaloneTool = inLibrary || inMultiSearch;
+                const inWishlist = view === "wishlist";
+                const inStandaloneTool =
+                    inLibrary || inMultiSearch || inWishlist;
                 el.sectionDbBtn.classList.toggle("active", !inStandaloneTool);
                 el.sectionLibraryBtn.classList.toggle("active", inLibrary);
                 el.sectionMultiBtn.classList.toggle("active", inMultiSearch);
+                el.sectionWishlistBtn.classList.toggle(
+                    "active",
+                    inWishlist,
+                );
                 setLibraryModeLayout(inStandaloneTool);
                 // Page-size selector is meaningful for any paginated DB view
                 // (rows, accounts, traded, shared); expand/compact toggles only
@@ -11099,9 +11934,14 @@
                     isMarkedView;
                 el.expandAllBtn.classList.toggle("hidden", hideExpandCompact);
                 el.compactAllBtn.classList.toggle("hidden", hideExpandCompact);
-                if (inStandaloneTool && previousView !== view) {
+                if (
+                    (inLibrary || inMultiSearch) &&
+                    previousView !== view
+                ) {
                     scheduleCatalogWarmup();
                     renderCatalogPlaceholder();
+                } else if (inWishlist && previousView !== view) {
+                    renderWishlistPlaceholder();
                 }
                 const releaseHeightLock = () => {
                     // Measure the new view's natural height (without our lock)
@@ -11269,6 +12109,9 @@
             el.sectionMultiBtn.addEventListener("click", () =>
                 setView("multisearch"),
             );
+            el.sectionWishlistBtn.addEventListener("click", () =>
+                setView("wishlist"),
+            );
             el.cardSize.addEventListener("change", () =>
                 document.documentElement.style.setProperty(
                     "--card-w",
@@ -11369,6 +12212,7 @@
             loadTradedMeta();
             loadSharedState();
             loadSharedMeta();
+            loadWishlist();
             backfillMissingTradedTimestamps();
             backfillMissingSharedTimestamps();
             if (state.cardmaster && state.localisation && state.cardmap)
