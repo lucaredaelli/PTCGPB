@@ -48,8 +48,20 @@ global g_lastLvRowSigs := []
 global g_lastAvgRunByInstance := {}
 global g_rowMetaByRow := []
 global g_contextRow := 0
-global g_lvSortCol := 0
+global g_lvSortKey := ""
 global g_lvSortDir := 0
+global g_lvAllColKeys := []
+global g_lvColOrder := []
+global g_lvColVisible := {}
+global g_lvColWidths := {}
+global g_lvColWidthsSig := ""
+global g_lvLastAppliedLayoutSig := ""
+global g_lvColsGuiBuilt := 0
+global COLS_LV_HWND := 0
+global ColsLv := ""
+global g_lvColsEditorOrder := []
+global g_lvColsEditorVisible := {}
+global g_lvColsEditorSel := 1
 global g_eventFilter := Cockpit_LoadEventFilter()
 global g_lastEventsText := ""
 global g_cockpitStartEpoch := CockpitState_NowEpoch()
@@ -85,10 +97,11 @@ Loop, 12
 
 global botConfig := new BotConfig()
 botConfig.loadSettingsToConfig("ALL")
+g_lvAllColKeys := Cockpit_DefaultColumnKeys()
 if (Cockpit_HasArg("--injection-queue"))
     g_ageStandalone := true
 if (!g_ageStandalone && !Cockpit_IsLaunchAllowed()) {
-    MsgBox, 48, PTCGP Cockpit, Start the bot from PTCGPB first.
+    MsgBox, 48, PTCGPB Cockpit, Start the bot from PTCGPB first.
     ExitApp
 }
 OnMessage(0x111, "Cockpit_OnCommand")
@@ -97,6 +110,7 @@ OnMessage(0x4E, "Cockpit_OnNotify")
 Menu, CockpitRowMenu, Add, Open Log, Cockpit_MenuOpenLog
 Menu, CockpitRowMenu, Add, Open Account Folder, Cockpit_MenuOpenAccountFolder
 Menu, CockpitRowMenu, Add, Open Account XML, Cockpit_MenuOpenAccountXml
+Cockpit_LoadColumnsPrefs()
 
 if (g_ageStandalone) {
     Cockpit_AgeEnsureGui()
@@ -118,12 +132,12 @@ if (g_ageStandalone) {
     if (mainPos.ok) {
         mx := mainPos.x
         my := mainPos.y
-        Gui, Cockpit:Show, x%mx% y%my% w%GUI_W% h%GUI_H%, PTCGP Cockpit
+        Gui, Cockpit:Show, x%mx% y%my% w%GUI_W% h%GUI_H%, PTCGPB Cockpit
     }
     else
-        Gui, Cockpit:Show, Center w%GUI_W% h%GUI_H%, PTCGP Cockpit
-    WinRestore, PTCGP Cockpit
-    WinActivate, PTCGP Cockpit
+        Gui, Cockpit:Show, Center w%GUI_W% h%GUI_H%, PTCGPB Cockpit
+    WinRestore, PTCGPB Cockpit
+    WinActivate, PTCGPB Cockpit
     SetTimer, Cockpit_Refresh, 1000
     SetTimer, Agg_Tick, 1000
 }
@@ -134,24 +148,24 @@ Return
 ;===============================================================================
 Cockpit_BuildGui() {
     global
-    local y, instancesConfigured, lvRows, lvHeight, lvInnerWidth
-        , timeColW, eventsH
+    local y, instancesConfigured, lvRows, lvHeight, eventsH
 
     instancesConfigured := (botConfig.get("Instances") + 0)
     if (instancesConfigured <= 0)
         instancesConfigured := 1
     lvRows := instancesConfigured
 
-    Gui, Cockpit:New, +HwndhCockpit +Resize +MinSize720x430, PTCGP Cockpit
+    Gui, Cockpit:New, +HwndhCockpit -Resize -MaximizeBox, PTCGPB Cockpit
     Gui, Cockpit:Default
     Gui, Color, %THEME_BG%, %THEME_BG%
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
 
     ; --- MODE: big, prominent ---
     Gui, Font, s16 c%THEME_ACCENT% Bold, %THEME_FONT%
-    Gui, Add, Text, % "x14 y8 w" . (GUI_W - 150) . " h32 vlblModeVal Background" . THEME_BG, (loading...)
-    Gui, Font, s8 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, Button, % "x" . (GUI_W - 126) . " y12 w112 h22 vbtnAgeView gCockpit_OpenAgeView", Injection queue
+    Gui, Add, Text, % "x14 y8 w" . (GUI_W - 264) . " h32 vlblModeVal Background" . THEME_BG, (loading...)
+    Gui, Font, s9 c%THEME_TEXT% Bold, %THEME_FONT%
+    Gui, Add, Button, % "x" . (GUI_W - 238) . " y12 w104 h22 vbtnCols gCockpit_OpenColumns", Customise
+    Gui, Add, Button, % "x" . (GUI_W - 126) . " y12 w112 h22 vbtnAgeView gCockpit_OpenAgeView", Injection Queue
     Cockpit_UpdateAgeButtonVisibility(botConfig.get("deleteMethod"))
 
     ; --- 2-column label/value grid ---
@@ -192,21 +206,10 @@ Cockpit_BuildGui() {
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
     ; +0x2000 = LVS_NOSCROLL
     Gui, Add, ListView, % "x10 y" . y . " w" . (GUI_W - 20) . " h200 vInstancesLv gCockpit_OnInstancesLv hwndhLv -Multi -ReadOnly Grid -0x100000 -0x200000 +0x2000 -0x200"
-        , #|Status|Currently Injected|Packs|Stuck|Queue|Average|ETA
+        , % Cockpit_BuildInstanceLvHeaderCsv()
     LV_HWND := hLv
 
-    lvInnerWidth := GUI_W - 20 - 4
-    LV_ModifyCol(1, "30 Center")
-    LV_ModifyCol(2, "80 Center")
-    LV_ModifyCol(3, "280 Center")
-    LV_ModifyCol(4, "60 Center")
-    LV_ModifyCol(5, "60 Center")
-    LV_ModifyCol(6, "65 Center")
-    LV_ModifyCol(7, "95 Center")
-    timeColW := lvInnerWidth - (30+80+280+60+60+65+95)
-    if (timeColW < 60)
-        timeColW := 60
-    LV_ModifyCol(8, timeColW " Center")
+    Cockpit_ApplyColumnsToListView()
     Cockpit_StyleListView(hLv)
     Cockpit_DisableColumnResize(hLv)
 
@@ -253,7 +256,7 @@ Cockpit_AddPair(text, x, y, vname) {
     global
     Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
     Gui, Add, Text, % "x" . x . " y" . y . " w90 h16 Background" . THEME_BG, %text%
-    Gui, Font, s10 c%THEME_TEXT% Bold, %THEME_FONT%
+    Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
     Gui, Add, Text, % "x" . (x + 95) . " y" . (y - 2) . " w260 h18 v" . vname . " Background" . THEME_BG, -
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
 }
@@ -272,7 +275,15 @@ Cockpit_IsLaunchAllowed() {
 }
 
 Cockpit_MeasureLvHeight(hLv, lvRows) {
-    LV_Add("", "1", "", "", "", "", "", "", "")
+    global g_lvColOrder
+    colN := g_lvColOrder.Length()
+    if (colN <= 0)
+        colN := 1
+    cells := []
+    cells.Push("1")
+    Loop, % colN - 1
+        cells.Push("")
+    LV_Add("", cells*)
     VarSetCapacity(rcItem, 16, 0)
     NumPut(0, rcItem, 0, "Int")
     SendMessage, 0x100E, 0, &rcItem, , ahk_id %hLv%
@@ -469,7 +480,7 @@ Cockpit_RenderHeader(state, stale := false) {
         rph := 0
     }
     GuiControl, Cockpit:, lblPaceVal, % (rph > 0 ? (rph . " injects / hour") : "-")
-    GuiControl, Cockpit:, lblAvgVal,  % (avg > 0 ? avg . " seconds" : "-")
+    GuiControl, Cockpit:, lblAvgVal,  % (avg > 0 ? Metrics_FormatDurationMS(avg) : "-")
     GuiControl, Cockpit:, lblRunsVal, % runs . " completed this session"
 
     ; ---- Session ----
@@ -545,7 +556,7 @@ Cockpit_RenderHeader(state, stale := false) {
 ;===============================================================================
 Cockpit_RenderInstances(state) {
     global g_lastLvRowSigs, g_lastAvgRunByInstance, g_rowMetaByRow
-        , g_cockpitStartEpoch, g_lvSortCol, g_lvSortDir
+        , g_cockpitStartEpoch, g_lvSortKey, g_lvSortDir, g_lvColOrder
     g := state["Global"]
     sessStartEpoch := g.HasKey("sessionStartEpoch") ? (g["sessionStartEpoch"] + 0) : 0
     instances := state["Instances"]
@@ -571,8 +582,11 @@ Cockpit_RenderInstances(state) {
             g_lastAvgRunByInstance[N] := 0
         ls := inst.HasKey("lastStartEpoch") ? (inst["lastStartEpoch"] + 0) : 0
         le := inst.HasKey("lastEndEpoch") ? (inst["lastEndEpoch"] + 0) : 0
+        currentRunSec := inst.HasKey("currentRunSeconds") ? (inst["currentRunSeconds"] + 0) : 0
+        gpFoundCount := inst.HasKey("gpFoundCount") ? (inst["gpFoundCount"] + 0) : 0
         runsSessionInst := inst.HasKey("runsSession") ? (inst["runsSession"] + 0) : 0
         hasCompletedRun := (runsSessionInst > 0)
+        runsTxt := runsSessionInst
         avgRunSec := 0
         if (hasCompletedRun && ls > 0 && le >= ls && sessStartEpoch > 0 && le >= sessStartEpoch) {
             avgRunSec := le - ls
@@ -590,6 +604,11 @@ Cockpit_RenderInstances(state) {
             g_lastAvgRunByInstance[N] := 0
         }
         avgRunTxt := (avgRunSec > 0) ? Metrics_FormatDurationMS(avgRunSec) : "-"
+        if (isActiveStatus)
+            currentRunTxt := Metrics_FormatDurationMS(currentRunSec)
+        else
+            currentRunTxt := "-"
+        gpTxt := Cockpit_GpFoundColumnEligible() ? gpFoundCount : ""
         etaSec := (inst["etaSeconds"] + 0)
         etaLabel := inst.HasKey("etaLabel") ? inst["etaLabel"] : ""
         if (!hasCompletedRun) {
@@ -614,21 +633,28 @@ Cockpit_RenderInstances(state) {
                 etaTxt := "--"
             }
         }
+        etaTxt := Cockpit_FormatEtaAligned(etaTxt)
         etaTxt := Cockpit_CapitalizeFirst(etaTxt)
-        rows.Push({ "c1": prefix, "c2": statusTxt, "c3": account, "c4": pks
-            , "c5": stk, "c6": injTxt, "c7": avgRunTxt, "c8": etaTxt
+        rows.Push({ "id": prefix, "status": statusTxt, "account": account, "packs": pks
+            , "stuck": stk, "queue": injTxt, "runs": runsTxt, "currentRun": currentRunTxt
+            , "average": avgRunTxt, "eta": etaTxt, "gpFound": gpTxt
             , "instanceId": N, "accountFileName": rawAccount })
     }
 
-    if (g_lvSortCol > 0 && g_lvSortDir != 0)
-        Cockpit_SortRows(rows, g_lvSortCol, g_lvSortDir)
+    if (g_lvSortKey != "" && g_lvSortDir != 0)
+        Cockpit_SortRows(rows, g_lvSortKey, g_lvSortDir)
 
     rowSigs := []
     g_rowMetaByRow := []
     Loop, % rows.Length() {
         r := rows[A_Index]
-        rowSig := r.c1 . "|" . r.c2 . "|" . r.c3 . "|" . r.c4 . "|"
-            . r.c5 . "|" . r.c6 . "|" . r.c7 . "|" . r.c8
+        rowSig := ""
+        Loop, % g_lvColOrder.Length() {
+            colKey := g_lvColOrder[A_Index]
+            if (A_Index > 1)
+                rowSig .= "|"
+            rowSig .= Cockpit_GetColumnValue(r, colKey)
+        }
         rowSigs.Push(rowSig)
         g_rowMetaByRow[A_Index] := { "instanceId": r.instanceId, "accountFileName": r.accountFileName }
     }
@@ -642,7 +668,8 @@ Cockpit_RenderInstances(state) {
         LV_Delete()
         Loop, % rows.Length() {
             r := rows[A_Index]
-            LV_Add("", r.c1, r.c2, r.c3, r.c4, r.c5, r.c6, r.c7, r.c8)
+            vals := Cockpit_LvValuesFromRow(r)
+            LV_Add("", vals*)
         }
         GuiControl, +Redraw, InstancesLv
     } else {
@@ -650,11 +677,12 @@ Cockpit_RenderInstances(state) {
             if (g_lastLvRowSigs[A_Index] = rowSigs[A_Index])
                 continue
             r := rows[A_Index]
-            LV_Modify(A_Index, "", r.c1, r.c2, r.c3, r.c4, r.c5, r.c6, r.c7, r.c8)
+            vals := Cockpit_LvValuesFromRow(r)
+            LV_Modify(A_Index, "", vals*)
         }
     }
 
-    Cockpit_FillLastColumn(LV_HWND, 8)
+    Cockpit_ApplyColumnsToListView()
     g_lastLvRowSigs := rowSigs
 }
 
@@ -667,7 +695,7 @@ Cockpit_IsInjectablesReady(state) {
     return (src = "list_current")
 }
 
-Cockpit_SortRows(ByRef rows, sortCol, sortDir) {
+Cockpit_SortRows(ByRef rows, sortKey, sortDir) {
     count := rows.Length()
     if (count < 2)
         return
@@ -679,7 +707,7 @@ Cockpit_SortRows(ByRef rows, sortCol, sortDir) {
         i := start
         innerMax := count - A_Index
         while (i <= innerMax) {
-            if (Cockpit_ShouldSwapRows(rows[i], rows[i + 1], sortCol, sortDir)) {
+            if (Cockpit_ShouldSwapRows(rows[i], rows[i + 1], sortKey, sortDir)) {
                 tmp := rows[i]
                 rows[i] := rows[i + 1]
                 rows[i + 1] := tmp
@@ -689,16 +717,16 @@ Cockpit_SortRows(ByRef rows, sortCol, sortDir) {
     }
 }
 
-Cockpit_ShouldSwapRows(a, b, sortCol, sortDir) {
-    cmp := Cockpit_CompareRows(a, b, sortCol)
+Cockpit_ShouldSwapRows(a, b, sortKey, sortDir) {
+    cmp := Cockpit_CompareRows(a, b, sortKey)
     if (sortDir > 0)
         return (cmp > 0)
     return (cmp < 0)
 }
 
-Cockpit_CompareRows(a, b, sortCol) {
-    va := Cockpit_GetSortValue(a, sortCol)
-    vb := Cockpit_GetSortValue(b, sortCol)
+Cockpit_CompareRows(a, b, sortKey) {
+    va := Cockpit_GetSortValue(a, sortKey)
+    vb := Cockpit_GetSortValue(b, sortKey)
     if (va.isNum && vb.isNum) {
         if (va.num > vb.num)
             return 1
@@ -713,8 +741,8 @@ Cockpit_CompareRows(a, b, sortCol) {
     return 0
 }
 
-Cockpit_GetSortValue(row, sortCol) {
-    v := row["c" . sortCol]
+Cockpit_GetSortValue(row, sortKey) {
+    v := row.HasKey(sortKey) ? row[sortKey] : ""
     out := { "isNum": false, "num": 0, "txt": Cockpit_ToLower(v) }
     if (v = "-" || v = "--" || v = "")
         return { "isNum": true, "num": -1, "txt": "" }
@@ -744,6 +772,20 @@ Cockpit_GetSortValue(row, sortCol) {
         return out
     }
     return out
+}
+
+Cockpit_FormatEtaAligned(txt) {
+    if (txt = "" || txt = "-" || txt = "--")
+        return txt
+    if (RegExMatch(txt, "^(\d+)h\s+(\d+)m$", m))
+        return Format("{:02}", m1 + 0) . "h " . Format("{:02}", m2 + 0) . "m"
+    if (RegExMatch(txt, "^(\d+)m$", m))
+        return "00h " . Format("{:02}", m1 + 0) . "m"
+    if (RegExMatch(txt, "^(\d+)h$", m))
+        return Format("{:02}", m1 + 0) . "h 00m"
+    if (RegExMatch(txt, "^(\d+)d\s+(\d+)h\s+(\d+)m$", m))
+        return (m1 + 0) . "d " . Format("{:02}", m2 + 0) . "h " . Format("{:02}", m3 + 0) . "m"
+    return txt
 }
 
 Cockpit_CapitalizeFirst(txt) {
@@ -965,6 +1007,581 @@ Cockpit_SaveEventFilter(filter) {
     IniWrite, %filter%, %ini%, Events, Filter
 }
 
+Cockpit_GpFoundColumnEligible() {
+    global botConfig
+    if (!IsObject(botConfig))
+        return false
+    return (Trim(botConfig.get("deleteMethod")) = "Inject Wonderpick 96P+")
+}
+
+Cockpit_DefaultColumnKeys() {
+    keys := ["id", "status", "account", "packs", "stuck", "queue"
+        , "runs", "currentRun", "average", "eta"]
+    if (Cockpit_GpFoundColumnEligible())
+        keys.Push("gpFound")
+    return keys
+}
+
+Cockpit_BuildInstanceLvHeaderCsv() {
+    global g_lvColOrder
+    meta := Cockpit_GetColumnMeta()
+    hdr := ""
+    Loop, % g_lvColOrder.Length() {
+        key := g_lvColOrder[A_Index]
+        if (!meta.HasKey(key))
+            continue
+        tit := Cockpit_GetTableHeaderTitle(key, meta[key].title)
+        hdr .= (hdr != "" ? "|" : "") . tit
+    }
+    return hdr
+}
+
+Cockpit_GetColumnMeta() {
+    meta := {}
+    meta["id"] := { "title": "#", "width": 28 }
+    meta["status"] := { "title": "Status", "width": 70 }
+    meta["account"] := { "title": "Currently Injected", "width": 170 }
+    meta["packs"] := { "title": "Packs", "width": 50 }
+    meta["stuck"] := { "title": "Stuck", "width": 42 }
+    meta["queue"] := { "title": "Queue", "width": 50 }
+    meta["runs"] := { "title": "Runs", "width": 44 }
+    meta["currentRun"] := { "title": "Current Run Duration", "width": 88 }
+    meta["average"] := { "title": "Average", "width": 74 }
+    meta["eta"] := { "title": "ETA", "width": 66 }
+    meta["gpFound"] := { "title": "GP Found", "width": 72 }
+    return meta
+}
+
+Cockpit_GetTableHeaderTitle(key, defaultTitle) {
+    if (key = "gpFound")
+        return "GP"
+    if (key = "currentRun")
+        return "Current"
+    return defaultTitle
+}
+
+Cockpit_LoadColumnsPrefs() {
+    global g_lvAllColKeys, g_lvColOrder, g_lvColVisible
+    ini := Cockpit_UIIniPath()
+    defaultOrder := []
+    for _, key in g_lvAllColKeys
+        defaultOrder.Push(key)
+    g_lvColOrder := []
+    IniRead, rawOrder, %ini%, Columns, Order, %A_Space%
+    if (rawOrder = "ERROR" || rawOrder = "") {
+        for _, key in defaultOrder
+            g_lvColOrder.Push(key)
+    } else {
+        seen := {}
+        Loop, Parse, rawOrder, |
+        {
+            key := Trim(A_LoopField)
+            if (key = "" || seen.HasKey(key))
+                continue
+            if (Cockpit_ArrayHasValue(g_lvAllColKeys, key)) {
+                g_lvColOrder.Push(key)
+                seen[key] := true
+            }
+        }
+        for _, key in defaultOrder {
+            if (!seen.HasKey(key))
+                g_lvColOrder.Push(key)
+        }
+    }
+    g_lvColVisible := {}
+    IniRead, rawVisible, %ini%, Columns, Visible, %A_Space%
+    if (rawVisible = "ERROR" || rawVisible = "") {
+        for _, key in g_lvAllColKeys
+            g_lvColVisible[key] := true
+    } else {
+        Loop, Parse, rawVisible, |
+        {
+            key := Trim(A_LoopField)
+            if (key != "")
+                g_lvColVisible[key] := true
+        }
+        for _, key in g_lvAllColKeys {
+            if (!g_lvColVisible.HasKey(key))
+                g_lvColVisible[key] := false
+        }
+    }
+    if (Cockpit_CountVisibleColumns() <= 0)
+        g_lvColVisible["id"] := true
+    ordered := []
+    for _, key in g_lvColOrder {
+        if (key = "id")
+            continue
+        ordered.Push(key)
+    }
+    g_lvColOrder := ["id"]
+    for _, key in ordered
+        g_lvColOrder.Push(key)
+    g_lvColVisible["id"] := true
+    Cockpit_ClearColumnsWidthCache()
+    Cockpit_LoadColumnsWidthPrefs()
+}
+
+Cockpit_SaveColumnsPrefs() {
+    global g_lvColOrder, g_lvColVisible
+    ini := Cockpit_UIIniPath()
+    IniWrite, % Cockpit_JoinKeys(g_lvColOrder, "|"), %ini%, Columns, Order
+    visible := []
+    for _, key in g_lvColOrder {
+        if (g_lvColVisible.HasKey(key) && g_lvColVisible[key])
+            visible.Push(key)
+    }
+    IniWrite, % Cockpit_JoinKeys(visible, "|"), %ini%, Columns, Visible
+}
+
+Cockpit_LoadColumnsWidthPrefs() {
+    global g_lvAllColKeys, g_lvColWidths, g_lvColWidthsSig, g_lvLastAppliedLayoutSig
+    ini := Cockpit_UIIniPath()
+    g_lvColWidths := {}
+    IniRead, sig, %ini%, ColumnWidths, Signature, %A_Space%
+    IniRead, keysRaw, %ini%, ColumnWidths, Keys, %A_Space%
+    if (keysRaw = "ERROR" || keysRaw = "")
+        return
+    Loop, Parse, keysRaw, |
+    {
+        key := Trim(A_LoopField)
+        if (key = "")
+            continue
+        if (!Cockpit_ArrayHasValue(g_lvAllColKeys, key))
+            continue
+        IniRead, w, %ini%, ColumnWidths, %key%, %A_Space%
+        if (w = "ERROR" || w = "")
+            continue
+        ww := w + 0
+        if (ww > 0)
+            g_lvColWidths[key] := ww
+    }
+    if (g_lvColWidths.Count() > 0)
+        g_lvColWidthsSig := (sig = "ERROR") ? "" : sig
+    g_lvLastAppliedLayoutSig := ""
+}
+
+Cockpit_SaveColumnsWidthPrefs() {
+    global g_lvColWidths, g_lvColWidthsSig
+    ini := Cockpit_UIIniPath()
+    keys := []
+    for key, w in g_lvColWidths {
+        if ((w + 0) > 0)
+            keys.Push(key)
+    }
+    IniWrite, %g_lvColWidthsSig%, %ini%, ColumnWidths, Signature
+    IniWrite, % Cockpit_JoinKeys(keys, "|"), %ini%, ColumnWidths, Keys
+    for _, key in keys
+        IniWrite, % (g_lvColWidths[key] + 0), %ini%, ColumnWidths, %key%
+}
+
+Cockpit_ClearColumnsWidthCache() {
+    global g_lvColWidths, g_lvColWidthsSig, g_lvLastAppliedLayoutSig
+    g_lvColWidths := {}
+    g_lvColWidthsSig := ""
+    g_lvLastAppliedLayoutSig := ""
+}
+
+Cockpit_ColumnsLayoutSignature(targetW) {
+    global g_lvColOrder, g_lvColVisible
+    parts := [targetW]
+    for _, key in g_lvColOrder {
+        vis := (g_lvColVisible.HasKey(key) && g_lvColVisible[key]) ? "1" : "0"
+        parts.Push(key . ":" . vis)
+    }
+    return Cockpit_JoinKeys(parts, "|")
+}
+
+Cockpit_CountVisibleColumns() {
+    global g_lvColOrder, g_lvColVisible
+    count := 0
+    for _, key in g_lvColOrder {
+        if (g_lvColVisible.HasKey(key) && g_lvColVisible[key])
+            count += 1
+    }
+    return count
+}
+
+Cockpit_ApplyColumnsToListView(forceRecompute := false) {
+    global g_lvColOrder, g_lvColVisible, g_cockpitW, LV_HWND, g_lvColWidths, g_lvColWidthsSig, g_lvLastAppliedLayoutSig
+    if (!LV_HWND)
+        return
+    Gui, Cockpit:Default
+    meta := Cockpit_GetColumnMeta()
+    visibleCols := []
+    GuiControlGet, lvPos, Cockpit:Pos, InstancesLv
+    targetW := lvPosW - 4
+    if (targetW <= 0)
+        targetW := g_cockpitW - 24
+    if (targetW < 120)
+        targetW := 120
+    sig := Cockpit_ColumnsLayoutSignature(targetW)
+    hasRows := (LV_GetCount() > 0)
+    useCache := (!forceRecompute && g_lvColWidthsSig = sig && IsObject(g_lvColWidths))
+    if (useCache && g_lvLastAppliedLayoutSig = sig)
+        return
+    Loop, % g_lvColOrder.Length() {
+        idx := A_Index
+        key := g_lvColOrder[idx]
+        if (!meta.HasKey(key))
+            continue
+        colTitle := Cockpit_GetTableHeaderTitle(key, meta[key].title)
+        isVisible := (g_lvColVisible.HasKey(key) && g_lvColVisible[key])
+        if (isVisible) {
+            minW := Cockpit_MinColumnWidth(key)
+            if (useCache && g_lvColWidths.HasKey(key)) {
+                w := g_lvColWidths[key] + 0
+                if (w < minW)
+                    w := minW
+                visibleCols.Push({ "idx": idx, "key": key, "title": colTitle, "nat": w, "min": minW, "w": w })
+            } else {
+                if (hasRows) {
+                    LV_ModifyCol(idx, "AutoHdr Center", colTitle)
+                    natW := Cockpit_GetLvColumnWidth(LV_HWND, idx)
+                } else {
+                    natW := meta[key].width + 0
+                }
+                if (natW < minW)
+                    natW := minW
+                visibleCols.Push({ "idx": idx, "key": key, "title": colTitle, "nat": natW, "min": minW, "w": natW })
+            }
+        } else {
+            LV_ModifyCol(idx, "0 Center", colTitle)
+        }
+    }
+    visCount := visibleCols.Length()
+    if (visCount <= 0)
+        return
+    if (useCache) {
+        Loop, % visCount {
+            c := visibleCols[A_Index]
+            LV_ModifyCol(c.idx, c.w . " Center", c.title)
+        }
+        g_lvLastAppliedLayoutSig := sig
+        return
+    }
+
+    totalNat := 0
+    totalMin := 0
+    Loop, % visCount {
+        c := visibleCols[A_Index]
+        totalNat += c.nat
+        totalMin += c.min
+    }
+    if (totalNat <= 0)
+        totalNat := totalMin
+
+    if (totalNat < targetW) {
+        extra := targetW - totalNat
+        rem := extra
+        Loop, % visCount {
+            i := A_Index
+            c := visibleCols[i]
+            add := Floor(extra * c.nat / totalNat)
+            c.w := c.nat + add
+            visibleCols[i] := c
+            rem -= add
+        }
+        i := 1
+        while (rem > 0) {
+            if (i > visCount)
+                i := 1
+            c := visibleCols[i]
+            c.w += 1
+            visibleCols[i] := c
+            rem -= 1
+            i += 1
+        }
+    } else if (totalNat > targetW) {
+        shrinkNeed := totalNat - targetW
+        totalFlex := 0
+        Loop, % visCount {
+            c := visibleCols[A_Index]
+            flex := c.nat - c.min
+            if (flex > 0)
+                totalFlex += flex
+        }
+        if (totalFlex > 0) {
+            rem := shrinkNeed
+            Loop, % visCount {
+                i := A_Index
+                c := visibleCols[i]
+                flex := c.nat - c.min
+                cut := (flex > 0) ? Floor(shrinkNeed * flex / totalFlex) : 0
+                if (cut > flex)
+                    cut := flex
+                c.w := c.nat - cut
+                visibleCols[i] := c
+                rem -= cut
+            }
+            while (rem > 0) {
+                reduced := false
+                Loop, % visCount {
+                    i := A_Index
+                    c := visibleCols[i]
+                    if (c.w > c.min) {
+                        c.w -= 1
+                        visibleCols[i] := c
+                        rem -= 1
+                        reduced := true
+                        if (rem <= 0)
+                            break
+                    }
+                }
+                if (!reduced)
+                    break
+            }
+        } else {
+            Loop, % visCount {
+                i := A_Index
+                c := visibleCols[i]
+                c.w := c.min
+                visibleCols[i] := c
+            }
+        }
+    }
+
+    loopGuard := 0
+    Loop, % visCount {
+        i := A_Index
+        c := visibleCols[i]
+        maxW := Cockpit_MaxColumnWidth(c.key)
+        if (maxW > 0 && c.w > maxW) {
+            c.w := maxW
+            visibleCols[i] := c
+        }
+    }
+    while (true) {
+        loopGuard += 1
+        if (loopGuard > 2000)
+            break
+        sumW := 0
+        Loop, % visCount
+            sumW += visibleCols[A_Index].w
+        if (sumW = targetW)
+            break
+        if (sumW < targetW) {
+            rem := targetW - sumW
+            expanded := false
+            while (rem > 0) {
+                grew := false
+                Loop, % visCount {
+                    i := A_Index
+                    c := visibleCols[i]
+                    maxW := Cockpit_MaxColumnWidth(c.key)
+                    if (maxW > 0 && c.w >= maxW)
+                        continue
+                    c.w += 1
+                    visibleCols[i] := c
+                    rem -= 1
+                    grew := true
+                    expanded := true
+                    if (rem <= 0)
+                        break
+                }
+                if (!grew)
+                    break
+            }
+            if (!expanded)
+                break
+        } else {
+            rem := sumW - targetW
+            reduced := false
+            while (rem > 0) {
+                shrunk := false
+                Loop, % visCount {
+                    i := visCount - A_Index + 1
+                    c := visibleCols[i]
+                    if (c.w > c.min) {
+                        c.w -= 1
+                        visibleCols[i] := c
+                        rem -= 1
+                        shrunk := true
+                        reduced := true
+                        if (rem <= 0)
+                            break
+                    }
+                }
+                if (!shrunk)
+                    break
+            }
+            if (!reduced)
+                break
+        }
+    }
+
+    groupIdx := []
+    groupSum := 0
+    Loop, % visCount {
+        i := A_Index
+        c := visibleCols[i]
+        if (Cockpit_IsUniformMetricColumn(c.key)) {
+            groupIdx.Push(i)
+            groupSum += c.w
+        }
+    }
+    gCount := groupIdx.Length()
+    if (gCount >= 2) {
+        baseW := Floor(groupSum / gCount)
+        remW := groupSum - (baseW * gCount)
+        Loop, % gCount {
+            j := groupIdx[A_Index]
+            c := visibleCols[j]
+            c.w := baseW + ((A_Index <= remW) ? 1 : 0)
+            visibleCols[j] := c
+        }
+    }
+
+    Loop, % visCount {
+        c := visibleCols[A_Index]
+        LV_ModifyCol(c.idx, c.w . " Center", c.title)
+    }
+    g_lvColWidths := {}
+    Loop, % visCount {
+        c := visibleCols[A_Index]
+        g_lvColWidths[c.key] := c.w
+    }
+    g_lvColWidthsSig := sig
+    g_lvLastAppliedLayoutSig := sig
+    Cockpit_SaveColumnsWidthPrefs()
+}
+
+Cockpit_MinColumnWidth(key) {
+    if (key = "id")
+        return 28
+    if (key = "status")
+        return 62
+    if (key = "account")
+        return 130
+    if (Cockpit_IsUniformMetricColumn(key))
+        return 56
+    return 42
+}
+
+Cockpit_MaxColumnWidth(key) {
+    return 0
+}
+
+Cockpit_IsUniformMetricColumn(key) {
+    return (key = "packs" || key = "stuck" || key = "gpFound" || key = "runs"
+        || key = "queue" || key = "currentRun" || key = "average" || key = "eta")
+}
+
+Cockpit_GetLvColumnWidth(hLv, colIndex) {
+    if (!hLv || colIndex <= 0)
+        return 0
+    ; LVM_GETCOLUMNWIDTH = 0x101D
+    SendMessage, 0x101D, % (colIndex - 1), 0, , ahk_id %hLv%
+    w := ErrorLevel + 0
+    if (w < 0)
+        w := 0
+    return w
+}
+
+Cockpit_ArrayHasValue(arr, value) {
+    for _, v in arr {
+        if (v = value)
+            return true
+    }
+    return false
+}
+
+Cockpit_GetColumnValue(row, key) {
+    return row.HasKey(key) ? row[key] : ""
+}
+
+Cockpit_LvValuesFromRow(row) {
+    global g_lvColOrder
+    vals := []
+    Loop, % g_lvColOrder.Length() {
+        colKey := g_lvColOrder[A_Index]
+        vals.Push(Cockpit_GetColumnValue(row, colKey))
+    }
+    return vals
+}
+
+Cockpit_ColsEnsureGui() {
+    global g_lvColsGuiBuilt, THEME_BG, THEME_TEXT, THEME_MUTED, THEME_FONT, COLS_LV_HWND, ColsLv
+    if (g_lvColsGuiBuilt)
+        return
+    Gui, CockpitCols:New, +HwndhCols +OwnerCockpit +ToolWindow, Cockpit Columns
+    Gui, CockpitCols:Default
+    Gui, Color, %THEME_BG%, %THEME_BG%
+    Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
+    Gui, Add, Text, x12 y10 w360 h18, Order columns and toggle visibility
+    Gui, Font, s8 c%THEME_MUTED%, %THEME_FONT%
+    Gui, Add, Text, x12 y30 w236 h16, Visible columns in table order
+    Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
+    Gui, Add, ListView, x12 y48 w236 h214 vColsLv gCockpit_OnColsLv hwndhColsLv Checked -Multi AltSubmit -Hdr, Column
+    COLS_LV_HWND := hColsLv
+    LV_ModifyCol(1, "214 Left")
+    Gui, Add, Button, x258 y48 w110 h24 gCockpit_ColsMoveUp, Move up
+    Gui, Add, Button, x258 y78 w110 h24 gCockpit_ColsMoveDown, Move down
+    Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
+    Gui, Add, Button, x12 y272 w102 h24 gCockpit_ColsApply Default, Apply
+    Gui, Add, Button, x122 y272 w122 h24 gCockpit_ColsResetDefaults, Reset default
+    Gui, Add, Button, x252 y272 w116 h24 gCockpit_ColsCancel, Cancel
+    g_lvColsGuiBuilt := 1
+}
+
+Cockpit_ColsEditorResetFromCurrent() {
+    global g_lvColOrder, g_lvColVisible, g_lvColsEditorOrder, g_lvColsEditorVisible, g_lvColsEditorSel
+    g_lvColsEditorOrder := []
+    for _, key in g_lvColOrder {
+        if (key = "id")
+            continue
+        g_lvColsEditorOrder.Push(key)
+    }
+    g_lvColsEditorVisible := {}
+    for _, key in g_lvColsEditorOrder
+        g_lvColsEditorVisible[key] := (g_lvColVisible.HasKey(key) && g_lvColVisible[key]) ? true : false
+    g_lvColsEditorSel := 1
+}
+
+Cockpit_ColsEditorRefreshList() {
+    global g_lvColsEditorOrder, g_lvColsEditorVisible, g_lvColsEditorSel
+    meta := Cockpit_GetColumnMeta()
+    maxIdx := g_lvColsEditorOrder.Length()
+    if (maxIdx <= 0)
+        return
+    if (g_lvColsEditorSel <= 0)
+        g_lvColsEditorSel := 1
+    if (g_lvColsEditorSel > maxIdx)
+        g_lvColsEditorSel := maxIdx
+    Gui, CockpitCols:Default
+    GuiControl, -Redraw, ColsLv
+    LV_Delete()
+    Loop, % maxIdx {
+        key := g_lvColsEditorOrder[A_Index]
+        title := meta.HasKey(key) ? meta[key].title : key
+        rowOpt := (g_lvColsEditorVisible.HasKey(key) && g_lvColsEditorVisible[key]) ? "Check" : ""
+        LV_Add(rowOpt, title)
+    }
+    LV_Modify(g_lvColsEditorSel, "Select Focus Vis")
+    GuiControl, +Redraw, ColsLv
+}
+
+Cockpit_ColsCheckedCount() {
+    global g_lvColsEditorOrder, g_lvColsEditorVisible
+    count := 0
+    for _, key in g_lvColsEditorOrder {
+        if (g_lvColsEditorVisible.HasKey(key) && g_lvColsEditorVisible[key])
+            count += 1
+    }
+    return count
+}
+
+Cockpit_ColsLvRowChecked(row) {
+    if (row <= 0)
+        return false
+    chk := LV_GetNext(row - 1, "C")
+    return (chk = row)
+}
+
+Cockpit_ColsClearSelection() {
+    Gui, CockpitCols:Default
+    LV_Modify(0, "-Select -Focus")
+}
+
 Cockpit_UIIniPath() {
     return getScriptBaseFolder() . "\Scripts\Include\Cockpit\CockpitUI.ini"
 }
@@ -1063,7 +1680,11 @@ Cockpit_RenderStandalone() {
     Loop, % instances {
         N := A_Index
         injN := inj.perInstance.HasKey(N) ? inj.perInstance[N] : 0
-        LV_Add("", N, "offline", "-", "-", "-", injN, "0", "-")
+        row := { "id": N, "status": "offline", "account": "-", "packs": "-", "stuck": "-"
+            , "queue": injN, "runs": "0", "currentRun": "-"
+            , "average": "-", "eta": "-", "gpFound": "-" }
+        vals := Cockpit_LvValuesFromRow(row)
+        LV_Add("", vals*)
     }
     GuiControl, +Redraw, InstancesLv
     GuiControl, Cockpit:, EventsLog, (cockpit standalone mode - aggregator not running)
@@ -1109,24 +1730,33 @@ Cockpit_RenderStartupPlaceholders(state) {
     LV_Delete()
     Loop, % instances {
         N := A_Index
-        LV_Add("", N, "-", "-", "-", "-", "-", "0", "-")
+        row := { "id": N, "status": "-", "account": "-", "packs": "-", "stuck": "-"
+            , "queue": "-", "runs": "0", "currentRun": "-"
+            , "average": "-", "eta": "-", "gpFound": "-" }
+        vals := Cockpit_LvValuesFromRow(row)
+        LV_Add("", vals*)
     }
     GuiControl, +Redraw, InstancesLv
 }
 
 Cockpit_OnInstancesLv:
-    global g_lvSortCol, g_lvSortDir, g_contextRow
+    global g_lvSortKey, g_lvSortDir, g_contextRow, g_lvColOrder, g_lvColVisible
     if (A_GuiEvent = "ColClick") {
         col := A_EventInfo + 0
         if (col <= 0)
             return
-        if (g_lvSortCol != col) {
-            g_lvSortCol := col
+        if (col > g_lvColOrder.Length())
+            return
+        sortKey := g_lvColOrder[col]
+        if (!g_lvColVisible.HasKey(sortKey) || !g_lvColVisible[sortKey])
+            return
+        if (g_lvSortKey != sortKey) {
+            g_lvSortKey := sortKey
             g_lvSortDir := 1
         } else if (g_lvSortDir = 1) {
             g_lvSortDir := -1
         } else {
-            g_lvSortCol := 0
+            g_lvSortKey := ""
             g_lvSortDir := 0
         }
         Cockpit_RefreshBody()
@@ -1134,17 +1764,13 @@ Cockpit_OnInstancesLv:
     }
     if (A_GuiEvent = "RightClick" || A_GuiEvent = "R") {
         row := A_EventInfo + 0
+        ; Ignore header/background right-click: no row actions in that case.
         if (row <= 0) {
-            row := LV_GetNext(0, "F")
-            if (!row)
-                row := LV_GetNext(0)
+            g_contextRow := 0
+            return
         }
         Gui, Cockpit:Default
-        if (row > 0) {
-            g_contextRow := row
-        } else {
-            g_contextRow := 0
-        }
+        g_contextRow := row
         Menu, CockpitRowMenu, Show
         return
     }
@@ -1165,6 +1791,11 @@ return
 CockpitGuiContextMenu:
     global g_contextRow
     if (A_GuiControl = "InstancesLv") {
+        ; If the click is not on a row (e.g. header), do not show row menu.
+        if ((A_EventInfo + 0) <= 0) {
+            g_contextRow := 0
+            return
+        }
         Gui, Cockpit:Default
         row := LV_GetNext(0, "F")
         if (!row)
@@ -1185,6 +1816,102 @@ Cockpit_OnEventFilterChange:
     g_eventFilter := ddlEventFilter
     Cockpit_SaveEventFilter(g_eventFilter)
     Cockpit_RefreshBody()
+return
+
+Cockpit_OpenColumns:
+    Cockpit_ColsEnsureGui()
+    Cockpit_ColsEditorResetFromCurrent()
+    Cockpit_ColsEditorRefreshList()
+    Gui, CockpitCols:Show, AutoSize Center, Cockpit Columns
+return
+
+Cockpit_OnColsLv:
+    global g_lvColsEditorSel, g_lvColsEditorOrder, g_lvColsEditorVisible
+    row := A_EventInfo + 0
+    if (row <= 0 || row > g_lvColsEditorOrder.Length())
+        return
+    g_lvColsEditorSel := row
+    if (A_GuiEvent = "I" && InStr(ErrorLevel, "C")) {
+        key := g_lvColsEditorOrder[row]
+        isChecked := Cockpit_ColsLvRowChecked(row)
+        if (!isChecked && Cockpit_ColsCheckedCount() <= 1) {
+            LV_Modify(row, "Check")
+            return
+        }
+        g_lvColsEditorVisible[key] := isChecked ? true : false
+    }
+return
+
+Cockpit_ColsMoveUp:
+    global g_lvColsEditorSel, g_lvColsEditorOrder
+    if (g_lvColsEditorSel <= 1 || g_lvColsEditorOrder.Length() < 2)
+        return
+    i := g_lvColsEditorSel
+    tmp := g_lvColsEditorOrder[i - 1]
+    g_lvColsEditorOrder[i - 1] := g_lvColsEditorOrder[i]
+    g_lvColsEditorOrder[i] := tmp
+    g_lvColsEditorSel := i - 1
+    Cockpit_ColsEditorRefreshList()
+return
+
+Cockpit_ColsMoveDown:
+    global g_lvColsEditorSel, g_lvColsEditorOrder
+    maxIdx := g_lvColsEditorOrder.Length()
+    if (g_lvColsEditorSel <= 0 || g_lvColsEditorSel >= maxIdx)
+        return
+    i := g_lvColsEditorSel
+    tmp := g_lvColsEditorOrder[i + 1]
+    g_lvColsEditorOrder[i + 1] := g_lvColsEditorOrder[i]
+    g_lvColsEditorOrder[i] := tmp
+    g_lvColsEditorSel := i + 1
+    Cockpit_ColsEditorRefreshList()
+return
+
+Cockpit_ColsApply:
+    global g_lvColOrder, g_lvColVisible, g_lvColsEditorOrder, g_lvColsEditorVisible
+        , g_lvSortKey, g_lvSortDir, g_lastLvRowSigs
+    g_lvColOrder := ["id"]
+    for _, key in g_lvColsEditorOrder
+        g_lvColOrder.Push(key)
+    g_lvColVisible := { "id": true }
+    for _, key in g_lvColOrder
+        if (key != "id")
+            g_lvColVisible[key] := (g_lvColsEditorVisible.HasKey(key) && g_lvColsEditorVisible[key]) ? true : false
+    if (Cockpit_CountVisibleColumns() <= 0)
+        g_lvColVisible["id"] := true
+    if (g_lvSortKey != "" && (!g_lvColVisible.HasKey(g_lvSortKey) || !g_lvColVisible[g_lvSortKey])) {
+        g_lvSortKey := ""
+        g_lvSortDir := 0
+    }
+    Cockpit_SaveColumnsPrefs()
+    Cockpit_ClearColumnsWidthCache()
+    g_lastLvRowSigs := []
+    Cockpit_ApplyColumnsToListView(true)
+    Cockpit_RefreshBody()
+    Gui, CockpitCols:Hide
+return
+
+Cockpit_ColsResetDefaults:
+    global g_lvColsEditorOrder, g_lvColsEditorVisible, g_lvAllColKeys, g_lvColsEditorSel
+    g_lvColsEditorOrder := []
+    g_lvColsEditorVisible := {}
+    for _, key in g_lvAllColKeys {
+        if (key = "id")
+            continue
+        g_lvColsEditorOrder.Push(key)
+        g_lvColsEditorVisible[key] := true
+    }
+    g_lvColsEditorSel := 1
+    Cockpit_ColsEditorRefreshList()
+return
+
+Cockpit_ColsCancel:
+    Gui, CockpitCols:Hide
+return
+
+CockpitColsGuiClose:
+CockpitColsGuiEscape:
+    Gui, CockpitCols:Hide
 return
 
 Cockpit_OnCommand(wParam, lParam, msg, hwnd) {
@@ -1533,7 +2260,7 @@ Cockpit_AgeRefresh() {
         gateValue := Cockpit_AgeNormalizeGateDisplay(gateValue)
         if (baseEligible) {
             status := "Eligible"
-            gateValue := "0h 0m"
+            gateValue := "Ready"
             gReady++
         } else {
             status := "Cooling"
@@ -1803,7 +2530,7 @@ Cockpit_AgeDriverTimeForMethod(method, jsonText, lastLoggedIn, hasLogin, rewards
             if (remaining > maxRemaining)
                 maxRemaining := remaining
         }
-        return Metrics_FormatDurationHM(maxRemaining)
+        return Metrics_FormatDurationHMSecs(maxRemaining)
     }
 
     if (method = "Inject Packs") {
@@ -1822,7 +2549,7 @@ Cockpit_AgeDurationFromTimestamp(timestamp) {
     EnvSub, sec, %timestamp%, Seconds
     if (sec < 0)
         sec := 0
-    return Metrics_FormatDurationHM(sec)
+    return Metrics_FormatDurationHMSecs(sec)
 }
 
 Cockpit_AgeRemainingSecondsFromTimestamp(timestamp, requiredHours) {
@@ -1841,14 +2568,14 @@ Cockpit_AgeRemainingSecondsFromTimestamp(timestamp, requiredHours) {
 Cockpit_AgeRemainingFromTimestamp(timestamp, requiredHours) {
     if (timestamp = "" || timestamp = "0")
         return "--"
-    return Metrics_FormatDurationHM(Cockpit_AgeRemainingSecondsFromTimestamp(timestamp, requiredHours))
+    return Metrics_FormatDurationHMSecs(Cockpit_AgeRemainingSecondsFromTimestamp(timestamp, requiredHours))
 }
 
 Cockpit_AgeRemainingToDailyReset(lastLoggedIn) {
     if (lastLoggedIn = "" || lastLoggedIn = "0")
         return "--"
     if (!Cockpit_AgeWasAfterDailyReset(lastLoggedIn))
-        return "0h 0m"
+        return Metrics_FormatDurationHMSecs(0)
 
     nowUTC := A_NowUTC
     nextResetUTC := SubStr(nowUTC, 1, 8) . "060000"
@@ -1859,7 +2586,7 @@ Cockpit_AgeRemainingToDailyReset(lastLoggedIn) {
     EnvSub, remaining, %nowUTC%, Seconds
     if (remaining < 0)
         remaining := 0
-    return Metrics_FormatDurationHM(remaining)
+    return Metrics_FormatDurationHMSecs(remaining)
 }
 
 Cockpit_AgeEvalChanged:
@@ -2054,6 +2781,50 @@ Cockpit_AgeSortAcctRows(ByRef rows) {
     global g_ageAcctSortCol, g_ageAcctSortDir
     if (!IsObject(rows) || rows.Length() <= 1 || g_ageAcctSortCol <= 0)
         return
+    if (g_ageAcctSortCol = 4) {
+        cooling := []
+        ready := []
+        Loop, % rows.Length() {
+            r := rows[A_Index]
+            if (Trim(r.gate) = "Ready")
+                ready.Push(r)
+            else
+                cooling.Push(r)
+        }
+        if (cooling.Length() > 1) {
+            sep := Chr(30)
+            raw := ""
+            Loop, % cooling.Length() {
+                row := cooling[A_Index]
+                key := Cockpit_AgeAcctSortKey(row, 4)
+                raw .= key . sep . A_Index . "`n"
+            }
+            opts := "D`n"
+            if (g_ageAcctSortDir < 0)
+                opts .= " R"
+            Sort, raw, %opts%
+            sortedCool := []
+            Loop, Parse, raw, `n, `r
+            {
+                line := A_LoopField
+                if (line = "")
+                    continue
+                p := InStr(line, sep)
+                if (!p)
+                    continue
+                idx := SubStr(line, p + 1) + 0
+                if (idx >= 1 && idx <= cooling.Length())
+                    sortedCool.Push(cooling[idx])
+            }
+            cooling := sortedCool
+        }
+        rows := []
+        Loop, % cooling.Length()
+            rows.Push(cooling[A_Index])
+        Loop, % ready.Length()
+            rows.Push(ready[A_Index])
+        return
+    }
     sep := Chr(30)
     raw := ""
     Loop, % rows.Length() {
@@ -2122,15 +2893,31 @@ Cockpit_AgeAcctSortKey(row, col) {
 }
 
 Cockpit_AgeDurationTextToSeconds(txt) {
-    if (txt = "" || txt = "--")
+    if (txt = "" || txt = "--" || Cockpit_ToLower(txt) = "ready")
         return 999999999
+    t := Trim(txt)
+    if (RegExMatch(t, "i)^\s*(\d+)\s*d\s+(\d+)\s*h\s+(\d+)\s*m\s+(\d+)\s*s\s*$", dms))
+        return dms1 * 86400 + dms2 * 3600 + dms3 * 60 + dms4
+    if (RegExMatch(t, "i)^\s*(\d+)\s*h\s+(\d+)\s*m\s+(\d+)\s*s\s*$", hmss))
+        return hmss1 * 3600 + hmss2 * 60 + hmss3
+    ; legacy formats (partial refresh / old strings)
     h := 0
     m := 0
-    if (RegExMatch(txt, "i)(\d+)\s*h", mh))
+    s := 0
+    if (RegExMatch(t, "i)^\s*(\d+)\s*h\s+(\d+)\s*m\s*$", hmOnly)) {
+        h := hmOnly1 + 0
+        m := hmOnly2 + 0
+        return (h * 3600) + (m * 60)
+    }
+    if (RegExMatch(t, "i)^\s*(\d+)\s*m\s*$", mOnly))
+        return (mOnly1 + 0) * 60
+    if (RegExMatch(t, "i)(\d+)\s*h", mh))
         h := mh1 + 0
-    if (RegExMatch(txt, "i)(\d+)\s*m", mm))
+    if (RegExMatch(t, "i)(\d+)\s*m", mm))
         m := mm1 + 0
-    return (h * 3600) + (m * 60)
+    if (RegExMatch(t, "i)(\d+)\s*s", ms))
+        s := ms1 + 0
+    return (h * 3600) + (m * 60) + s
 }
 
 Cockpit_AgeNormalizeGateDisplay(txt) {
@@ -2139,16 +2926,17 @@ Cockpit_AgeNormalizeGateDisplay(txt) {
         return "--"
     if (t = "--")
         return "--"
-    h := 0
-    m := 0
-    if (RegExMatch(t, "i)^\s*(\d+)\s*h\s*(\d+)\s*m\s*$", mhm)) {
-        h := mhm1 + 0
-        m := mhm2 + 0
-        return h . "h " . m . "m"
+    if (RegExMatch(t, "i)^\s*(\d+)\s*d\s+(\d+)\s*h\s+(\d+)\s*m\s+(\d+)\s*s\s*$", dHm)) {
+        return Format("{:02}", dHm1 + 0) . "d " . Format("{:02}", dHm2 + 0) . "h " . Format("{:02}", dHm3 + 0) . "m " . Format("{:02}", dHm4 + 0) . "s"
     }
-    if (RegExMatch(t, "i)^\s*(\d+)\s*m\s*$", mm)) {
-        m := mm1 + 0
-        return "0h " . m . "m"
+    if (RegExMatch(t, "i)^\s*(\d+)\s*h\s+(\d+)\s*m\s+(\d+)\s*s\s*$", hMs)) {
+        return Format("{:02}", hMs1 + 0) . "h " . Format("{:02}", hMs2 + 0) . "m " . Format("{:02}", hMs3 + 0) . "s"
+    }
+    if (RegExMatch(t, "i)^\s*(\d+)\s*h\s*(\d+)\s*m\s*$", mHm)) {
+        return Format("{:02}", mHm1 + 0) . "h " . Format("{:02}", mHm2 + 0) . "m " . Format("{:02}", 0) . "s"
+    }
+    if (RegExMatch(t, "i)^\s*(\d+)\s*m\s*$", mOnlyN)) {
+        return Format("{:02}", 0) . "h " . Format("{:02}", mOnlyN1 + 0) . "m " . Format("{:02}", 0) . "s"
     }
     return t
 }
@@ -2200,10 +2988,11 @@ Cockpit_Relayout(w, h) {
     if (w <= 0 || h <= 0)
         return
     g_cockpitW := w
-    GuiControl, Cockpit:Move, lblModeVal, % "w" . (w - 150)
+    GuiControl, Cockpit:Move, lblModeVal, % "w" . (w - 264)
+    GuiControl, Cockpit:Move, btnCols, % "x" . (w - 238)
     GuiControl, Cockpit:Move, btnAgeView, % "x" . (w - 126)
     GuiControl, Cockpit:Move, InstancesLv, % "w" . (w - 20)
-    Cockpit_FillLastColumn(LV_HWND, 8)
+    Cockpit_ApplyColumnsToListView()
     GuiControl, Cockpit:Move, SepTop, % "w" . (w - 20)
     GuiControl, Cockpit:Move, SepEvents, % "w" . (w - 20)
     GuiControl, Cockpit:Move, ddlEventFilter, % "x" . (w - 130)
@@ -2225,7 +3014,7 @@ Cockpit_Relayout(w, h) {
 ;===============================================================================
 ; Hotkeys
 ;===============================================================================
-#IfWinActive, PTCGP Cockpit
+#IfWinActive, PTCGPB Cockpit
 F5::Cockpit_RefreshBody()
 #IfWinActive
 

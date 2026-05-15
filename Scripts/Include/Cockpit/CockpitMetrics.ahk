@@ -299,6 +299,21 @@ Metrics_FormatDurationHM(seconds) {
     return m . "m"
 }
 
+; Injection Queue-style countdown: units zero-padded, e.g. "05h 03m 12s", "01d 03h 00m 09s"
+Metrics_FormatDurationHMSecs(seconds) {
+    if (seconds < 0)
+        seconds := 0
+    d := seconds // 86400
+    rest := seconds - d * 86400
+    h := rest // 3600
+    rest := rest - h * 3600
+    m := rest // 60
+    s := rest - m * 60
+    if (d > 0)
+        return Format("{:02}", d) . "d " . Format("{:02}", h) . "h " . Format("{:02}", m) . "m " . Format("{:02}", s) . "s"
+    return Format("{:02}", h) . "h " . Format("{:02}", m) . "m " . Format("{:02}", s) . "s"
+}
+
 Metrics_FormatDurationMS(seconds) {
     if (seconds < 0)
         seconds := 0

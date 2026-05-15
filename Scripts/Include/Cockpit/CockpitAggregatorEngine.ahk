@@ -106,8 +106,12 @@ Agg_TickBody() {
             ? { "ring": [], "lastSeenEnd": 0, "stuckCount": 0, "lastStatus": ""
                 , "accountFileName": "", "lastEvent": "", "lastEventEpoch": 0
                 , "lastLogSize": -1, "stuckActive": false, "stuckSinceEpoch": 0
-                , "livePacks": -1 }
+                , "livePacks": -1, "totalRunSecCompleted": 0, "gpFoundCount": 0 }
             : g_aggState.instances[N]
+        if (!prev.HasKey("totalRunSecCompleted"))
+            prev.totalRunSecCompleted := 0
+        if (!prev.HasKey("gpFoundCount"))
+            prev.gpFoundCount := 0
 
         if (!isFirstObservation
             && info.lastEndEpoch > 0
@@ -121,6 +125,7 @@ Agg_TickBody() {
                 Metrics_RingPush(g_aggState.globalRing, runDuration)
                 Metrics_RingPush(g_aggState.modeRings[mode], runDuration)
                 g_aggState.totalRunsCompleted += 1
+                prev.totalRunSecCompleted += runDuration
                 latestBin := Metrics_LatestBinIndex()
                 Metrics_TrendIncrement(g_aggState.trendInjPerHour, latestBin, 1)
                 Metrics_TrendIncrement(g_aggState.trendAvgRunSum, latestBin, runDuration)
@@ -210,6 +215,7 @@ Agg_TickBody() {
         }
 
         if (signals.gpFound) {
+            prev.gpFoundCount += 1
             details := "God Pack found"
             if (info.currentAccount != "")
                 details .= " (" . info.currentAccount . ")"
@@ -612,6 +618,8 @@ Agg_WriteState(instancesConfigured, instancesRunning, instancesStuck
         CockpitState_AddKey(b, "livePacks", d.livePacks)
         CockpitState_AddKey(b, "currentRunSeconds", d.currentRunSec)
         CockpitState_AddKey(b, "stuckCountSession", d.stuckCount)
+        CockpitState_AddKey(b, "totalRunSeconds", d.totalRunSecCompleted)
+        CockpitState_AddKey(b, "gpFoundCount", d.gpFoundCount)
         CockpitState_AddKey(b, "injectables", d.injectables)
         CockpitState_AddKey(b, "etaSeconds", d.eta.seconds)
         CockpitState_AddKey(b, "etaConfidence", d.eta.confidence)
@@ -808,6 +816,8 @@ Agg_SaveRuntimeState() {
         IniWrite, % (inst.stuckActive ? 1 : 0), %path%, %sec%, StuckActive
         IniWrite, % (inst.stuckSinceEpoch + 0), %path%, %sec%, StuckSinceEpoch
         IniWrite, % (inst.livePacks + 0), %path%, %sec%, LivePacks
+        IniWrite, % (inst.totalRunSecCompleted + 0), %path%, %sec%, TotalRunSecCompleted
+        IniWrite, % (inst.gpFoundCount + 0), %path%, %sec%, GpFoundCount
     }
 }
 
@@ -910,12 +920,14 @@ Agg_LoadRuntimeState(sessionId) {
         IniRead, sa, %path%, %sec%, StuckActive, 0
         IniRead, sse, %path%, %sec%, StuckSinceEpoch, 0
         IniRead, lp, %path%, %sec%, LivePacks, -1
+        IniRead, trc, %path%, %sec%, TotalRunSecCompleted, 0
+        IniRead, gpc, %path%, %sec%, GpFoundCount, 0
         g_aggState.instances[N] := { "ring": Agg_CsvToNumArray(ringCsv), "lastSeenEnd": lse2 + 0
             , "stuckCount": sc + 0, "lastStatus": (ls2 = "ERROR") ? "" : ls2
             , "accountFileName": (af = "ERROR") ? "" : af, "lastEvent": (le = "ERROR") ? "" : le
             , "lastEventEpoch": lee + 0, "lastLogSize": lls + 0
             , "stuckActive": (sa + 0) ? true : false, "stuckSinceEpoch": sse + 0
-            , "livePacks": lp + 0 }
+            , "livePacks": lp + 0, "totalRunSecCompleted": trc + 0, "gpFoundCount": gpc + 0 }
     }
 
     LogToFile("Cockpit in-process Aggregator resumed session " . g_aggSessionId, "Aggregator.txt")
