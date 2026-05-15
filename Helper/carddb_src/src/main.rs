@@ -678,6 +678,7 @@ fn compact_account_for_write(account: &mut Value) {
     };
 
     obj.remove("deviceAccount");
+    normalize_legacy_last_modified(obj, "");
 
     let file_name = obj
         .get("fileName")
@@ -695,14 +696,6 @@ fn compact_account_for_write(account: &mut Value) {
     }
     if file_name.is_empty() {
         obj.remove("fileName");
-    }
-    if obj
-        .get("lastModified")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .is_empty()
-    {
-        obj.remove("lastModified");
     }
 
     if obj
@@ -750,6 +743,55 @@ fn compact_account_for_write(account: &mut Value) {
         }
         if flags.as_object().map_or(true, Map::is_empty) {
             obj.remove("flags");
+        }
+    }
+}
+
+fn value_truthy(value: &Value) -> bool {
+    value.as_bool().unwrap_or(false) || value.as_i64().unwrap_or(0) != 0
+}
+
+fn add_days_stamp(timestamp: &str, days: i64) -> String {
+    parse_local(timestamp)
+        .map(|dt| {
+            (dt + Duration::days(days))
+                .format("%Y%m%d%H%M%S")
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
+fn normalize_legacy_last_modified(obj: &mut Map<String, Value>, fallback_modified: &str) {
+    let legacy_modified = obj
+        .remove("lastModified")
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| fallback_modified.to_owned());
+
+    if legacy_modified.is_empty() {
+        return;
+    }
+
+    if obj
+        .get("lastPackPulled")
+        .is_none_or(|value| value_is_zeroish(value) || value.as_str() == Some(""))
+    {
+        obj.insert("lastPackPulled".to_owned(), json!(legacy_modified.clone()));
+    }
+
+    let Some(t_flag) = obj
+        .get_mut("flags")
+        .and_then(Value::as_object_mut)
+        .and_then(|flags| flags.get_mut("T"))
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+
+    if t_flag.get("value").is_some_and(value_truthy) {
+        let valid_until = add_days_stamp(&legacy_modified, 5);
+        if !valid_until.is_empty() {
+            t_flag.insert("validUntil".to_owned(), json!(valid_until));
         }
     }
 }
@@ -1012,9 +1054,15 @@ fn new_flag(value: i64, set_at: &str, valid_until: &str) -> Value {
 fn new_account(instance: &str, file_name: &str, file_path: &Path) -> Value {
     let found_flags = filename_flags(file_name);
     let now = Local::now().format("%Y%m%d%H%M%S").to_string();
+    let modified = modified_stamp(file_path);
     let flag_value = |name: char| {
         if found_flags.contains(&name) {
-            new_flag(1, &now, "")
+            let valid_until = if name == 'T' {
+                add_days_stamp(&modified, 5)
+            } else {
+                String::new()
+            };
+            new_flag(1, &now, &valid_until)
         } else {
             new_flag(0, "", "")
         }
@@ -1024,9 +1072,8 @@ fn new_account(instance: &str, file_name: &str, file_path: &Path) -> Value {
         "instance": instance,
         "fileName": file_name,
         "packCount": initial_pack_count_from_filename(file_name),
-        "lastModified": modified_stamp(file_path),
         "createdAt": initial_created_at_from_filename(file_name),
-        "lastPackPulled": "0",
+        "lastPackPulled": modified,
         "lastLoggedIn": "0",
         "shinedust": { "value": -1, "lastUpdatedAt": "0" },
         "flags": {
@@ -1117,6 +1164,10 @@ fn scan_saved_xmls_into_store(root: &Path, store: &mut Value) -> Result<()> {
             })
             .filter(|pack_count| *pack_count > 0);
         let existing_created_at = base.get("createdAt").cloned();
+        let existing_last_pack_pulled = base
+            .get("lastPackPulled")
+            .filter(|value| !value_is_zeroish(value))
+            .cloned();
         merge_account(base, &patch);
         if let Some(obj) = base.as_object_mut() {
             if account_existed {
@@ -1136,10 +1187,12 @@ fn scan_saved_xmls_into_store(root: &Path, store: &mut Value) -> Result<()> {
                         json!(initial_created_at_from_filename(&file_name)),
                     );
                 }
+                if let Some(last_pack_pulled) = existing_last_pack_pulled {
+                    obj.insert("lastPackPulled".to_owned(), last_pack_pulled);
+                }
             }
             obj.insert("instance".to_owned(), json!(instance));
             obj.insert("fileName".to_owned(), json!(file_name));
-            obj.insert("lastModified".to_owned(), json!(modified_stamp(&path)));
             obj.remove("deviceAccount");
         }
     }
@@ -1268,6 +1321,11 @@ fn merge_account(base: &mut Value, patch: &Value) {
     let Some(patch_obj) = patch.as_object() else {
         return;
     };
+    let legacy_modified = patch_obj
+        .get("lastModified")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_owned();
 
     for (key, value) in patch_obj {
         match key.as_str() {
@@ -1280,6 +1338,15 @@ fn merge_account(base: &mut Value, patch: &Value) {
             "lastPackPulled" | "lastLoggedIn" => {
                 if !value_is_zeroish(value) {
                     base_obj.insert(key.clone(), value.clone());
+                }
+            }
+            "lastModified" => {
+                if !value_is_zeroish(value)
+                    && base_obj
+                        .get("lastPackPulled")
+                        .is_none_or(|value| value_is_zeroish(value))
+                {
+                    base_obj.insert("lastPackPulled".to_owned(), value.clone());
                 }
             }
             "packCount" => {
@@ -1299,6 +1366,7 @@ fn merge_account(base: &mut Value, patch: &Value) {
             }
         }
     }
+    normalize_legacy_last_modified(base_obj, &legacy_modified);
 }
 
 fn merge_flags(base_obj: &mut Map<String, Value>, patch_flags: &Value) {
@@ -1377,6 +1445,16 @@ struct Candidate {
     file_name: String,
     sort_time: String,
     pack_count: i64,
+}
+
+struct UsedAccountsState {
+    used: HashSet<String>,
+    backup: Option<PathBuf>,
+}
+
+struct AccountLookup {
+    by_file: HashMap<String, Value>,
+    by_device: HashMap<String, Value>,
 }
 
 fn parse_local(timestamp: &str) -> Option<DateTime<Local>> {
@@ -1555,23 +1633,55 @@ fn pack_count_allowed(
     resolved_pack_count >= min_packs && resolved_pack_count <= max_packs
 }
 
-fn clean_used_accounts(save_dir: &Path, force_clear: bool) -> Result<HashSet<String>> {
+fn cleanup_used_account_backups(save_dir: &Path, keep: Option<&Path>) -> Result<()> {
+    if !save_dir.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(save_dir).with_context(|| format!("Could not read {:?}", save_dir))? {
+        let path = entry?.path();
+        let is_used_backup = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| {
+                name.starts_with("used_accounts_backup_") && name.ends_with(".txt")
+            });
+        if !is_used_backup {
+            continue;
+        }
+        if keep.is_some_and(|keep| keep == path) {
+            continue;
+        }
+        let _ = fs::remove_file(path);
+    }
+
+    Ok(())
+}
+
+fn clean_used_accounts(save_dir: &Path, force_clear: bool) -> Result<UsedAccountsState> {
     let used_path = save_dir.join("used_accounts.txt");
     if force_clear {
+        let mut backup = None;
         if used_path.exists() {
-            let backup = save_dir.join(format!(
+            let backup_path = save_dir.join(format!(
                 "used_accounts_backup_{}.txt",
                 Local::now().format("%Y%m%d%H%M%S")
             ));
-            let _ = fs::copy(&used_path, backup);
+            fs::copy(&used_path, &backup_path)?;
             fs::remove_file(&used_path)?;
+            backup = Some(backup_path);
         }
-        return Ok(HashSet::new());
+        cleanup_used_account_backups(save_dir, backup.as_deref())?;
+        return Ok(UsedAccountsState {
+            used: HashSet::new(),
+            backup,
+        });
     }
 
+    cleanup_used_account_backups(save_dir, None)?;
     let mut used = HashSet::new();
     if !used_path.exists() {
-        return Ok(used);
+        return Ok(UsedAccountsState { used, backup: None });
     }
 
     let text = fs::read_to_string(&used_path)?;
@@ -1604,26 +1714,65 @@ fn clean_used_accounts(save_dir: &Path, force_clear: bool) -> Result<HashSet<Str
             .collect::<String>(),
     )?;
 
-    Ok(used)
+    Ok(UsedAccountsState { used, backup: None })
 }
 
-fn accounts_by_file(store: &Value, instance: &str) -> HashMap<String, Value> {
-    let mut result = HashMap::new();
+fn remove_used_accounts_backup(state: UsedAccountsState) {
+    if let Some(backup) = state.backup {
+        let _ = fs::remove_file(backup);
+    }
+}
+
+fn accounts_for_instance(store: &Value, instance: &str) -> AccountLookup {
+    let mut by_file = HashMap::new();
+    let mut by_device = HashMap::new();
     let Some(accounts) = store.get("accounts").and_then(Value::as_object) else {
-        return result;
+        return AccountLookup { by_file, by_device };
     };
 
-    for account in accounts.values() {
+    for (key, account) in accounts {
         if field_str(account, "instance") != instance {
             continue;
         }
         let file_name = field_str(account, "fileName");
         if !file_name.is_empty() {
-            result.insert(file_name.to_owned(), account.clone());
+            by_file.insert(file_name.to_owned(), account.clone());
+        }
+        if !key.starts_with("legacy:") {
+            by_device.insert(key.clone(), account.clone());
         }
     }
 
-    result
+    AccountLookup { by_file, by_device }
+}
+
+fn metadata_for_xml<'a>(
+    lookup: &'a AccountLookup,
+    file_name: &str,
+    device_account: &str,
+) -> Option<&'a Value> {
+    if !device_account.is_empty() {
+        if let Some(account) = lookup.by_device.get(device_account) {
+            return Some(account);
+        }
+    }
+
+    lookup.by_file.get(file_name)
+}
+
+fn used_account_matches(used: &HashSet<String>, file_name: &str, device_account: &str) -> bool {
+    if used.contains(file_name) {
+        return true;
+    }
+    if device_account.is_empty() {
+        return false;
+    }
+
+    let plain_xml = format!("{device_account}.xml");
+    let prefixed_xml = format!("_{device_account}.xml");
+    used.iter().any(|entry| {
+        entry == device_account || entry == &plain_xml || entry.ends_with(&prefixed_xml)
+    })
 }
 
 fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
@@ -1634,8 +1783,8 @@ fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
     let list_path = save_dir.join("list.txt");
     let current_path = save_dir.join("list_current.txt");
     let last_generated_path = save_dir.join("list_last_generated.txt");
-    let used = clean_used_accounts(&save_dir, options.force_clear_used)?;
-    let by_file = accounts_by_file(&store, &options.instance);
+    let used_state = clean_used_accounts(&save_dir, options.force_clear_used)?;
+    let lookup = accounts_for_instance(&store, &options.instance);
     let mut candidates = Vec::new();
     for entry in
         fs::read_dir(&save_dir).with_context(|| format!("Could not read {:?}", save_dir))?
@@ -1653,12 +1802,13 @@ fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
-        if used.contains(&file_name) {
+        let device_account = extract_device_account_from_xml(&path);
+        if used_account_matches(&used_state.used, &file_name, &device_account) {
             continue;
         }
 
         let fallback = new_account(&options.instance, &file_name, &path);
-        let metadata_account = by_file.get(&file_name);
+        let metadata_account = metadata_for_xml(&lookup, &file_name, &device_account);
         let account = metadata_account.unwrap_or(&fallback);
         if !eligible(account, &options) {
             continue;
@@ -1671,12 +1821,12 @@ fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
         }
 
         let sort_time = {
-            let value = field_str(account, "lastModified");
-            if value.is_empty() {
-                modified_stamp(&path)
-            } else {
-                value.to_owned()
-            }
+            let value = field_str(account, "lastPackPulled");
+                if value.is_empty() {
+                    modified_stamp(&path)
+                } else {
+                    value.to_owned()
+                }
         };
 
         candidates.push(Candidate {
@@ -1704,6 +1854,7 @@ fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
         Local::now().format("%Y%m%d%H%M%S").to_string(),
     )?;
     println!("{}", list.lines().count());
+    remove_used_accounts_backup(used_state);
     Ok(())
 }
 
@@ -1722,8 +1873,8 @@ fn count_eligible_for_all_instances(
             continue;
         }
 
-        let used = clean_used_accounts(&save_dir, false)?;
-        let by_file = accounts_by_file(store, &instance_name);
+        let used_state = clean_used_accounts(&save_dir, false)?;
+        let lookup = accounts_for_instance(store, &instance_name);
 
         for entry in
             fs::read_dir(&save_dir).with_context(|| format!("Could not read {:?}", save_dir))?
@@ -1741,12 +1892,13 @@ fn count_eligible_for_all_instances(
                 .file_name()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_default();
-            if used.contains(&file_name) {
+            let device_account = extract_device_account_from_xml(&path);
+            if used_account_matches(&used_state.used, &file_name, &device_account) {
                 continue;
             }
 
             let fallback = new_account(&instance_name, &file_name, &path);
-            let metadata_account = by_file.get(&file_name);
+            let metadata_account = metadata_for_xml(&lookup, &file_name, &device_account);
             let account = metadata_account.unwrap_or(&fallback);
             if !eligible(account, options) {
                 continue;
@@ -1948,7 +2100,6 @@ fn update_metadata_instance(store: &mut Value, file_name: &str, instance: usize,
         obj.insert("fileName".to_owned(), json!(file_name));
         obj.entry("packCount".to_owned())
             .or_insert_with(|| json!(extract_pack_count(file_name)));
-        obj.insert("lastModified".to_owned(), json!(modified_stamp(file_path)));
         if created_at_empty {
             obj.insert("createdAt".to_owned(), json!(extract_created_at(file_name)));
         }
@@ -2586,5 +2737,50 @@ mod tests {
         assert_eq!(pulls.len(), 1);
         assert_eq!(pulls[0]["pack"], "A4b");
         assert_eq!(pulls[0]["cards"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn prefixed_duplicate_xml_uses_device_account_metadata() {
+        let device_account = "a47fba5b1186e05e";
+        let recent_pull = Local::now().format("%Y%m%d%H%M%S").to_string();
+        let store = json!({
+            "accounts": {
+                device_account: {
+                    "instance": "1",
+                    "fileName": "a47fba5b1186e05e.xml",
+                    "packCount": 34,
+                    "lastPackPulled": recent_pull,
+                    "flags": {}
+                }
+            }
+        });
+        let lookup = accounts_for_instance(&store, "1");
+
+        let metadata = metadata_for_xml(&lookup, "00000035_a47fba5b1186e05e.xml", device_account)
+            .expect("metadata by device account");
+
+        assert_eq!(field_str(metadata, "fileName"), "a47fba5b1186e05e.xml");
+        assert!(!eligible(
+            metadata,
+            &ScheduleOptions {
+                instance: "1".to_owned(),
+                delete_method: "Inject 13P+".to_owned(),
+                sort_method: "ModifiedAsc".to_owned(),
+                wonderpick_for_event_missions: false,
+                claim_special_missions: false,
+                receive_gift: false,
+                ocr_shinedust: false,
+                s4t_enabled: false,
+                spend_hourglass: false,
+                force_clear_used: false,
+            }
+        ));
+
+        let used = HashSet::from(["a47fba5b1186e05e.xml".to_owned()]);
+        assert!(used_account_matches(
+            &used,
+            "00000035_a47fba5b1186e05e.xml",
+            device_account
+        ));
     }
 }

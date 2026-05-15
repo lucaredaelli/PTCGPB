@@ -44,7 +44,7 @@ OnError("ErrorHandler")
 githubUser := "kevnITG"
     ,repoName := "PTCGPB"
     ,localVersion := "v9.6.4"
-    ,modVersion := "v0.9.4"
+    ,modVersion := "v0.9.5"
     ,scriptFolder := A_ScriptDir
     ,zipPath := A_Temp . "\update.zip"
     ,extractPath := A_Temp . "\update"
@@ -68,6 +68,10 @@ if not A_IsAdmin
 global botConfig := new BotConfig()
 global session := new Session()
 global dict := ""
+global g_botStarted := false
+
+PTCGPB_ResetCockpitLaunchMarker()
+PTCGPB_RebuildTrayMenu()
 
 lastPackID := parsePackData()
 if(botConfig.packSettings.Count() = 0 || botConfig.packSettings.Count() = "")
@@ -80,6 +84,11 @@ parseDictionaryData("jp")
 parseDictionaryData("cn")
 
 botConfig.loadSettingsToConfig("ALL")
+global g_runMainPref := (botConfig.get("runMain") ? 1 : 0)
+global g_mainsPref := botConfig.get("Mains")
+if (g_mainsPref = "" || (g_mainsPref + 0) <= 0)
+    g_mainsPref := 1
+global g_prevDeleteMethod := Trim(botConfig.get("deleteMethod"))
 
 SetTimer, ShowSwipeSpeedToolTip, 50
 
@@ -189,8 +198,11 @@ NextStep:
     Gui, Add, Text, x20 y125 %sectionColor%, % GuiLabel(dict["Txt_InstanceStartDelay"])
     Gui, Add, Edit, vui_instanceStartDelay w50 x125 y125 h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("instanceStartDelay")
 
-    Gui, Add, Checkbox, % (botConfig.get("runMain") ? "Checked" : "") " vui_runMain gmainSettings x20 y150 " . sectionColor, % GuiLabel(dict["Txt_runMain"])
-    Gui, Add, Edit, % "vui_Mains w50 x125 y150 h20 -E0x200 Background2A2A2A " . sectionColor . " Center" . (botConfig.get("runMain") ? "" : " Hidden"), % botConfig.get("Mains")
+    startupMethod := Trim(botConfig.get("deleteMethod"))
+    runMainVisible := (startupMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"
+    mainsVisible := (startupMethod = "Inject Wonderpick 96P+" && botConfig.get("runMain")) ? "" : " Hidden"
+    Gui, Add, Checkbox, % (botConfig.get("runMain") ? "Checked" : "") " vui_runMain gmainSettings x20 y150 " . sectionColor . runMainVisible, % GuiLabel(dict["Txt_runMain"])
+    Gui, Add, Edit, % "vui_Mains w50 x125 y150 h20 -E0x200 Background2A2A2A " . sectionColor . " Center" . mainsVisible, % botConfig.get("Mains")
 
     ; =================== UI - Bot Settings ===================
     sectionColor := "c39FF14"
@@ -347,16 +359,35 @@ NextStep:
 Return
 
 mainSettings:
+    global g_runMainPref, g_mainsPref
     Gui, Submit, NoHide
     GuiControlGet, isMainChecked, , ui_runMain
     visible := isMainChecked ? "Show" : "Hide"
     GuiControl, %visible%, ui_Mains
+    GuiControlGet, curDeleteMethod, , ui_deleteMethod
+    if (curDeleteMethod = "Inject Wonderpick 96P+") {
+        g_runMainPref := isMainChecked ? 1 : 0
+        GuiControlGet, curMains, , ui_Mains
+        if (curMains != "")
+            g_mainsPref := curMains
+    }
 return
 
 deleteSettings:
+    global g_runMainPref, g_mainsPref, g_prevDeleteMethod
     Gui, Submit, NoHide
 
     GuiControlGet, curDeleteMethod, , ui_deleteMethod
+    curDeleteMethod := Trim(curDeleteMethod)
+    if (curDeleteMethod = "")
+        curDeleteMethod := Trim(botConfig.get("deleteMethod"))
+    if (g_prevDeleteMethod = "Inject Wonderpick 96P+" && curDeleteMethod != "Inject Wonderpick 96P+") {
+        GuiControlGet, snapRunMain, , ui_runMain
+        GuiControlGet, snapMains, , ui_Mains
+        g_runMainPref := snapRunMain ? 1 : 0
+        if (snapMains != "")
+            g_mainsPref := snapMains
+    }
     if (curDeleteMethod != "Inject Wonderpick 96P+") {
         ; Keep InjectWP Card Detection / Min GP 2★ in [Wonderpick] — do not zero them
         ; when switching bot mode (same keys, no duplicate profile).
@@ -385,6 +416,11 @@ deleteSettings:
         GuiControl, Hide, ui_AccountNameText
         GuiControl, Hide, ui_AccountName
         GuiControl, Show, ui_WaitTime
+        GuiControl, Show, ui_runMain
+        GuiControl,, ui_runMain, %g_runMainPref%
+        GuiControl,, ui_Mains, %g_mainsPref%
+        visible := g_runMainPref ? "Show" : "Hide"
+        GuiControl, %visible%, ui_Mains
     } else if (curDeleteMethod = "Inject 13P+") {
         GuiControl, Hide, ui_FriendID
         GuiControl, Show, ui_spendHourGlass
@@ -406,17 +442,14 @@ deleteSettings:
         GuiControl, Hide, ui_AccountNameText
         GuiControl, Hide, ui_AccountName
         GuiControl, Hide, ui_WaitTime
+    }
+
+    if (curDeleteMethod != "Inject Wonderpick 96P+") {
         GuiControl,, ui_runMain, 0
         GuiControl, Hide, ui_runMain
         GuiControl, Hide, ui_Mains
     }
-
-    if (curDeleteMethod != "Inject Rewards") {
-        GuiControl, Show, ui_runMain
-        GuiControlGet, isMainChecked, , ui_runMain
-        visible := isMainChecked ? "Show" : "Hide"
-        GuiControl, %visible%, ui_Mains
-    }
+    g_prevDeleteMethod := curDeleteMethod
     UpdateCardDetectionButtonText()
 return
 
@@ -1210,20 +1243,26 @@ ShowToolsAndSystemSettings:
     Gui, ToolsAndSystemSelect:Color, 1E1E1E, 333333
     Gui, ToolsAndSystemSelect:Font, s10 cWhite, Segoe UI
 
+    currentDeleteMethod := botConfig.get("deleteMethod")
+    GuiControlGet, selectedDeleteMethod, 1:, ui_deleteMethod
+    if (selectedDeleteMethod != "")
+        currentDeleteMethod := selectedDeleteMethod
+
     col1X := 15
     col1W := 190
     yPos := 15
+    leftStep := 24
 
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("showcaseEnabled") ? "Checked" : "") " vui_showcaseEnabled_Popup x" . col1X . " y" . yPos . " cWhite", 5x Showcase Likes
-    yPos += 20
+    yPos += leftStep
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("claimDailyMission") ? "Checked" : "") " vui_claimDailyMission_Popup x" . col1X . " y" . yPos . " cWhite", Claim Daily 4 Hourglasses
-    yPos += 20
+    yPos += leftStep
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("receiveGift") ? "Checked" : "") " vui_receiveGift_Popup x" . col1X . " y" . yPos . " cWhite", Receive Gift
-    yPos += 20
+    yPos += leftStep
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("slowMotion") ? "Checked" : "") " vui_slowMotion_Popup x" . col1X . " y" . yPos . " cWhite", No Speedmod Menu Clicks
-    yPos += 20
+    yPos += leftStep
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("useSoloIdsFile") ? "Checked" : "") " vui_UseSoloIdsFile_Popup x" . col1X . " y" . yPos . " cWhite", Use ids file in Solo Reroll
-    yPos += 35
+    yPos += 31
 
     sectionColor := "cWhite"
     eventMissionBoxH := 140
@@ -1231,13 +1270,13 @@ ShowToolsAndSystemSettings:
     Gui, ToolsAndSystemSelect:Add, GroupBox, x%col1X% y%yPos% w%col1W% h%eventMissionBoxH% %sectionColor%, Special Event Missions
     yPos += 20
     Gui, ToolsAndSystemSelect:Add, Button, x25 y%yPos% w170 h20 gOpenSpecialEventExtractor BackgroundTrans, Special Event Extractor
-    yPos += 25
+    yPos += 24
     Gui, ToolsAndSystemSelect:Add, Button, x25 y%yPos% w170 h20 gClearSpecialMissionHistory BackgroundTrans, Reset Claim Status
-    yPos += 25
+    yPos += 24
     Gui, ToolsAndSystemSelect:Add, Button, x25 y%yPos% w170 h20 gClearReceiveGiftHistory BackgroundTrans, Reset Receive Gift Status
-    yPos += 25
+    yPos += 24
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("claimSpecialMissions") ? "Checked" : "") " vui_claimSpecialMissions_Popup x25 y" . yPos . " cWhite", Claim Rewards
-    yPos += 20
+    yPos += 22
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("wonderpickForEventMissions") ? "Checked" : "") " vui_wonderpickForEventMissions_Popup x40 y" . yPos . " cWhite", Wonderpick
 
     col2X := 220
@@ -1312,9 +1351,12 @@ ShowToolsAndSystemSettings:
     Gui, ToolsAndSystemSelect:Add, Edit, vui_instanceLaunchDelay_Popup w30 x355 y%yPos2% h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("instanceLaunchDelay")
     yPos2 += 30
 
-    autoMonitorY := yPos2 - 5
-    Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("autoLaunchMonitor") ? "Checked" : "") " vui_autoLaunchMonitor_Popup x" . col2X . " y" . autoMonitorY . " " . sectionColor, % dict["Txt_autoLaunchMonitor"]
-    yPos2 += 25
+    Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("autoLaunchMonitor") ? "Checked" : "") " vui_autoLaunchMonitor_Popup x" . col2X . " y" . yPos2 . " " . sectionColor, % dict["Txt_autoLaunchMonitor"]
+    yPos2 += 26
+    if (currentDeleteMethod != "Create Bots (13P)") {
+        Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("startCockpitWithBot") ? "Checked" : "") " vui_startCockpitWithBot_Popup x" . col2X . " y" . yPos2 . " " . sectionColor, Auto-open Cockpit
+        yPos2 += 26
+    }
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("saveToGit") ? "Checked" : "") " vui_saveToGit_Popup gsaveToGit_Click x" . col2X . " y" . yPos2 . " " . sectionColor, Auto Save to Git (hourly)
     yPos2 += 30
 
@@ -1362,6 +1404,12 @@ saveToolsAndSystemSettings:
     botConfig.set("clientLanguage", ui_clientLanguage_Popup, "ToolsAndSystem")
     botConfig.set("instanceLaunchDelay", ui_instanceLaunchDelay_Popup, "ToolsAndSystem")
     botConfig.set("autoLaunchMonitor", ui_autoLaunchMonitor_Popup, "ToolsAndSystem")
+    currentDeleteMethod := botConfig.get("deleteMethod")
+    GuiControlGet, selectedDeleteMethod, 1:, ui_deleteMethod
+    if (selectedDeleteMethod != "")
+        currentDeleteMethod := selectedDeleteMethod
+    if (currentDeleteMethod != "Create Bots (13P)")
+        botConfig.set("startCockpitWithBot", ui_startCockpitWithBot_Popup, "ToolsAndSystem")
     botConfig.set("saveToGit", ui_saveToGit_Popup, "ToolsAndSystem")
     botConfig.set("receiveGift", ui_receiveGift_Popup, "ToolsAndSystem")
 
@@ -1955,6 +2003,40 @@ OpenDiscord:
     Run, https://discord.gg/C9Nyf7P4sT
 return
 
+PTCGPB_ResetCockpitLaunchMarker() {
+    markerPath := A_ScriptDir . "\Scripts\Include\Cockpit\CockpitLaunch.ini"
+    if (FileExist(markerPath))
+        FileDelete, %markerPath%
+}
+
+PTCGPB_SetCockpitLaunchMarker(active := 0) {
+    markerPath := A_ScriptDir . "\Scripts\Include\Cockpit\CockpitLaunch.ini"
+    IniWrite, % (active ? 1 : 0), %markerPath%, Runtime, BotStarted
+}
+
+PTCGPB_RebuildTrayMenu() {
+    global g_botStarted
+    Menu, Tray, NoStandard
+    if (g_botStarted)
+        Menu, Tray, Add, Open Cockpit, OpenCockpit
+    Menu, Tray, Add
+    Menu, Tray, Standard
+}
+
+OpenCockpit:
+    global g_botStarted
+    if (!g_botStarted) {
+        MsgBox, 48,, Start the bot first, then open Cockpit from tray.
+        return
+    }
+    cockpitFile := A_ScriptDir . "\Scripts\Include\Cockpit\Cockpit.ahk"
+    if (FileExist(cockpitFile)) {
+        Run, %cockpitFile%
+    } else {
+        MsgBox, 48,, Cockpit.ahk not found at:`n%cockpitFile%
+    }
+return
+
 OpenCardDatabase:
     cardDbStartScript := A_ScriptDir . "\Accounts\Cards\start_card_dashboard.bat"
     cardDbHtml := A_ScriptDir . "\Accounts\Cards\card_database.html"
@@ -1998,6 +2080,7 @@ return
 GuiClose:
     Gui, Submit, NoHide
     SaveAllSettings()
+    PTCGPB_SetCockpitLaunchMarker(0)
 
     KillAllScripts()
 
@@ -2070,6 +2153,7 @@ ResetAccountLists() {
 ; =================== Logic - Start bot function ===================
 StartBot() {
     global botConfig, dict, localVersion, githubUser, modVersion, modRepoUser, rerollTime, PackGuiBuild, botMetadata, typeMsg
+        , g_botStarted
 
     PackGuiBuild := 0
     rerollTime := A_TickCount
@@ -2124,6 +2208,21 @@ StartBot() {
         }
     }
 
+    ; Anchor Cockpit session lifecycle to bot start (not Cockpit window lifetime).
+    cockpitSessionEpoch := A_NowUTC
+    EnvSub, cockpitSessionEpoch, 1970, Seconds
+    cockpitSessionId := A_NowUTC
+    cockpitSessionPath := A_ScriptDir . "\Scripts\Include\Cockpit\CockpitSession.ini"
+    IniWrite, %cockpitSessionEpoch%, %cockpitSessionPath%, Session, StartEpoch
+    IniWrite, %cockpitSessionId%, %cockpitSessionPath%, Session, SessionId
+    PTCGPB_SetCockpitLaunchMarker(1)
+    cockpitRuntimePath := A_ScriptDir . "\Scripts\Include\Cockpit\CockpitRuntime.ini"
+    if (FileExist(cockpitRuntimePath))
+        FileDelete, %cockpitRuntimePath%
+
+    g_botStarted := true
+    PTCGPB_RebuildTrayMenu()
+
     Loop, % botConfig.get("Instances")
     {
         if (A_Index != 1) {
@@ -2162,6 +2261,14 @@ StartBot() {
         monitorFile := A_ScriptDir . "\Scripts\Include\Monitor.ahk"
         if(FileExist(monitorFile)) {
             Run, %monitorFile%
+        }
+    }
+
+    ; Cockpit autostarts only in modes where it is applicable.
+    if (botConfig.get("startCockpitWithBot") && botConfig.get("deleteMethod") != "Create Bots (13P)") {
+        cockpitFile := A_ScriptDir . "\Scripts\Include\Cockpit\Cockpit.ahk"
+        if(FileExist(cockpitFile)) {
+            Run, %cockpitFile%
         }
     }
 

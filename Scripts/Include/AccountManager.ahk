@@ -131,6 +131,18 @@ loadAccount() {
 
     getMetaData()
 
+    ; Cockpit hook: expose the currently injected account name to the
+    ; Aggregator via Scripts\<scriptName>.ini -> [Metrics] currentAccount.
+    ; The Aggregator reads this field every 2s with a default of "" so it is
+    ; safe to remove this hook without breaking anything.
+    try {
+        cockpitIni := A_ScriptDir . "\" . session.get("scriptName") . ".ini"
+        IniWrite, % session.get("accountFileName"), %cockpitIni%, Metrics, currentAccount
+        IniWrite, % (session.get("accountOpenPacks") + 0), %cockpitIni%, Metrics, currentPacks
+    } catch e {
+        ; non-fatal: the cockpit just shows blank for this instance
+    }
+
     return loadFile
 }
 
@@ -304,8 +316,6 @@ saveAccount(file := "Valid", ByRef filePath := "", packDetails := "", addWFlag :
             accountMeta["packCount"] := session.get("accountOpenPacks")
         else
             accountMeta["packCount"] := AccountMetadata_ExtractPackCount(xmlFile)
-        accountMeta["lastModified"] := savedModTime
-
         if (file = "All") {
             flags := {"B": session.get("missionDoneList")["beginnerMissionsDone"]
                 , "X": session.get("missionDoneList")["specialMissionsDone"]
@@ -465,13 +475,12 @@ getMetaData() {
     }
 
     if (session.get("missionDoneList")["accountHasPackInTesting"]) {
-        modTime := AccountMetadata_GetLastModified(session.get("scriptName"), session.get("accountFileName"), accountPath)
-        if (modTime = "")
-            return
-
-        hoursDiff := A_Now
-        EnvSub, hoursDiff, %modTime%, Hours
-        if(hoursDiff >= 5*24) {
+        validUntil := accountMeta["flags"]["T"]["validUntil"]
+        if (validUntil = "" && FileExist(accountPath)) {
+            FileGetTime, validUntil, %accountPath%, M
+            validUntil += 5, Days
+        }
+        if(validUntil != "" && A_Now >= validUntil) {
             session.get("missionDoneList")["accountHasPackInTesting"] := 0
             setMetaData()
         }
@@ -514,10 +523,6 @@ setMetaData() {
         } else if (!value) {
             accountMeta["flags"][flag]["validUntil"] := ""
         }
-    }
-
-    if (originalModTime != "") {
-        accountMeta["lastModified"] := originalModTime
     }
 
     AccountMetadata_SaveAccount(session.get("scriptName"), accountFileName, accountMeta)
@@ -704,7 +709,7 @@ AccountEligibility_IsEligible(instance, fileName, filePath, accountMeta := "") {
 AccountEligibility_GetSortTimestamp(instance, fileName, filePath, accountMeta) {
     sortTime := ""
     if (IsObject(accountMeta))
-        sortTime := accountMeta["lastModified"]
+        sortTime := accountMeta["lastPackPulled"]
     if (sortTime != "")
         return sortTime
 
@@ -750,11 +755,6 @@ UpdateSavedXml(xmlPath) {
         count++
     }
 
-    if (OutputVar > 0) {
-        SplitPath, xmlPath, xmlFileName
-        FileGetTime, updatedModTime, %xmlPath%, M
-        AccountMetadata_SetLastModified(session.get("scriptName"), xmlFileName, updatedModTime)
-    }
 }
 
 ;-------------------------------------------------------------------------------

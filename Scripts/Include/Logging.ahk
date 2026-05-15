@@ -28,6 +28,10 @@ ResetStatusMessage() {
 
 CreateStatusMessage(Message, GuiName := "StatusMessage", X := 0, Y := 565, debugOnly := true, Persist := false) {
     global session
+    ; The controller GUI (PTCGPB.ahk) should not spawn floating status overlays.
+    ; Keep overlays enabled for Main.ahk and per-instance scripts.
+    if (A_ScriptName = "PTCGPB.ahk")
+        return
 
     static hwnds := {}
     static resetStatusFunc := Func("ResetStatusMessage")
@@ -37,6 +41,9 @@ CreateStatusMessage(Message, GuiName := "StatusMessage", X := 0, Y := 565, debug
 
     if (Debug && Message != DEFAULT_STATUS_MESSAGE)
         LogToFile(GuiName . ": " . Message)
+
+    ; Keep Cockpit runtime metrics in sync without cross-process GUI scraping.
+    Cockpit_WriteLiveMetrics(Message)
 
     guiWidth := 275
     guiheight := 40
@@ -89,6 +96,46 @@ CreateStatusMessage(Message, GuiName := "StatusMessage", X := 0, Y := 565, debug
             SetTimer, % resetStatusFunc, -2000
         }
     }
+}
+
+Cockpit_WriteLiveMetrics(message) {
+    global session
+
+    if (!IsObject(session))
+        return
+
+    scriptName := session.get("scriptName")
+    if (scriptName = "")
+        return
+
+    if !(RegExMatch(scriptName, "^\d+$") || scriptName = "Main")
+        return
+
+    static lastWriteByScript := {}
+    nowTick := A_TickCount + 0
+    if (lastWriteByScript.HasKey(scriptName) && (nowTick - lastWriteByScript[scriptName]) < 700)
+        return
+
+    cockpitIni := A_ScriptDir . "\" . scriptName . ".ini"
+
+    packs := ""
+    if (RegExMatch(message, "i)Packs:\s*(\d+)", m)) {
+        packs := m1 + 0
+    } else {
+        try packs := session.get("accountOpenPacks")
+    }
+
+    try {
+        if (packs != "")
+            IniWrite, % (packs + 0), %cockpitIni%, Metrics, currentPacks
+    }
+
+    try {
+        if (message != "")
+            IniWrite, % message, %cockpitIni%, Metrics, currentStatusText
+    }
+
+    lastWriteByScript[scriptName] := nowTick
 }
 
 SetReposition(){
