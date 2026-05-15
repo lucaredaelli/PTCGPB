@@ -361,7 +361,7 @@ Agg_Tick:
 Return
 
 Cockpit_RefreshBody() {
-    global g_cockpitStartEpoch
+    global g_cockpitStartEpoch, g_ageStandalone
     Gui, Cockpit:Default
     state := CockpitState_Read()
     age := CockpitState_AgeSeconds()
@@ -380,9 +380,26 @@ Cockpit_RefreshBody() {
         return
     }
 
+    if (!g_ageStandalone && Cockpit_ShouldAutoCloseOnAllDead(state)) {
+        SetTimer, Agg_Tick, Off
+        SetTimer, Cockpit_Refresh, Off
+        ExitApp
+    }
+
     Cockpit_RenderHeader(state, stale)
     Cockpit_RenderInstances(state)
     Cockpit_RenderEvents(state)
+}
+
+Cockpit_ShouldAutoCloseOnAllDead(state) {
+    if (!IsObject(state) || !IsObject(state["Global"]))
+        return false
+    g := state["Global"]
+    configured := g.HasKey("instancesConfigured") ? (g["instancesConfigured"] + 0) : 0
+    dead := g.HasKey("instancesDead") ? (g["instancesDead"] + 0) : 0
+    if (configured <= 0)
+        return false
+    return (dead >= configured)
 }
 
 ;===============================================================================
