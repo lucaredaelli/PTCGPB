@@ -519,8 +519,6 @@ Agg_EmitEvent(level, scope, instance, category, details) {
         , "level": level, "scope": scope, "instance": instance
         , "category": category, "details": details }
     g_aggState.events.Push(ev)
-    while (g_aggState.events.Length() > 50)
-        g_aggState.events.RemoveAt(1)
 
     if (scope = "inst" && instance > 0 && g_aggState.instances.HasKey(instance)) {
         g_aggState.instances[instance].lastEvent := details

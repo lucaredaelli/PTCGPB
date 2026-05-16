@@ -311,13 +311,8 @@ SendMetadataToPTCGPB(valueToSend) {
     NumPut(SizeInBytes, CopyDataStruct, A_PtrSize)
     NumPut(&payload, CopyDataStruct, 2*A_PtrSize)
 
-    ; The controller keeps its "PTCGPB.ahk" routing window hidden so no overlay
-    ; shows on the controller GUI; enable DetectHiddenWindows to locate it.
-    prevHidden := A_DetectHiddenWindows
-    DetectHiddenWindows, On
     SendMessage, 0x4A, 0, &CopyDataStruct,, PTCGPB.ahk
     response := ErrorLevel
-    DetectHiddenWindows, %prevHidden%
 
     if (response == "FAIL") {
         return 0

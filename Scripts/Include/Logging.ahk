@@ -29,12 +29,6 @@ ResetStatusMessage() {
 CreateStatusMessage(Message, GuiName := "StatusMessage", X := 0, Y := 565, debugOnly := true, Persist := false) {
     global session
 
-    ; The controller GUI (PTCGPB.ahk) should not show floating status overlays,
-    ; but the GUI window must still be created: SendMetadataToPTCGPB routes
-    ; WM_COPYDATA to the window titled "PTCGPB.ahk" (default Gui title from
-    ; A_ScriptName) and without it ReceiveData never fires.
-    isController := (A_ScriptName = "PTCGPB.ahk")
-
     static hwnds := {}
     static resetStatusFunc := Func("ResetStatusMessage")
     static timerReposition

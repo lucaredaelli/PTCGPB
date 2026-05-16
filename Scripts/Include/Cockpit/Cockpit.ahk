@@ -31,6 +31,12 @@ SetWorkingDir %A_ScriptDir%\..\..
 global GUI_W := 760
 global GUI_H := 430
 global g_cockpitW := GUI_W
+global COCKPIT_TAB_STRIP := 26       ; approximate tab caption row inside Tab2
+global COCKPIT_EVENTS_FILTER := 34   ; filter row height inside Events tab (includes margin)
+global COCKPIT_EVENTS_EDIT_MIN := 162 ; minimum Edit height so log is usable (few lines)
+global COCKPIT_TAB_MARGIN_X := 14
+global g_cockpitTabTopY := 0           ; SepTop-relative; used by Cockpit_Relayout
+global g_cockpitMinTabInner := 220     ; COCKPIT_EVENTS_FILTER + COCKPIT_EVENTS_EDIT_MIN (+ margins): min usable Events tab body
 global LV_HWND := 0
 global EV_HWND := 0
 global SB_HWND := 0
@@ -92,6 +98,8 @@ global INST_SEG_W_STK := 94
 global INST_SEG_W_IDLE := 84
 global INST_SEG_W_DEAD := 88
 global g_instSingleMode := true
+global g_cockpitMainTabIdx := 1           ; Instances=1, Recent events=2 (skip expensive tab updates while hidden)
+global g_instLayoutLineCache := ""        ; avoids redundant Moves in Cockpit_LayoutInstancesSingle
 Loop, 12
     g_emptySparkline .= Chr(0x2581)
 
@@ -138,8 +146,10 @@ if (g_ageStandalone) {
         Gui, Cockpit:Show, Center w%GUI_W% h%GUI_H%, PTCGPB Cockpit
     WinRestore, PTCGPB Cockpit
     WinActivate, PTCGPB Cockpit
-    SetTimer, Cockpit_Refresh, 1000
-    SetTimer, Agg_Tick, 1000
+    Cockpit_PollMainTab()
+    ; Phase first UI tick away from aggregator (also run at Agg_TickBody) to reduce simultaneous GUI+INI work spikes.
+    SetTimer, Cockpit_RefreshTicker, % -447
+    SetTimer, Agg_Tick, % 1000
 }
 Return
 
@@ -155,17 +165,18 @@ Cockpit_BuildGui() {
         instancesConfigured := 1
     lvRows := instancesConfigured
 
-    Gui, Cockpit:New, +HwndhCockpit -Resize -MaximizeBox, PTCGPB Cockpit
+    Gui, Cockpit:New, +HwndhCockpit +Resize +MinSize760x480, PTCGPB Cockpit
     Gui, Cockpit:Default
     Gui, Color, %THEME_BG%, %THEME_BG%
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
 
     ; --- MODE: big, prominent ---
     Gui, Font, s16 c%THEME_ACCENT% Bold, %THEME_FONT%
-    Gui, Add, Text, % "x14 y8 w" . (GUI_W - 264) . " h32 vlblModeVal Background" . THEME_BG, (loading...)
+    ; Buttons start at GUI_W-264 — mode label stops 10px before that (lbl x14; w=W-288 => right edge at W-274)
+    Gui, Add, Text, % "x14 y8 w" . (GUI_W - 288) . " h32 vlblModeVal Background" . THEME_BG, (loading...)
     Gui, Font, s9 c%THEME_TEXT% Bold, %THEME_FONT%
-    Gui, Add, Button, % "x" . (GUI_W - 238) . " y12 w104 h22 vbtnCols gCockpit_OpenColumns", Customise
-    Gui, Add, Button, % "x" . (GUI_W - 126) . " y12 w112 h22 vbtnAgeView gCockpit_OpenAgeView", Injection Queue
+    Gui, Add, Button, % "x" . (GUI_W - 264) . " y12 w120 h22 vbtnAgeView gCockpit_OpenAgeView", Injection Queue
+    Gui, Add, Button, % "x" . (GUI_W - 134) . " y12 w120 h22 vbtnCols gCockpit_OpenColumns", Customise
     Cockpit_UpdateAgeButtonVisibility(botConfig.get("deleteMethod"))
 
     ; --- 2-column label/value grid ---
@@ -201,11 +212,23 @@ Cockpit_BuildGui() {
     y += 28
     Gui, Add, Progress, % "x10 y" . y . " w" . (GUI_W - 20) . " h1 c2A3136 Background2A3136 vSepTop Disabled", 100
     y += 8
+    tabTopY := y
+    g_cockpitTabTopY := tabTopY
+    tabCtrlW := GUI_W - 20
 
-    ; Instance ListView (resized to exact row count)
+    provisionalTabOuter := COCKPIT_TAB_STRIP + g_cockpitMinTabInner + 40
+
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
+    Gui, Add, Tab2, % "x10 y" . tabTopY . " w" . tabCtrlW . " h" . provisionalTabOuter
+        . " vtxMainTabs gCockpit_MainTab Choose1 Background" . THEME_BG
+        , % "Instances|Recent events"
+
+    ; --- Tab: Instances (ListView height = header + rows only, like pre-tabs layout) ---
+    Gui, Tab, Instances,, Exact
+    lvInnerW := tabCtrlW - 2 * COCKPIT_TAB_MARGIN_X
     ; +0x2000 = LVS_NOSCROLL
-    Gui, Add, ListView, % "x10 y" . y . " w" . (GUI_W - 20) . " h200 vInstancesLv gCockpit_OnInstancesLv hwndhLv -Multi -ReadOnly Grid -0x100000 -0x200000 +0x2000 -0x200"
+    Gui, Add, ListView, % "x" . COCKPIT_TAB_MARGIN_X . " y10 w" . lvInnerW . " h200"
+        . " vInstancesLv gCockpit_OnInstancesLv hwndhLv -Multi -ReadOnly Grid -0x100000 -0x200000 +0x2000 -0x200"
         , % Cockpit_BuildInstanceLvHeaderCsv()
     LV_HWND := hLv
 
@@ -214,20 +237,25 @@ Cockpit_BuildGui() {
     Cockpit_DisableColumnResize(hLv)
 
     lvHeight := Cockpit_MeasureLvHeight(hLv, lvRows)
-    GuiControl, Cockpit:Move, InstancesLv, h%lvHeight%
+    innerH := lvHeight + 24
+    if (innerH < g_cockpitMinTabInner)
+        innerH := g_cockpitMinTabInner
+    tabOuter := innerH + COCKPIT_TAB_STRIP
+    ddlXInner := tabCtrlW - COCKPIT_TAB_MARGIN_X - 120
+    evtTopRel := COCKPIT_EVENTS_FILTER + 12
+    evtEditH := innerH - evtTopRel - 10
 
-    y += lvHeight + 10
-    Gui, Add, Progress, % "x10 y" . y . " w" . (GUI_W - 20) . " h1 c2A3136 Background2A3136 vSepEvents Disabled", 100
-    y += 8
+    GuiControl, Cockpit:Move, txMainTabs, % "h" . tabOuter
+    ; Do not stretch ListView to fill the tab: only measured rows (avoids blank "extra" rows).
+    GuiControl, Cockpit:Move, InstancesLv, % "h" . lvHeight . " w" . lvInnerW
 
-    ; --- Events log ---
-    Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
-    Gui, Add, Text, % "x14 y" . y . " w120 h16 Background" . THEME_BG, Recent events
+    ; --- Tab: Recent events ---
+    Gui, Tab, Recent events,, Exact
     filterChoices := "All|Warnings|System"
     Loop, % instancesConfigured
         filterChoices .= "|Instance " . A_Index
     Gui, Font, s8 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, DropDownList, % "x" . (GUI_W - 130) . " y" . (y - 2) . " w120 vddlEventFilter gCockpit_OnEventFilterChange"
+    Gui, Add, DropDownList, % "x" . ddlXInner . " y10 w120 vddlEventFilter gCockpit_OnEventFilterChange"
         , %filterChoices%
     if (g_eventFilter = "")
         g_eventFilter := "All"
@@ -236,17 +264,16 @@ Cockpit_BuildGui() {
         g_eventFilter := "All"
         GuiControl, Cockpit:ChooseString, ddlEventFilter, All
     }
-    y += 24
-    Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
-    eventsH := 86
-    if (eventsH > 110)
-        eventsH := 110
-    if (eventsH < 44)
-        eventsH := 44
-    Gui, Add, Edit, % "x10 y" . y . " w" . (GUI_W - 20) . " h" . eventsH . " vEventsLog hwndhEv ReadOnly +0x800 +VScroll Background" . THEME_BG_ALT . " cE7ECEF", (no events yet)
+
+    Gui, Font, s9 c%THEME_TEXT%, Consolas
+    Gui, Add, Edit, % "x" . COCKPIT_TAB_MARGIN_X . " y" . evtTopRel . " w" . lvInnerW . " h" . evtEditH . " vEventsLog hwndhEv ReadOnly +0x800 +VScroll Background" . THEME_BG_ALT . " cE7ECEF"
+        , (No events yet)
     EV_HWND := hEv
-    GUI_H := y + eventsH + 8
+
+    Gui, Tab
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
+
+    GUI_H := tabTopY + tabOuter + 10
 }
 
 ;-------------------------------------------------------------------------------
@@ -361,7 +388,8 @@ Cockpit_SetRedraw(hwnd, enabled) {
 }
 
 ;===============================================================================
-; Refresh (called every 1s)
+; Periodic UI refresh (~1 Hz): see Cockpit_RefreshTicker
+; Manual F5 calls Cockpit_RefreshBody directly.
 ;===============================================================================
 Cockpit_Refresh:
     Cockpit_RefreshBody()
@@ -371,9 +399,42 @@ Agg_Tick:
     Agg_TickBody()
 Return
 
-Cockpit_RefreshBody() {
+; First run is scheduled negatively from startup then every 1000 ms.
+Cockpit_RefreshTicker:
+    Cockpit_RefreshBody()
+    SetTimer, Cockpit_RefreshTicker, % 1000
+Return
+
+; User switched main tab — defer content refresh so SysTabControl32 can finish painting first.
+Cockpit_MainTab:
+    SetTimer, Cockpit_AfterMainTab, -95
+Return
+
+Cockpit_AfterMainTab:
+    ; Skip header bulk GuiControl churn; timer refresh updates session/ETA within ~1 s.
+    Cockpit_RefreshBody(true)
+Return
+
+Cockpit_PollMainTab() {
+    global g_ageStandalone, g_cockpitMainTabIdx
+    if (g_ageStandalone)
+        return
+    Gui, Cockpit:Default
+    GuiControlGet, tabName,, txMainTabs
+    if ErrorLevel
+        return
+    tabName := Trim(tabName)
+    ; Tab2 (no AltSubmit) returns the caption, not +0 index; numeric index gates cheap tab-specific UI work.
+    if (tabName = "Recent events")
+        g_cockpitMainTabIdx := 2
+    else
+        g_cockpitMainTabIdx := 1
+}
+
+Cockpit_RefreshBody(skipHeader := false) {
     global g_cockpitStartEpoch, g_ageStandalone
     Gui, Cockpit:Default
+    Cockpit_PollMainTab()
     state := CockpitState_Read()
     age := CockpitState_AgeSeconds()
     stale := (age < 0 || age > 10)
@@ -393,11 +454,12 @@ Cockpit_RefreshBody() {
 
     if (!g_ageStandalone && Cockpit_ShouldAutoCloseOnAllDead(state)) {
         SetTimer, Agg_Tick, Off
-        SetTimer, Cockpit_Refresh, Off
+        SetTimer, Cockpit_RefreshTicker, Off
         ExitApp
     }
 
-    Cockpit_RenderHeader(state, stale)
+    if (!skipHeader)
+        Cockpit_RenderHeader(state, stale)
     Cockpit_RenderInstances(state)
     Cockpit_RenderEvents(state)
 }
@@ -546,6 +608,12 @@ Cockpit_RenderHeader(state, stale := false) {
 ;===============================================================================
 Cockpit_RenderInstances(state) {
     global g_lastLvRowSigs, g_rowMetaByRow, g_lvSortKey, g_lvSortDir, g_lvColOrder
+        , g_cockpitMainTabIdx
+
+    ; ListView repaint is costly; defer row/column churn while Recent events tab is visible.
+    if (g_cockpitMainTabIdx != 1)
+        return
+
     g := state["Global"]
     instances := state["Instances"]
     injReady := Cockpit_IsInjectablesReady(state)
@@ -771,16 +839,19 @@ Cockpit_ToLower(txt) {
 }
 
 Cockpit_LayoutInstancesSingle(instLine) {
-    global g_cockpitW, INST_SEG_X_RUN, g_instSingleMode
+    global g_cockpitW, INST_SEG_X_RUN, g_instSingleMode, g_instLayoutLineCache
     mainW := g_cockpitW - INST_SEG_X_RUN - 20
     if (mainW < 40)
         mainW := 40
+    if (g_instSingleMode && g_instLayoutLineCache = instLine)
+        return
     GuiControl, Cockpit:Move, lblInstRunVal, % "x" . INST_SEG_X_RUN . " w" . mainW
     GuiControl, Cockpit:Move, lblInstStkVal, % "x" . INST_SEG_X_RUN . " w0"
     GuiControl, Cockpit:Move, lblInstIdleVal, % "x" . INST_SEG_X_RUN . " w0"
     GuiControl, Cockpit:Move, lblInstDeadVal, % "x" . INST_SEG_X_RUN . " w0"
     GuiControl, Cockpit:Move, lblInstMainVal, % "x" . INST_SEG_X_RUN . " w0"
     g_instSingleMode := true
+    g_instLayoutLineCache := instLine
 }
 
 ;-------------------------------------------------------------------------------
@@ -790,7 +861,8 @@ Cockpit_LayoutInstancesSingle(instLine) {
 ; labels are cleared and collapsed to width 0.
 ;-------------------------------------------------------------------------------
 Cockpit_RenderInstanceSegments(segments) {
-    global INST_SEG_X_RUN, g_instSingleMode
+    global INST_SEG_X_RUN, g_instSingleMode, g_instLayoutLineCache
+    g_instLayoutLineCache := ""
     slotOrder := ["lblInstRunVal", "lblInstStkVal", "lblInstIdleVal", "lblInstDeadVal", "lblInstMainVal"]
     used := {}
     x := INST_SEG_X_RUN
@@ -887,14 +959,48 @@ Cockpit_FormatAccountFile(filename) {
 }
 
 ;===============================================================================
+; Event log helpers ( monospace columns: time | bucket | detail )
+;===============================================================================
+Cockpit_EventTypeBucket(level, scope, inst) {
+    if (scope = "inst") {
+        n := inst + 0
+        if (n <= 0)
+            return "Instance ?"
+        return "Instance " . n
+    }
+    if (scope = "global")
+        return (level = "warn") ? "Warnings" : "System"
+    return "-"
+}
+
+Cockpit_PadFixed(field, width) {
+    len := StrLen(field)
+    if (len >= width)
+        return SubStr(field, 1, width)
+    pad := ""
+    Loop, % (width - len)
+        pad .= A_Space
+    return field . pad
+}
+
+;===============================================================================
 ; Events rendering
 ;===============================================================================
 Cockpit_RenderEvents(state) {
-    global g_eventFilter, g_lastEventsText
+    global g_eventFilter, g_lastEventsText, g_cockpitMainTabIdx
+
+    evtShowCtl := g_cockpitMainTabIdx = 2
     events := state["Events"]
+
+    ; Always consume state fresh from CockpitState.ini; only repaint the Events tab control while it is visible
+    ; (cheap enough vs ListView churn and avoids misleading placeholder text after reopen).
     if (events.Count() = 0) {
+        if (!evtShowCtl)
+            return
         if (g_lastEventsText != "(No events yet)") {
+            GuiControl, Cockpit:-Redraw, EventsLog
             GuiControl, Cockpit:, EventsLog, (No events yet)
+            GuiControl, Cockpit:+Redraw, EventsLog
             g_lastEventsText := "(No events yet)"
         }
         return
@@ -906,13 +1012,28 @@ Cockpit_RenderEvents(state) {
     rawKeys := Cockpit_JoinKeys(keys, "`n")
     Sort, rawKeys, R   ; reverse lexicographic -> newest first (event_NNNN)
 
+    maxBucketW := 8
+    Loop, Parse, rawKeys, `n, `r
+    {
+        if (A_LoopField = "")
+            continue
+        line := events[A_LoopField]
+        parts := StrSplit(line, "|")
+        if (parts.Length() < 6)
+            continue
+        level := parts[2]
+        scope := parts[3]
+        inst  := parts[4]
+        cat   := parts[5]
+        det   := parts[6]
+        if (!Cockpit_EventMatchesFilter(level, scope, inst, cat))
+            continue
+        bw := StrLen(Cockpit_EventTypeBucket(level, scope, inst))
+        if (bw > maxBucketW)
+            maxBucketW := bw
+    }
+
     out := ""
-    count := 0
-    lineHeight := 16
-    GuiControlGet, evPos, Cockpit:Pos, EventsLog
-    maxLines := Floor(evPosH / lineHeight)
-    if (maxLines < 1)
-        maxLines := 1
     Loop, Parse, rawKeys, `n, `r
     {
         if (A_LoopField = "")
@@ -930,13 +1051,16 @@ Cockpit_RenderEvents(state) {
         if (!Cockpit_EventMatchesFilter(level, scope, inst, cat))
             continue
         timeStr := Cockpit_EpochToLocalHMS(epoch)
-        out .= timeStr . " | " . det . "`r`n"
-        count++
-        if (count >= maxLines)
-            break
+        bucket := Cockpit_EventTypeBucket(level, scope, inst)
+        out .= Cockpit_PadFixed(timeStr, 8) . " | " . Cockpit_PadFixed(bucket, maxBucketW) . " | " . det . "`r`n"
     }
+    if (!evtShowCtl)
+        return
+
     if (g_lastEventsText != out) {
+        GuiControl, Cockpit:-Redraw, EventsLog
         GuiControl, Cockpit:, EventsLog, %out%
+        GuiControl, Cockpit:+Redraw, EventsLog
         g_lastEventsText := out
     }
 }
@@ -2933,7 +3057,7 @@ CockpitGuiEscape:
     Gui, Cockpit:+LastFound
     Cockpit_SaveWindowPosition("Main", WinExist())
     SetTimer, Agg_Tick, Off
-    SetTimer, Cockpit_Refresh, Off
+    SetTimer, Cockpit_RefreshTicker, Off
     ExitApp
 
 CockpitGuiSize:
@@ -2943,28 +3067,62 @@ CockpitGuiSize:
 return
 
 Cockpit_Relayout(w, h) {
-    global g_cockpitW, g_instSingleMode
+    global botConfig, g_cockpitW, g_instSingleMode, g_cockpitTabTopY, COCKPIT_TAB_STRIP
+        , COCKPIT_EVENTS_FILTER, COCKPIT_TAB_MARGIN_X
+        , g_cockpitMinTabInner, LV_HWND, g_instLayoutLineCache
+
+    bottomPad := 10
     if (w <= 0 || h <= 0)
         return
     g_cockpitW := w
-    GuiControl, Cockpit:Move, lblModeVal, % "w" . (w - 264)
-    GuiControl, Cockpit:Move, btnCols, % "x" . (w - 238)
-    GuiControl, Cockpit:Move, btnAgeView, % "x" . (w - 126)
-    GuiControl, Cockpit:Move, InstancesLv, % "w" . (w - 20)
+    GuiControl, Cockpit:Move, lblModeVal, % "w" . (w - 288)
+    GuiControl, Cockpit:Move, btnAgeView, % "x" . (w - 264)
+    GuiControl, Cockpit:Move, btnCols, % "x" . (w - 134)
+
+    availOuterRaw := h - g_cockpitTabTopY - bottomPad
+    minOuter := g_cockpitMinTabInner + COCKPIT_TAB_STRIP
+    if (availOuterRaw < minOuter)
+        availOuterRaw := minOuter
+    tabOuterH := availOuterRaw
+    tabCtrlW := w - 20
+
+    GuiControl, Cockpit:Move, txMainTabs
+        , % "x10 y" . g_cockpitTabTopY . " w" . tabCtrlW . " h" . tabOuterH
+
+    GuiControlGet, tp, Cockpit:Pos, txMainTabs
+
+    innerH := Max((tpH + 0) - COCKPIT_TAB_STRIP, g_cockpitMinTabInner)
+    ddlXRel := tpW - COCKPIT_TAB_MARGIN_X - 120
+    evtTopRel := COCKPIT_EVENTS_FILTER + 12
+    evtEditH := innerH - evtTopRel - 10
+    lvInnerW := tpW - 2 * COCKPIT_TAB_MARGIN_X
+
+    instN := botConfig.get("Instances") + 0
+    if (instN <= 0)
+        instN := 1
+    lvNeed := LV_HWND ? Cockpit_MeasureLvHeight(LV_HWND, instN) : (innerH - 16)
+    lvSlotMax := innerH - 16
+    lvListH := lvNeed > lvSlotMax ? lvSlotMax : lvNeed
+
+    GuiControl, Cockpit:Move, InstancesLv, % "x" . (tpX + COCKPIT_TAB_MARGIN_X) . " y" . (tpY + COCKPIT_TAB_STRIP + 8)
+        . " w" . lvInnerW . " h" . lvListH
+
     Cockpit_ApplyColumnsToListView()
+
+    GuiControl, Cockpit:Move, ddlEventFilter
+        , % "x" . (tpX + ddlXRel) . " y" . (tpY + COCKPIT_TAB_STRIP + 10) . " w120"
+
+    GuiControl, Cockpit:Move, EventsLog
+        , % "x" . (tpX + COCKPIT_TAB_MARGIN_X)
+        . " y" . (tpY + COCKPIT_TAB_STRIP + evtTopRel)
+        . " w" . lvInnerW
+        . " h" . evtEditH
+
     GuiControl, Cockpit:Move, SepTop, % "w" . (w - 20)
-    GuiControl, Cockpit:Move, SepEvents, % "w" . (w - 20)
-    GuiControl, Cockpit:Move, ddlEventFilter, % "x" . (w - 130)
-    GuiControlGet, evPos, Cockpit:Pos, EventsLog
-    newEventsH := h - evPosY - 8
-    if (newEventsH > 96)
-        newEventsH := 96
-    if (newEventsH < 44)
-        newEventsH := 44
-    GuiControl, Cockpit:Move, EventsLog, % "w" . (w - 20) . " h" . newEventsH
     GuiControl, Cockpit:Move, lblPrgBar, % "w" . (w - 28)
     GuiControl, Cockpit:Move, lblPrgVal, % "w" . (w - 28)
     if (g_instSingleMode) {
+        g_instLayoutLineCache := ""
         GuiControlGet, instTxt, Cockpit:, lblInstRunVal
         Cockpit_LayoutInstancesSingle(instTxt)
     }
@@ -2983,5 +3141,5 @@ F5::Cockpit_AgeRefresh()
 
 ~+F9::
     SetTimer, Agg_Tick, Off
-    SetTimer, Cockpit_Refresh, Off
+    SetTimer, Cockpit_RefreshTicker, Off
     ExitApp
