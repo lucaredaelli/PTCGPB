@@ -241,12 +241,36 @@ FindGodPack(invalidPack := false, cards := "") {
 ;-------------------------------------------------------------------------------
 ; FoundStars - Process found star/special cards
 ;-------------------------------------------------------------------------------
-FoundStars(star) {
+FoundStars(star, cards := "") {
     global botConfig, session, DeadCheck
 
     IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
     session.set("keepAccount", true)
 
+    isWishlist := (star = "Wishlist")
+    wishlistMatches := session.get("wishlistMatches")
+    if (!IsObject(wishlistMatches))
+        wishlistMatches := []
+
+    ; Try synthetic image from card IDs, fallback to real screenshot
+    isSyntheticGP := false
+    screenShot := ""
+    if (IsObject(cards) && cards.MaxIndex() > 0) {
+        synthGPPath := ""
+        highlightIds := isWishlist ? Wishlist_MatchIds(wishlistMatches) : ""
+        if (GenerateSyntheticPackImage(cards, synthGPPath, highlightIds)) {
+            persistedGPPath := PersistSyntheticScreenshot(synthGPPath, star)
+            if (persistedGPPath != "") {
+                screenShot := persistedGPPath
+                if (FileExist(synthGPPath))
+                    FileDelete, %synthGPPath%
+            } else {
+                screenShot := synthGPPath
+            }
+            isSyntheticGP := true
+        }
+    }
+    if (!isSyntheticGP)
     screenShot := Screenshot(star)
     accountFullPath := ""
     username := ""
@@ -297,7 +321,8 @@ FoundStars(star) {
 
     CreateStatusMessage(star . " found!",,,, false)
 
-    statusMessage := star . " found"
+    statusPrefix := isWishlist ? Chr(0x2B50) . " Wishlist match" : (star . " found")
+    statusMessage := statusPrefix
     if (username && username != "Unknown")
         statusMessage .= " by " . username
     if (friendCode && friendCode != "Unknown")
@@ -305,7 +330,16 @@ FoundStars(star) {
 
     logMessage := statusMessage . " in instance: " . session.get("scriptName")
     logMessage .= " (" . session.get("packsInPool") . " packs, " . session.get("openPack") . ")\n"
+    if (isWishlist && wishlistMatches.MaxIndex() > 0)
+        logMessage .= "Wishlist: " . Wishlist_FormatNames(wishlistMatches) . "\n"
     logMessage .= "File name: " . accountFile . "\nBacking up to the Accounts\\SpecificCards folder and continuing..."
+    if (isWishlist) {
+        mentionId := botConfig.get("discordUserId")
+        if (mentionId = "")
+            mentionId := session.get("discordUserId")
+        if (mentionId != "")
+            logMessage .= "\n<@" . mentionId . ">"
+    }
     LogToDiscord(logMessage, screenShot, true, (DiscordShouldSendAccountXml() ? accountFullPath : ""), fcScreenshot)
     LogToFile(StrReplace(logMessage, "\n", " "), "GPlog.txt")
 }
@@ -657,6 +691,11 @@ CheckCardsSimple(result) {
     foundShiny1Star  := CountOccurances(cards, rarity, 11)
     foundShiny2Star  := CountOccurances(cards, rarity, 12)
 
+    Wishlist_EnsureFresh()
+    wishlistMap      := session.get("wishlistMap")
+    foundWishlist    := Wishlist_CountMatches(cards, wishlistMap)
+    session.set("wishlistMatches", Wishlist_MatchEntries(cards, wishlistMap))
+
     tradeableList := []
     tradeableList.Push({key: "3Diamond",  flag: botConfig.get("s4t3Dmnd"),      count: found3Dmnd})
     tradeableList.Push({key: "4Diamond",  flag: botConfig.get("s4t4Dmnd"),      count: found4Dmnd})
@@ -668,6 +707,7 @@ CheckCardsSimple(result) {
     tradeableList.Push({key: "Crown",     flag: botConfig.get("s4tCrown"),      count: foundCrown})
     tradeableList.Push({key: "Shiny1Star",flag: botConfig.get("s4tShiny1Star"), count: foundShiny1Star})
     tradeableList.Push({key: "Shiny2Star",flag: botConfig.get("s4tShiny2Star"), count: foundShiny2Star})
+    tradeableList.Push({key: "Wishlist",  flag: botConfig.get("s4tWishlist"),   count: foundWishlist})
 
     foundCards := {}
     foundTradeable := 0
@@ -688,7 +728,7 @@ CheckCardsSimple(result) {
         loadDir := session.get("loadDir")
         accountFileName := session.get("accountFileName")
 
-        order := ["1Diamond", "2Diamond", "3Diamond", "4Diamond", "1Star", "FullArt", "Rainbow", "Trainer", "Immersive", "Crown", "Shiny1Star", "Shiny2Star"]
+        order := ["1Diamond", "2Diamond", "3Diamond", "4Diamond", "1Star", "FullArt", "Rainbow", "Trainer", "Immersive", "Crown", "Shiny1Star", "Shiny2Star", "Wishlist"]
         out := ""
         for key, value in foundCards
             out .= key ": " value "`n"
@@ -706,6 +746,7 @@ CheckCardsSimple(result) {
         displayNames["Trainer"]    := "Trainer"
         displayNames["Rainbow"]    := "Rainbow"
         displayNames["FullArt"]    := "Full Art"
+        displayNames["Wishlist"]   := "Wishlist"
 
         foundTradeable := 0
         cardTypes := []
@@ -720,9 +761,12 @@ CheckCardsSimple(result) {
                 cardTypes.Push(type)
                 cardCounts.Push(count)
 
-                if (packDetailsMessage != "")
-                    packDetailsMessage .= ", "
-                packDetailsMessage .= displayNames[type] . " (x" . count . ")"
+                ; Wishlist gets its own inline line below, not lumped into "Found: ..."
+                if (type != "Wishlist") {
+                    if (packDetailsMessage != "")
+                        packDetailsMessage .= ", "
+                    packDetailsMessage .= displayNames[type] . " (x" . count . ")"
+                }
             }
         }
         deviceAccount := GetDeviceAccountFromXML()
@@ -779,12 +823,17 @@ CheckCardsSimple(result) {
         }
 
         statusMessage := "Giftpack cards found"
+        wishlistMatches := session.get("wishlistMatches")
+        if (!IsObject(wishlistMatches))
+            wishlistMatches := []
+        hasWishlist := botConfig.get("s4tWishlist") && wishlistMatches.MaxIndex() > 0
         ; Build filtered card list: only cards whose rarity is enabled in S4T settings
         filteredCards := FilterCardsByS4T(cards, rarity)
         ; Try to generate a synthetic image from card IDs
         synthScreenShot := ""
         if (filteredCards.MaxIndex() > 0) {
-            if (GenerateSyntheticPackImage(filteredCards, synthScreenShot) && botConfig.get("s4tKeepSyntheticScreenshots")) {
+            highlightIds := hasWishlist ? Wishlist_MatchIds(wishlistMatches) : ""
+            if (GenerateSyntheticPackImage(filteredCards, synthScreenShot, highlightIds) && botConfig.get("s4tKeepSyntheticScreenshots")) {
                 persistedGiftPath := PersistSyntheticScreenshot(synthScreenShot, "Tradeable", "Trades")
                 if (persistedGiftPath != "") {
                     if (FileExist(synthScreenShot))
@@ -795,7 +844,14 @@ CheckCardsSimple(result) {
         }
 
         if (!botConfig.get("s4tSilent") && botConfig.get("s4tDiscordWebhookURL")) {
-            discordMessage := statusMessage . " in instance: " . scriptName . "\nFound: " . packDetailsMessage . "\nFile name: " . accountFileName . "\n"
+            discordMessage := statusMessage . " in instance: " . scriptName . "\n"
+            if (packDetailsMessage != "")
+                discordMessage .= "Found: " . packDetailsMessage . "\n"
+            if (hasWishlist) {
+                sparkle := Chr(0x2728)
+                discordMessage .= sparkle . " WISHLIST: " . Wishlist_FormatNames(wishlistMatches) . " " . sparkle . "\n"
+            }
+            discordMessage .= "File name: " . accountFileName . "\n"
 
             xmlFileToSend := ""
             if (botConfig.get("s4tSendAccountXml") && savedXmlPath && FileExist(savedXmlPath))
@@ -823,7 +879,7 @@ FoundTradeableNew(foundCards, pack := "", cards := "") {
     loadDir := session.get("loadDir")
     accountFileName := session.get("accountFileName")
 
-    order := ["1Diamond", "2Diamond", "3Diamond", "4Diamond", "1Star", "FullArt", "Rainbow", "Trainer", "Immersive", "Crown", "Shiny1Star", "Shiny2Star"]
+    order := ["1Diamond", "2Diamond", "3Diamond", "4Diamond", "1Star", "FullArt", "Rainbow", "Trainer", "Immersive", "Crown", "Shiny1Star", "Shiny2Star", "Wishlist"]
     out := ""
     for key, value in foundCards
         out .= key ": " value "`n"
@@ -841,6 +897,7 @@ FoundTradeableNew(foundCards, pack := "", cards := "") {
     displayNames["Trainer"]    := "Trainer"
     displayNames["Rainbow"]    := "Rainbow"
     displayNames["FullArt"]    := "Full Art"
+    displayNames["Wishlist"]   := "Wishlist"
 
     foundTradeable := 0
     cardTypes := []
@@ -855,9 +912,12 @@ FoundTradeableNew(foundCards, pack := "", cards := "") {
             cardTypes.Push(type)
             cardCounts.Push(count)
 
-            if (packDetailsMessage != "")
-                packDetailsMessage .= ", "
-            packDetailsMessage .= displayNames[type] . " (x" . count . ")"
+            ; Wishlist gets its own inline line below, not lumped into "Found: ..."
+            if (type != "Wishlist") {
+                if (packDetailsMessage != "")
+                    packDetailsMessage .= ", "
+                packDetailsMessage .= displayNames[type] . " (x" . count . ")"
+            }
         }
     }
 
@@ -921,12 +981,18 @@ FoundTradeableNew(foundCards, pack := "", cards := "") {
         }
     }
 
+    wishlistMatches := session.get("wishlistMatches")
+    if (!IsObject(wishlistMatches))
+        wishlistMatches := []
+    hasWishlist := botConfig.get("s4tWishlist") && wishlistMatches.MaxIndex() > 0
+
     screenShotFileName := ""
     isSyntheticImage := false
     ; Try to generate a synthetic image from card IDs (avoids storing real screenshots on disk)
     if (IsObject(cards) && cards.MaxIndex() > 0) {
         synthPath := ""
-        if (GenerateSyntheticPackImage(cards, synthPath)) {
+        highlightIds := hasWishlist ? Wishlist_MatchIds(wishlistMatches) : ""
+        if (GenerateSyntheticPackImage(cards, synthPath, highlightIds)) {
             if (botConfig.get("s4tKeepSyntheticScreenshots")) {
                 persistedTradePath := PersistSyntheticScreenshot(synthPath, "Tradeable", "Trades")
                 if (persistedTradePath != "") {
@@ -956,7 +1022,14 @@ FoundTradeableNew(foundCards, pack := "", cards := "") {
     LogToFile(logMessage, "S4T.txt")
 
     if (!botConfig.get("s4tSilent") && botConfig.get("s4tDiscordWebhookURL")) {
-        discordMessage := statusMessage . " in instance: " . scriptName . " (" . packsInPool . " packs, " . packName . ")\nFound: " . packDetailsMessage . "\nFile name: " . accountFileName . "\nContinuing..."
+        discordMessage := statusMessage . " in instance: " . scriptName . " (" . packsInPool . " packs, " . packName . ")\n"
+        if (packDetailsMessage != "")
+            discordMessage .= "Found: " . packDetailsMessage . "\n"
+        if (hasWishlist) {
+            sparkle := Chr(0x2728)
+            discordMessage .= sparkle . " WISHLIST: " . Wishlist_FormatNames(wishlistMatches) . " " . sparkle . "\n"
+        }
+        discordMessage .= "File name: " . accountFileName . "\nContinuing..."
 
         xmlFileToSend := ""
         if (botConfig.get("s4tSendAccountXml") && savedXmlPath && FileExist(savedXmlPath))
@@ -1120,7 +1193,7 @@ ReleaseCardImageLock(hMutex) {
     DllCall("CloseHandle", "Ptr", hMutex)
 }
 
-GenerateSyntheticPackImage(cards, ByRef outputPath) {
+GenerateSyntheticPackImage(cards, ByRef outputPath, highlightIds := "") {
     global session
 
     outputPath := ""
@@ -1143,13 +1216,26 @@ GenerateSyntheticPackImage(cards, ByRef outputPath) {
 
     outputPath := tempDir . "\synth_" . scriptInst . "_" . A_Now . ".png"
 
+    highlightArg := ""
+    if (IsObject(highlightIds) && highlightIds.MaxIndex() > 0) {
+        highlightCsv := ""
+        For _, hid in highlightIds {
+            if (highlightCsv != "")
+                highlightCsv .= ","
+            highlightCsv .= hid
+        }
+        highlightArg := " --highlight """ . highlightCsv . """"
+    } else if (highlightIds != "" && !IsObject(highlightIds)) {
+        highlightArg := " --highlight """ . highlightIds . """"
+    }
+
     hCardImageLock := AcquireCardImageLock()
     if (!hCardImageLock) {
         outputPath := ""
         return false
     }
 
-    RunWait, "%helperTool%" "%tmpFile%" "%outputPath%", %helperDir%, Hide
+    RunWait, "%helperTool%" "%tmpFile%" "%outputPath%"%highlightArg%, %helperDir%, Hide
     ReleaseCardImageLock(hCardImageLock)
     if (ErrorLevel) {
         outputPath := ""

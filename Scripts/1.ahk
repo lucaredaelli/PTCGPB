@@ -21,6 +21,7 @@ pToken := Gdip_Startup()
 #Include Gdip_Extra.ahk
 #Include AccountMetadata.ahk
 #Include Database.ahk
+#Include Wishlist.ahk
 #Include CardDetection.ahk
 #Include AccountManager.ahk
 #Include FriendManager.ahk
@@ -418,7 +419,7 @@ if(DeadCheck = 1 && botConfig.get("deleteMethod") != "Create Bots (13P)") {
                 accountMeta["packCount"] := new_packcount
                 AccountMetadata_SaveAccount(session.get("scriptName"), session.get("accountFileName"), accountMeta)
 
-                if(botConfig.get("deleteMethod") = "Inject Wonderpick 96P+" && new_packcount < 70) {
+                if(botConfig.get("deleteMethod") = "Inject Wonderpick 96P+" && new_packcount < botConfig.get("injectWonderpickMinPacks")) {
                     ; we now have a proper pack count and can evaluate if this is valid or if this is a waste of time
                     MarkAccountAsUsed()
                     session.set("loadedAccount", false)
@@ -1258,13 +1259,15 @@ PersistStopAfterRunIfNeeded() {
         IniWrite, 1, % session.get("scriptIniFile"), UserSettings, stopAfterRunPending
 }
 
-FinalizeInjectedGodPackAccount() {
+FinalizeInjectedGodPackAccount(testing := True) {
     global botConfig, session, DeadCheck
 
     if (!session.get("injectMethod") || !session.get("loadedAccount"))
         return
 
+    if(testing) {
     session.get("missionDoneList")["accountHasPackInTesting"] := 1
+    }
     setMetaData()
     IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
 
@@ -1877,6 +1880,12 @@ CheckPack(stopEarly := false) {
     foundShiny1Star  := CountOccurances(cards, rarity, 11)
     foundShiny2Star  := CountOccurances(cards, rarity, 12)
 
+    Wishlist_EnsureFresh()
+    wishlistMap      := session.get("wishlistMap")
+    foundWishlist    := Wishlist_CountMatches(cards, wishlistMap)
+    wishlistMatches  := Wishlist_MatchEntries(cards, wishlistMap)
+    session.set("wishlistMatches", wishlistMatches)
+
     logMessage := "Instance: " . session.get("scriptName") " | Found: " . found1Dmnd
     logMessage := logMessage . "|" . found2Dmnd
     logMessage := logMessage . "|" . found2Dmnd
@@ -1904,6 +1913,7 @@ CheckPack(stopEarly := false) {
         tradeableList.Push({key: "Crown",     flag: botConfig.get("s4tCrown"),      count: foundCrown})
         tradeableList.Push({key: "Shiny1Star",flag: botConfig.get("s4tShiny1Star"), count: foundShiny1Star})
         tradeableList.Push({key: "Shiny2Star",flag: botConfig.get("s4tShiny2Star"), count: foundShiny2Star})
+        tradeableList.Push({key: "Wishlist",  flag: botConfig.get("s4tWishlist"),   count: foundWishlist})
 
         foundCards := {}
         foundTradeable := 0
@@ -2009,27 +2019,22 @@ CheckPack(stopEarly := false) {
         if (2starCount > 1)
             foundLabel := "Double two star"
     }
-    if (botConfig.get("TrainerCheck") && !foundLabel) {
-        if (!botConfig.get("PseudoGodPack") && foundTrainer)
+    if (botConfig.get("TrainerCheck") && !foundLabel && foundTrainer) {
             foundLabel := "Trainer"
     }
-    if (botConfig.get("RainbowCheck") && !foundLabel) {
-        if (!botConfig.get("PseudoGodPack") && foundRainbow)
+    if (botConfig.get("RainbowCheck") && !foundLabel && foundRainbow) {
             foundLabel := "Rainbow"
     }
-    if (botConfig.get("FullArtCheck") && !foundLabel) {
-        if (!botConfig.get("PseudoGodPack") && foundFullArt)
+    if (botConfig.get("FullArtCheck") && !foundLabel && foundFullArt) {
             foundLabel := "Full Art"
+    }
+    if (botConfig.get("WishlistCheck") && !foundLabel && foundWishlist) {
+            foundLabel := "Wishlist"
     }
 
     if (foundLabel) {
-        if (session.get("loadedAccount")) {
-            ; NEW: Do NOT add T flag for single 2-star cards
-            ; Only godpacks get the T flag now
-            IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
-        }
-
-        FoundStars(foundLabel)
+        FinalizeInjectedGodPackAccount(False)
+        FoundStars(foundLabel, cards)
         restartGameInstance(foundLabel . " found. Continuing...", "GodPack")
     }
 
@@ -2242,12 +2247,7 @@ CheckPackFallback() {
     }
 
     if (foundLabel) {
-        if (session.get("loadedAccount")) {
-            ; NEW: Do NOT add T flag for single 2-star cards
-            ; Only godpacks get the T flag now
-            IniWrite, 0, % session.get("scriptIniFile"), UserSettings, DeadCheck
-        }
-
+        FinalizeInjectedGodPackAccount(False)
         FoundStars(foundLabel)
         restartGameInstance(foundLabel . " found. Continuing...", "GodPack")
     }
@@ -4612,8 +4612,6 @@ GetAllRewards(tomain := true, dailies := false) {
         session.set("failSafe", A_TickCount)
         failSafeTime := 0
         Loop {
-            adbClick(165, 465)
-            Sleep, 500
             if FindOrLoseImage("Mission_DailyMissionImage", 0, failSafeTime)
                 break
             else if (FindOrLoseImage("Mission_GoToDexButtonIcon", 0, failSafeTime)) {
@@ -4629,6 +4627,8 @@ GetAllRewards(tomain := true, dailies := false) {
                 GotRewards := false
                 return GotRewards
             }
+            adbClick(165, 465)
+            Sleep, 500
         }
 
     }

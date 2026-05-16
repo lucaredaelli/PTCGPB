@@ -178,7 +178,7 @@ NextStep:
     MainGuiName := SGUI
 
     sectionColor := "cWhite"
-    Gui, Add, GroupBox, x5 y0 w240 h50 %sectionColor%, Friend ID (Wonderpick mode only)
+    Gui, Add, GroupBox, x5 y0 w240 h50 %sectionColor%, Friend ID
     Gui, Add, Edit, vui_FriendID w180 x35 y20 h20 -E0x200 Background2A2A2A cWhite, % ((botConfig.get("FriendID") || botConfig.get("FriendID") = "ERROR") ? botConfig.get("FriendID") : "")
 
     if (botConfig.get("deleteMethod") != "Inject Wonderpick 96P+") {
@@ -206,25 +206,43 @@ NextStep:
 
     ; =================== UI - Bot Settings ===================
     sectionColor := "c39FF14"
-    ; Center the control stack vertically inside the group box (title band + symmetric padding).
+    ; Near top for Bot Mode + DDL; middle rows use botSettings_yShift; Sort anchored from inner bottom mirroring botSettings_topPad.
     botSettings_grpY := 185
     botSettings_grpH := 220
     botSettings_titleBand := 22
     botSettings_origY1 := 207
-    botSettings_origYLast := 342
-    botSettings_lastRowH := 22
+    botSettings_topPad := 6
+    botSettings_bottomPad := botSettings_topPad
     botSettings_innerTop := botSettings_grpY + botSettings_titleBand
     botSettings_innerBot := botSettings_grpY + botSettings_grpH
-    botSettings_stackH := (botSettings_origYLast + botSettings_lastRowH) - botSettings_origY1
-    botSettings_innerH := botSettings_innerBot - botSettings_innerTop
-    botSettings_yShift := (botSettings_innerTop + Floor((botSettings_innerH - botSettings_stackH) / 2)) - botSettings_origY1
-    botY207 := botSettings_origY1 + botSettings_yShift
-    botY227 := 227 + botSettings_yShift
+    botSettings_yShift := (botSettings_innerTop + botSettings_topPad) - botSettings_origY1
+    ; Lift label + DDL slightly more toward group top (does not shift rows below Min Packs).
+    botSettings_modeLift := 4
+    botY207 := botSettings_origY1 + botSettings_yShift - botSettings_modeLift
+    botY227 := 227 + botSettings_yShift - botSettings_modeLift
     botY257 := 257 + botSettings_yShift
     botY277 := 277 + botSettings_yShift
-    botY297 := 297 + botSettings_yShift
-    botY322 := 322 + botSettings_yShift
-    botY342 := 342 + botSettings_yShift
+    ; Lower only checkboxes slightly (spacing from Min Packs unchanged).
+    botSettings_chkNudge := 10
+    ; Three checkboxes evenly spaced (was 297→322 = +25 vs +20 above, so Spend looked “floating”).
+    botSettings_chkStride := 20
+    botY_chkPack := botY277 + botSettings_chkNudge
+    botY_chkOpen := botY_chkPack + botSettings_chkStride
+    botY_chkSpend := botY_chkOpen + botSettings_chkStride
+    ; Sort block ~DDL plus label row; reserve bottom gap = botSettings_bottomPad (same knob as top).
+    botSettings_sortTail := 24
+    botY_sortDDL := botSettings_innerBot - botSettings_bottomPad - botSettings_sortTail
+    botY_floorAboveSort := botY_chkSpend + 22 + 8
+    if (botY_sortDDL < botY_floorAboveSort)
+        botY_sortDDL := botY_floorAboveSort
+    ; Nudge Sort slightly up (~air vs row above); reclamp vs floor against overlap with Spend HG.
+    botSettings_sortVent := 6
+    botY_sortDDL -= botSettings_sortVent
+    if (botY_sortDDL < botY_floorAboveSort)
+        botY_sortDDL := botY_floorAboveSort
+    botY_sortTxt := botY_sortDDL + 5
+
+    botY_accountRow := 260 + botSettings_yShift
 
     Gui, Add, GroupBox, x5 y%botSettings_grpY% w240 h%botSettings_grpH% %sectionColor%, % dict["BotSettings"]
 
@@ -241,11 +259,13 @@ NextStep:
     Gui, Add, Text, x20 y%botY207% %sectionColor%, Bot Mode
     Gui, Add, DropDownList, vui_deleteMethod gdeleteSettings choose%defaultDelete% x20 y%botY227% w200 Background2A2A2A cWhite, Create Bots (13P)|Inject 13P+|Inject Wonderpick 96P+|Inject Rewards
 
-    Gui, Add, Checkbox, % (botConfig.get("packMethod") ? "Checked" : "") " vui_packMethod x20 y" . botY257 . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), % dict["Txt_packMethod"]
-    Gui, Add, Checkbox, % (botConfig.get("openExtraPack") ? "Checked" : "") " vui_openExtraPack gopenExtraPackSettings x20 y" . botY277 . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+" || botMethod = "Inject 13P+") ? "" : " Hidden"), % dict["Txt_openExtraPack"]
-    Gui, Add, Checkbox, % (botConfig.get("spendHourGlass") ? "Checked" : "") " vui_spendHourGlass gspendHourGlassSettings x20 y" . botY297 . " " . sectionColor . ((botMethod = "Create Bots (13P)" || botMethod = "Inject Rewards")? " Hidden":""), % dict["Txt_spendHourGlass"]
+    Gui, Add, Text, % "vui_injectWonderpickMinPacksText x20 y" . botY257 . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), Min Packs:
+    Gui, Add, Edit, % "vui_injectWonderpickMinPacks w40 x130 y" . botY257 . " h20 -E0x200 Background2A2A2A cWhite Center" . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), % botConfig.get("injectWonderpickMinPacks")
+    Gui, Add, Checkbox, % (botConfig.get("packMethod") ? "Checked" : "") " vui_packMethod x20 y" . botY_chkPack . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+") ? "" : " Hidden"), % dict["Txt_packMethod"]
+    Gui, Add, Checkbox, % (botConfig.get("openExtraPack") ? "Checked" : "") " vui_openExtraPack gopenExtraPackSettings x20 y" . botY_chkOpen . " " . sectionColor . ((botMethod = "Inject Wonderpick 96P+" || botMethod = "Inject 13P+") ? "" : " Hidden"), % dict["Txt_openExtraPack"]
+    Gui, Add, Checkbox, % (botConfig.get("spendHourGlass") ? "Checked" : "") " vui_spendHourGlass gspendHourGlassSettings x20 y" . botY_chkSpend . " " . sectionColor . ((botMethod = "Create Bots (13P)" || botMethod = "Inject Rewards")? " Hidden":""), % dict["Txt_spendHourGlass"]
 
-    Gui, Add, Text, x20 y%botY322% %sectionColor% vui_SortByText, % GuiLabel(dict["SortByText"])
+    Gui, Add, Text, % "x20 y" . botY_sortTxt . " " . sectionColor . " vui_SortByText", % dict["SortByText"]
     sortOption := 1
     if (botConfig.get("injectSortMethod") = "ModifiedDesc")
         sortOption := 2
@@ -253,10 +273,10 @@ NextStep:
         sortOption := 3
     else if (botConfig.get("injectSortMethod") = "PacksDesc")
         sortOption := 4
-    Gui, Add, DropDownList, vui_SortByDropdown gSortByDropdownHandler choose%sortOption% x20 y%botY342% w130 Background2A2A2A cWhite, Oldest First|Newest First|Fewest Packs First|Most Packs First
+    Gui, Add, DropDownList, % "vui_SortByDropdown gSortByDropdownHandler choose" . sortOption . " x90 y" . botY_sortDDL . " w130 Background2A2A2A cWhite", Oldest First|Newest First|Fewest Packs First|Most Packs First
 
-    Gui, Add, Text, x20 y%botY277% %sectionColor% vui_AccountNameText, % GuiLabel(dict["Txt_AccountName"])
-    Gui, Add, Edit, vui_AccountName w90 x130 y%botY277% h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("AccountName")
+    Gui, Add, Text, % "x20 y" . botY_accountRow . " " . sectionColor . " vui_AccountNameText", % GuiLabel(dict["Txt_AccountName"])
+    Gui, Add, Edit, % "vui_AccountName w90 x130 y" . botY_accountRow . " h20 -E0x200 Background2A2A2A cWhite Center", % botConfig.get("AccountName")
 
     GuiControlGet, curMethod, , ui_deleteMethod
     if (curMethod = "Create Bots (13P)") {
@@ -344,12 +364,12 @@ NextStep:
     Gui, Font, s10 cWhite
     Gui, Add, Picture, gOpenDiscord x518 y194 w32 h32, %A_ScriptDir%\GUI\Images\discord-icon.png
     Gui, Add, Picture, gOpenToolTip x568 y194 w32 h32, %A_ScriptDir%\GUI\Images\help-icon.png
-    Gui, Add, Picture, gShowToolsAndSystemSettings x618 y195 w30 h30, %A_ScriptDir%\GUI\Images\tools-icon.png
+    Gui, Add, Picture, gShowToolsAndSystemSettings vui_ToolsPicture x618 y195 w30 h30, %A_ScriptDir%\GUI\Images\tools-icon.png
 
     Gui, Font, s10 cWhite Bold
     Gui, Add, Button, x497 y246 w170 h34 gBalanceXMLs BackgroundTrans, % dict["btn_balance"]
     Gui, Add, Button, x497 y292 w170 h34 gLaunchAllMumu BackgroundTrans, % dict["btn_mumu"]
-    Gui, Add, Button, gSave x497 y338 w170 h34, Start Bot
+    Gui, Add, Button, gSave vui_StartBotButton x497 y338 w170 h34, Start Bot
 
     Gui, Font, s7 cGray
     Gui, Add, Text, x489 y376 w190 Center BackgroundTrans, CC BY-NC 4.0 international license
@@ -389,8 +409,7 @@ deleteSettings:
             g_mainsPref := snapMains
     }
     if (curDeleteMethod != "Inject Wonderpick 96P+") {
-        ; Keep InjectWP Card Detection / Min GP 2★ in [Wonderpick] — do not zero them
-        ; when switching bot mode (same keys, no duplicate profile).
+        ; Save-for-trade Wonderpick-inject knobs only matter in Inject Wonderpick mode.
         botConfig.set("s4tWP", 0, "SaveForTrade")
         botConfig.set("s4tWPMinCards", 1, "SaveForTrade")
     }
@@ -399,6 +418,8 @@ deleteSettings:
         GuiControl, Hide, ui_FriendID
         GuiControl, Hide, ui_spendHourGlass
         GuiControl, Hide, ui_packMethod
+        GuiControl, Hide, ui_injectWonderpickMinPacksText
+        GuiControl, Hide, ui_injectWonderpickMinPacks
         GuiControl, Hide, ui_openExtraPack
         GuiControl, Hide, ui_SortByText
         GuiControl, Hide, ui_SortByDropdown
@@ -410,6 +431,8 @@ deleteSettings:
         GuiControl, Show, ui_FriendID
         GuiControl, Show, ui_spendHourGlass
         GuiControl, Show, ui_packMethod
+        GuiControl, Show, ui_injectWonderpickMinPacksText
+        GuiControl, Show, ui_injectWonderpickMinPacks
         GuiControl, Show, ui_openExtraPack
         GuiControl, Show, ui_SortByText
         GuiControl, Show, ui_SortByDropdown
@@ -425,6 +448,8 @@ deleteSettings:
         GuiControl, Hide, ui_FriendID
         GuiControl, Show, ui_spendHourGlass
         GuiControl, Hide, ui_packMethod
+        GuiControl, Hide, ui_injectWonderpickMinPacksText
+        GuiControl, Hide, ui_injectWonderpickMinPacks
         GuiControl, Show, ui_openExtraPack
         GuiControl, Show, ui_SortByText
         GuiControl, Show, ui_SortByDropdown
@@ -436,6 +461,8 @@ deleteSettings:
         GuiControl, Hide, ui_FriendID
         GuiControl, Hide, ui_spendHourGlass
         GuiControl, Hide, ui_packMethod
+        GuiControl, Hide, ui_injectWonderpickMinPacksText
+        GuiControl, Hide, ui_injectWonderpickMinPacks
         GuiControl, Hide, ui_openExtraPack
         GuiControl, Show, ui_SortByText
         GuiControl, Show, ui_SortByDropdown
@@ -508,18 +535,15 @@ UpdateDiscordSettingsButtonText() {
 }
 
 ShowDiscordSettings:
-    ShowDiscordSettingsPopup()
+    ShowDiscordSettingsPopup(A_GuiControl)
 return
 
-ShowDiscordSettingsPopup() {
+ShowDiscordSettingsPopup(anchorCtl := "") {
     global botConfig, dict
 
     Gui, Submit, NoHide
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
     popupWidth := 540
-    popupX := mainWinX + ((mainWinW - popupWidth) / 2)
-    popupY := mainWinY + 30
+    PTCGPB_PopupRightOfCtl(Trim(anchorCtl), popupWidth, 12, popupX, popupY)
 
     Gui, DiscordSettingsSelect:Destroy
     Gui, DiscordSettingsSelect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Discord Settings
@@ -530,40 +554,46 @@ ShowDiscordSettingsPopup() {
     groupDiscordColor := "cFF4500"
     s4tDiscordColor := "c4169E1"
     heartBeatDiscordColor := "c00FFFF"
+    ; S4T + Heartbeat: right-aligned labels immediately left of edits (widest heartbeat label drives column).
+    discordRightLblW := 226
+    discordLblEditGap := 10
+    discordEditLX := 15 + discordRightLblW + discordLblEditGap
+    discordEditWide := 259
+    discordS4tSendXmlWide := discordEditLX + discordEditWide - 15
 
     Gui, DiscordSettingsSelect:Add, GroupBox, x10 y10 w255 h150 %soloDiscordColor%, Solo Reroll InjectWP
     Gui, DiscordSettingsSelect:Add, Text, x20 y35 %soloDiscordColor%, Discord ID
     Gui, DiscordSettingsSelect:Add, Edit, vui_soloDiscordUserId_Popup w225 x20 y55 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("discordUserId")
     Gui, DiscordSettingsSelect:Add, Text, x20 y82 %soloDiscordColor%, Webhook URL
     Gui, DiscordSettingsSelect:Add, Edit, vui_soloDiscordWebhookURL_Popup w225 x20 y102 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("discordWebhookURL")
-    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("sendAccountXml") ? "Checked" : "") " vui_soloSendAccountXml_Popup x20 y130 " . soloDiscordColor, Send Account XML
+    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("sendAccountXml") ? "Checked" : "") " vui_soloSendAccountXml_Popup x20 y130 w225 Right " . soloDiscordColor, Send Account XML
 
     Gui, DiscordSettingsSelect:Add, GroupBox, x275 y10 w255 h150 %groupDiscordColor%, Group Reroll InjectWP
     Gui, DiscordSettingsSelect:Add, Text, x285 y35 %groupDiscordColor%, Discord ID
     Gui, DiscordSettingsSelect:Add, Edit, vui_groupDiscordUserId_Popup w225 x285 y55 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("groupRerollDiscordUserId")
     Gui, DiscordSettingsSelect:Add, Text, x285 y82 %groupDiscordColor%, Webhook URL
     Gui, DiscordSettingsSelect:Add, Edit, vui_groupDiscordWebhookURL_Popup w225 x285 y102 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("groupRerollDiscordWebhookURL")
-    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("groupRerollSendAccountXml") ? "Checked" : "") " vui_groupSendAccountXml_Popup x285 y130 " . groupDiscordColor, Send Account XML
+    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("groupRerollSendAccountXml") ? "Checked" : "") " vui_groupSendAccountXml_Popup x285 y130 w225 Right " . groupDiscordColor, Send Account XML
 
     Gui, DiscordSettingsSelect:Add, GroupBox, x10 y170 w520 h120 %s4tDiscordColor%, Save for Trade
-    Gui, DiscordSettingsSelect:Add, Text, x20 y195 %s4tDiscordColor%, Discord ID
-    Gui, DiscordSettingsSelect:Add, Edit, vui_s4tDiscordUserId_Popup w310 x200 y192 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("s4tDiscordUserId")
-    Gui, DiscordSettingsSelect:Add, Text, x20 y225 %s4tDiscordColor%, Webhook URL
-    Gui, DiscordSettingsSelect:Add, Edit, vui_s4tDiscordWebhookURL_Popup w310 x200 y222 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("s4tDiscordWebhookURL")
-    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("s4tSendAccountXml") ? "Checked" : "") " vui_s4tSendAccountXml_Popup x20 y255 " . s4tDiscordColor, Send Account XML
+    Gui, DiscordSettingsSelect:Add, Text, x15 y195 w%discordRightLblW% Right %s4tDiscordColor%, Discord ID
+    Gui, DiscordSettingsSelect:Add, Edit, vui_s4tDiscordUserId_Popup x%discordEditLX% y192 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("s4tDiscordUserId")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y225 w%discordRightLblW% Right %s4tDiscordColor%, Webhook URL
+    Gui, DiscordSettingsSelect:Add, Edit, vui_s4tDiscordWebhookURL_Popup x%discordEditLX% y222 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("s4tDiscordWebhookURL")
+    Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("s4tSendAccountXml") ? "Checked" : "") " vui_s4tSendAccountXml_Popup x15 y255 w" . discordS4tSendXmlWide . " Right " . s4tDiscordColor, Send Account XML
 
     Gui, DiscordSettingsSelect:Add, GroupBox, x10 y300 w520 h205 %heartBeatDiscordColor%, Heartbeat
     Gui, DiscordSettingsSelect:Add, Checkbox, % (botConfig.get("heartBeat") ? "Checked" : "") " vui_heartBeat_Popup x20 y325 " . heartBeatDiscordColor, % dict["Txt_heartBeat"]
-    Gui, DiscordSettingsSelect:Add, Text, x20 y355 %heartBeatDiscordColor%, Name
-    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatName_Popup w310 x200 y352 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatName")
-    Gui, DiscordSettingsSelect:Add, Text, x20 y385 %heartBeatDiscordColor%, Solo HB Webhook URL
-    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatWebhookURL_Popup w310 x200 y382 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatWebhookURL")
-    Gui, DiscordSettingsSelect:Add, Text, x20 y415 %heartBeatDiscordColor%, Group HB Webhook URL
-    Gui, DiscordSettingsSelect:Add, Edit, vui_groupHeartBeatWebhookURL_Popup w310 x200 y412 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("groupRerollHeartBeatWebhookURL")
-    Gui, DiscordSettingsSelect:Add, Text, x20 y445 %heartBeatDiscordColor%, Owner Webhook
-    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatOwnerWebHookURL_Popup w310 x200 y442 h20 -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatOwnerWebHookURL")
-    Gui, DiscordSettingsSelect:Add, Text, x20 y475 %heartBeatDiscordColor%, HB Delay (min)
-    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatDelay_Popup w60 x200 y472 h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("heartBeatDelay")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y355 w%discordRightLblW% Right %heartBeatDiscordColor%, Name
+    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatName_Popup x%discordEditLX% y352 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatName")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y385 w%discordRightLblW% Right %heartBeatDiscordColor%, Solo HB Webhook URL
+    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatWebhookURL_Popup x%discordEditLX% y382 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatWebhookURL")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y415 w%discordRightLblW% Right %heartBeatDiscordColor%, Solo Detailed HB Webhook URL
+    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatOwnerWebHookURL_Popup x%discordEditLX% y412 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("heartBeatOwnerWebHookURL")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y445 w%discordRightLblW% Right %heartBeatDiscordColor%, Group HB Webhook URL
+    Gui, DiscordSettingsSelect:Add, Edit, vui_groupHeartBeatWebhookURL_Popup x%discordEditLX% y442 h20 w%discordEditWide% -E0x200 Background2A2A2A cWhite, % botConfig.get("groupRerollHeartBeatWebhookURL")
+    Gui, DiscordSettingsSelect:Add, Text, x15 y475 w%discordRightLblW% Right %heartBeatDiscordColor%, HB Delay (min)
+    Gui, DiscordSettingsSelect:Add, Edit, vui_heartBeatDelay_Popup w60 x%discordEditLX% y472 h20 -E0x200 Background2A2A2A cWhite Center, % botConfig.get("heartBeatDelay")
 
     Gui, DiscordSettingsSelect:Add, Button, x185 y520 w80 h30 gApplyDiscordSettings, Apply
     Gui, DiscordSettingsSelect:Add, Button, x275 y520 w80 h30 gCancelDiscordSettings, Cancel
@@ -657,6 +687,34 @@ ValidateDiscordSettingsBeforeStart() {
     return true
 }
 
+; Opens a popup to the right of a main-window control at the same baseline (top-aligned).
+; If anchorCtl is empty, center horizontally from popupWidth in the active or main window client area.
+PTCGPB_PopupRightOfCtl(anchorCtl, popupWidth, gapPx, ByRef outX, ByRef outY) {
+    global MainGuiName
+
+    ctl := Trim(anchorCtl)
+    mainWinTit := "ahk_id " . MainGuiName
+    WinGetPos, mwX, mwY, mwW,, %mainWinTit%
+    if !mwW
+        WinGetPos, mwX, mwY, mwW,, A
+
+    outY := mwY + 30
+    if (ctl = "") {
+        outX := mwW ? (mwX + Floor((mwW - popupWidth) / 2)) : (mwX + 40)
+        return
+    }
+    GuiControlGet, tcx,, x, %ctl%, %mainWinTit%
+    if ErrorLevel {
+        outX := mwW ? (mwX + Floor((mwW - popupWidth) / 2)) : (mwX + 40)
+        return
+    }
+    GuiControlGet, tcy,, y, %ctl%, %mainWinTit%
+    GuiControlGet, tcw,, w, %ctl%, %mainWinTit%
+
+    outX := mwX + tcx + tcw + gapPx
+    outY := mwY + tcy
+}
+
 ; =================== UI - Pack Selection(New Window, Details) ===================
 
 UpdatePackSelectionButtonText() {
@@ -699,10 +757,7 @@ UpdatePackSelectionButtonText() {
 }
 
 ShowPackSelection:
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
-    popupX := mainWinX + 255 + 215 + 10
-    popupY := mainWinY - 50
+    Gui, Submit, NoHide
 
     Gui, PackSelect:Destroy
     Gui, PackSelect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Pack Selection
@@ -783,6 +838,7 @@ ShowPackSelection:
     Gui, PackSelect:Add, Button, x%packCancelButtonX% y%yPos% w80 h30 gCancelPackSelection, Cancel
     yPos += 40
 
+    PTCGPB_PopupRightOfCtl("ui_PackSelectionButton", windowWidth, 12, popupX, popupY)
     Gui, PackSelect:Show, x%popupX% y%popupY% w%windowWidth% h%yPos%
 return
 
@@ -835,6 +891,8 @@ UpdateCardDetectionButtonText() {
         enabledOptions.Push("Rainbow")
     if (botConfig.get("PseudoGodPack"))
         enabledOptions.Push("Double 2★")
+    if (botConfig.get("WishlistCheck"))
+        enabledOptions.Push("Wishlist")
     if (botConfig.get("InvalidCheck"))
         enabledOptions.Push("Ignore Invalid")
 
@@ -866,10 +924,7 @@ ShowCardDetection:
         return
     }
 
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
-    popupX := mainWinX + 255 + 215 + 10
-    popupY := mainWinY + 73 + 30
+    PTCGPB_PopupRightOfCtl("ui_CardDetectionButton", 230, 12, popupX, popupY)
 
     Gui, CardDetect:Destroy
     Gui, CardDetect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Wonderpick Card Detection Settings
@@ -889,6 +944,8 @@ ShowCardDetection:
     Gui, CardDetect:Add, Checkbox, % (botConfig.get("RainbowCheck") ? "Checked" : "") " vui_RainbowCheck_Popup x15 y" . yPos . " cWhite", Single Rainbow 2★
     yPos += 25
     Gui, CardDetect:Add, Checkbox, % (botConfig.get("PseudoGodPack") ? "Checked" : "") " vui_PseudoGodPack_Popup x15 y" . yPos . " cWhite", Double 2★
+    yPos += 25
+    Gui, CardDetect:Add, Checkbox, % (botConfig.get("WishlistCheck") ? "Checked" : "") " vui_WishlistCheck_Popup x15 y" . yPos . " cWhite", Wishlist 2★
     yPos += 25
     Gui, CardDetect:Add, Checkbox, % (botConfig.get("InvalidCheck") ? "Checked" : "") " vui_InvalidCheck_Popup x15 y" . yPos . " cWhite", Ignore Invalid Packs
     yPos += 35
@@ -918,6 +975,7 @@ saveCardDetection:
     botConfig.set("TrainerCheck", ui_TrainerCheck_Popup, "Wonderpick")
     botConfig.set("RainbowCheck", ui_RainbowCheck_Popup, "Wonderpick")
     botConfig.set("PseudoGodPack", ui_PseudoGodPack_Popup, "Wonderpick")
+    botConfig.set("WishlistCheck", ui_WishlistCheck_Popup, "Wonderpick")
     botConfig.set("InvalidCheck", ui_InvalidCheck_Popup, "Wonderpick")
 return
 
@@ -952,12 +1010,8 @@ UpdateGroupRerollButtonText() {
 }
 
 ShowGroupRerollSettings:
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
-    buttonCenterX := 362
-    popupWidth := 250
-    popupX := mainWinX + buttonCenterX - (popupWidth / 2)
-    popupY := mainWinY + 183 + 30
+    Gui, Submit, NoHide
+    PTCGPB_PopupRightOfCtl("ui_GroupRerollButton", 250, 12, popupX, popupY)
 
     Gui, GroupRerollSelect:Destroy
     Gui, GroupRerollSelect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Group Reroll Settings
@@ -1111,6 +1165,8 @@ UpdateS4TButtonText() {
         enabledOptions.Push("Shiny1★")
     if (botConfig.get("s4tShiny2Star"))
         enabledOptions.Push("Shiny2★")
+    if (botConfig.get("s4tWishlist"))
+        enabledOptions.Push("Wishlist")
 
     statusText := dict["Txt_S4TEnabled"]
     if (enabledOptions.Length() > 0) {
@@ -1125,12 +1181,8 @@ UpdateS4TButtonText() {
 }
 
 ShowS4TSettings:
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
-    buttonCenterX := 362
-    popupWidth := 200
-    popupX := mainWinX + buttonCenterX - (popupWidth / 2)
-    popupY := mainWinY + 0
+    Gui, Submit, NoHide
+    PTCGPB_PopupRightOfCtl("ui_S4TButton", 200, 12, popupX, popupY)
 
     Gui, S4TSettingsSelect:Destroy
     Gui, S4TSettingsSelect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Save for Trade Settings
@@ -1162,6 +1214,8 @@ ShowS4TSettings:
     Gui, S4TSettingsSelect:Add, Checkbox, % (botConfig.get("s4tImmersive") ? "Checked" : "") " vui_s4tImmersive_Popup x15 y" . yPos . " " . sectionColor, Immersive
     yPos += 18
     Gui, S4TSettingsSelect:Add, Checkbox, % (botConfig.get("s4tCrown") ? "Checked" : "") " vui_s4tCrown_Popup x15 y" . yPos . " " . sectionColor, ♚ Crown Rare
+    yPos += 18
+    Gui, S4TSettingsSelect:Add, Checkbox, % (botConfig.get("s4tWishlist") ? "Checked" : "") " vui_s4tWishlist_Popup x15 y" . yPos . " " . sectionColor, Wishlist
     yPos += 25
 
     ; Wonderpick section
@@ -1216,6 +1270,7 @@ saveS4T:
     botConfig.set("s4tImmersive", ui_s4tImmersive_Popup, "SaveForTrade")
     botConfig.set("s4tShiny1Star", ui_s4tShiny1Star_Popup, "SaveForTrade")
     botConfig.set("s4tShiny2Star", ui_s4tShiny2Star_Popup, "SaveForTrade")
+    botConfig.set("s4tWishlist", ui_s4tWishlist_Popup, "SaveForTrade")
     botConfig.set("s4tWP", ui_s4tWP_Popup, "SaveForTrade")
     botConfig.set("s4tWPMinCards", ui_s4tWPMinCards_Popup, "SaveForTrade")
     botConfig.set("s4tKeepSyntheticScreenshots", ui_s4tKeepSyntheticScreenshots_Popup, "SaveForTrade")
@@ -1233,10 +1288,8 @@ return
 
 ; =================== UI - Tools and System Settings(New Window, Details) ===================
 ShowToolsAndSystemSettings:
-    WinGetPos, mainWinX, mainWinY, mainWinW, mainWinH, A
-
-    popupX := mainWinX + 555
-    popupY := mainWinY - 25
+    Gui, Submit, NoHide
+    PTCGPB_PopupRightOfCtl(A_GuiControl, 410, 12, popupX, popupY)
 
     Gui, ToolsAndSystemSelect:Destroy
     Gui, ToolsAndSystemSelect:New, +ToolWindow -MaximizeBox -MinimizeBox +LastFound, Tools & System Settings
@@ -1261,7 +1314,7 @@ ShowToolsAndSystemSettings:
     yPos += leftStep
     Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("slowMotion") ? "Checked" : "") " vui_slowMotion_Popup x" . col1X . " y" . yPos . " cWhite", No Speedmod Menu Clicks
     yPos += leftStep
-    Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("useSoloIdsFile") ? "Checked" : "") " vui_UseSoloIdsFile_Popup x" . col1X . " y" . yPos . " cWhite", Use ids file in Solo Reroll
+    Gui, ToolsAndSystemSelect:Add, Checkbox, % (botConfig.get("useSoloIdsFile") ? "Checked" : "") " vui_UseSoloIdsFile_Popup x" . col1X . " y" . yPos . " cWhite", Use ids.txt in Solo Reroll
     yPos += 31
 
     sectionColor := "cWhite"
@@ -1294,7 +1347,7 @@ ShowToolsAndSystemSettings:
         MonitorOptions .= (A_Index > 1 ? "|" : "") "" A_Index ": (" MonitorRight - MonitorLeft "x" MonitorBottom - MonitorTop ")"
     }
     SelectedMonitorIndex := RegExReplace(botConfig.get("SelectedMonitorIndex"), ":.*$")
-    Gui, ToolsAndSystemSelect:Add, DropDownList, x%col2X% y%yPos2% w100 vui_SelectedMonitorIndex_Popup Choose%SelectedMonitorIndex% Background2A2A2A cWhite, %MonitorOptions%
+    Gui, ToolsAndSystemSelect:Add, DropDownList, x%col2X% y%yPos2% w170 vui_SelectedMonitorIndex_Popup Choose%SelectedMonitorIndex% Background2A2A2A cWhite, %MonitorOptions%
     yPos2 += 30
 
     rowGapY := yPos2 + 2
@@ -1469,9 +1522,7 @@ Save:
 
     ;Deluxe := 0 ; Turn off Deluxe for all users now that pack is removed
 
-    SaveAllSettings()
-
-    if (!ValidateDiscordSettingsBeforeStart())
+    if (!SaveAllSettings())
         return
 
     if(StrLen(A_ScriptDir) > 200 || InStr(A_ScriptDir, " ")) {
@@ -1535,6 +1586,8 @@ Save:
             cardDetection .= dict["Confirm_SingleRainbow"] . "`n"
         if (botConfig.get("PseudoGodPack"))
             cardDetection .= dict["Confirm_Double2Star"] . "`n"
+        if (botConfig.get("WishlistCheck"))
+            cardDetection .= "• Wishlist 2★`n"
         if (botConfig.get("CrownCheck"))
             cardDetection .= dict["Confirm_SaveCrowns"] . "`n"
         if (botConfig.get("ShinyCheck"))
@@ -1572,6 +1625,8 @@ Save:
             s4tSettings .= "• Immersive`n"
         if (botConfig.get("s4tCrown"))
             s4tSettings .= "• Crown Rare`n"
+        if (botConfig.get("s4tWishlist"))
+            s4tSettings .= "• Wishlist`n"
         if (botConfig.get("s4tWP"))
             s4tSettings .= "• " . dict["Confirm_WonderPick"] . " (" . botConfig.get("s4tWPMinCards") . " " . dict["Confirm_MinCards"] . ")`n"
 
@@ -1605,7 +1660,8 @@ Save:
         Gui, InjectReqDlg:Add, Checkbox, x12 y126 vui_irShinedust %irShinedustChecked%, Track Shinedust
         Gui, InjectReqDlg:Add, Button, x12 y160 w80 h26 gInjectReqDlgOK Default, OK
         Gui, InjectReqDlg:Add, Button, x102 y160 w80 h26 gInjectReqDlgCancel, Cancel
-        Gui, InjectReqDlg:Show, w310 h200
+        PTCGPB_PopupRightOfCtl("ui_StartBotButton", 310, 12, dlgX, dlgY)
+        Gui, InjectReqDlg:Show, x%dlgX% y%dlgY% w310 h200
         irDlgHwnd := WinExist()
         WinWaitClose, ahk_id %irDlgHwnd%
         if (g_irDialogResult = "cancel")
@@ -1638,7 +1694,8 @@ return
 ; =================== Logic - Balance XMLs Button Action ===================
 BalanceXMLs:
     Gui, Submit, NoHide
-    SaveAllSettings()
+    if (!SaveAllSettings())
+        return
 
     if(botConfig.get("Instances")>0) {
         helperPath := AccountMetadata_HelperPath()
@@ -1648,6 +1705,7 @@ BalanceXMLs:
             command .= " --instances """ . botConfig.get("Instances") . """"
             command .= " --delete-method """ . botConfig.get("deleteMethod") . """"
             command .= " --sort-method """ . botConfig.get("injectSortMethod") . """"
+            command .= " --inject-wonderpick-min-packs """ . botConfig.get("injectWonderpickMinPacks") . """"
             if (botConfig.get("wonderpickForEventMissions"))
                 command .= " --wonderpick-for-event-missions"
             if (botConfig.get("claimSpecialMissions"))
@@ -1889,7 +1947,8 @@ BalanceXMLs_RunWithProgress(command) {
 ; =================== Logic - Launch All Mumu Button Action ===================
 LaunchAllMumu:
     Gui, Submit, NoHide
-    SaveAllSettings()
+    if (!SaveAllSettings())
+        return
 
     if(StrLen(A_ScriptDir) > 200 || InStr(A_ScriptDir, " ")) {
         MsgBox, 0x40000,, ERROR: bot folder path is too long or contains blank spaces. Move to a shorter path without spaces such as C:\PTCGPB
@@ -1913,7 +1972,8 @@ return
 ArrangeWindows:
     Gui, Submit, NoHide
 
-    SaveAllSettings()
+    if (!SaveAllSettings())
+        return
 
     scaleParam := 283
     windowsPositioned := 0
@@ -2079,8 +2139,8 @@ return
 
 GuiClose:
     Gui, Submit, NoHide
-    SaveAllSettings()
-    PTCGPB_SetCockpitLaunchMarker(0)
+    if (!SaveAllSettings())
+        return
 
     KillAllScripts()
 
@@ -2091,16 +2151,16 @@ CheckForUpdates:
     CheckForUpdate()
 return
 
-; =================== Logic - Show recommand swipe speed ===================
+; =================== Logic - Swipe speed hint (focus + ToolTip) ===================
 ShowSwipeSpeedToolTip:
     GuiControlGet, currentFocus, FocusV
 
-    if (currentFocus == "ui_swipeSpeed") {
+    if (currentFocus = "ui_swipeSpeed") {
         MouseGetPos, mouseX, mouseY
+        global dict
         message := dict["RecommandSwipeSpeedNoModMenu"] . "`n" . dict["RecommandSwipeSpeedUseModMenu"] . "`n" . dict["HideSwipeToolTip"]
         ShowCustomToolTip(message, (mouseX + 15), (mouseY + 20))
-    }
-    else {
+    } else {
         HideCustomToolTip()
     }
 return
@@ -2113,6 +2173,14 @@ SaveAllSettings() {
         configValue := ""
         GuiControlGet, configValue, , %uiID%
         botConfig.set(configName, configValue, "General")
+    }
+
+    if (botConfig.get("injectWonderpickMinPacks") = "")
+        botConfig.set("injectWonderpickMinPacks", 96, "General")
+    else if (!RegExMatch(botConfig.get("injectWonderpickMinPacks"), "^\d+$") || botConfig.get("injectWonderpickMinPacks") < 70 || botConfig.get("injectWonderpickMinPacks") > 999) {
+        MsgBox, 0x40000, Invalid Setting, Inject Wonderpick minimum packs must be between 70 and 999.
+        GuiControl, Focus, ui_injectWonderpickMinPacks
+        return false
     }
 
     if(botConfig.get("debugMode") = 0)
@@ -2130,6 +2198,8 @@ SaveAllSettings() {
     if (botConfig.get("debugMode")) {
         FileAppend, % A_Now . " - Settings saved. DeleteMethod: " . botConfig.get("deleteMethod") . "`n", %A_ScriptDir%\debug_settings.log
     }
+
+    return true
 }
 
 ; =================== Logic - Reset account lists ===================

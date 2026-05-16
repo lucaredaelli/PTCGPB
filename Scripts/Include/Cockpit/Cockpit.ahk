@@ -183,7 +183,7 @@ Cockpit_DisableMainWindowMaximize(hwnd) {
     WinSet, Style, -0x10000, ahk_id %hwnd%
 }
 
-; Block SC_MAXIMIZE (Aero Snap to top, Win+Up, etc.) — WinSet alone is not enough on modern Windows.
+; Block SC_MAXIMIZE (Aero Snap to top, Win+Up, etc.). WinSet alone is not enough on modern Windows.
 Cockpit_OnWmSysCommand(wParam, lParam, msg, hwnd) {
     global g_cockpitHwnd
     if (!g_cockpitHwnd || hwnd != g_cockpitHwnd)
@@ -211,7 +211,7 @@ Cockpit_BuildGui() {
 
     ; --- MODE: big, prominent ---
     Gui, Font, s16 c%THEME_ACCENT% Bold, %THEME_FONT%
-    ; Buttons start at GUI_W-264 — mode label stops 10px before that (lbl x14; w=W-288 => right edge at W-274)
+    ; Buttons start at GUI_W-264. Mode label stops 10px before that (lbl x14; w=W-288 -> right edge at W-274)
     Gui, Add, Text, % "x14 y8 w" . (GUI_W - 288) . " h32 vlblModeVal Background" . THEME_BG, (loading...)
     Gui, Font, s9 c%THEME_TEXT% Bold, %THEME_FONT%
     Gui, Add, Button, % "x" . (GUI_W - 264) . " y12 w120 h22 vbtnAgeView gCockpit_OpenAgeView", Injection Queue
@@ -456,7 +456,7 @@ Cockpit_RefreshTicker:
     SetTimer, Cockpit_RefreshTicker, % 1000
 Return
 
-; User switched main tab — defer content refresh so SysTabControl32 can finish painting first.
+; User switched main tab: defer content refresh so SysTabControl32 can finish painting first.
 Cockpit_MainTab:
     SetTimer, Cockpit_AfterMainTab, -95
 Return

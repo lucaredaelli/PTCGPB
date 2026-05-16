@@ -90,7 +90,10 @@ function Write-Utf8File {
 
 function Read-RequestBody {
     param([Parameter(Mandatory = $true)]$Context)
-    $reader = New-Object System.IO.StreamReader($Context.Request.InputStream, $Context.Request.ContentEncoding)
+    # Always decode as UTF-8: HttpListener.ContentEncoding falls back to Windows-1252
+    # when the request's Content-Type has no charset, which mangles curly apostrophes
+    # and other non-ASCII chars in JSON payloads.
+    $reader = New-Object System.IO.StreamReader($Context.Request.InputStream, [System.Text.Encoding]::UTF8)
     try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
 }
 
@@ -800,6 +803,101 @@ function Invoke-LoadAccountData {
     Write-TextResponse -Context $Context -StatusCode 200 -Body $payload.Json -ContentType "application/json; charset=utf-8"
 }
 
+function Get-WishlistPath {
+    return Join-Path $resolvedRoot "Accounts\Cards\wishlist.json"
+}
+
+function Invoke-GetWishlist {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    $path = Get-WishlistPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        Write-JsonResponse -Context $Context -StatusCode 200 -Payload @{
+            ok = $true
+            version = 1
+            updatedAt = ""
+            cards = @()
+        }
+        return
+    }
+
+    try {
+        $text = [System.IO.File]::ReadAllText($path)
+        Write-TextResponse -Context $Context -StatusCode 200 -Body $text -ContentType "application/json; charset=utf-8"
+    } catch {
+        Write-JsonResponse -Context $Context -StatusCode 500 -Payload @{
+            ok = $false
+            error = "Failed to read wishlist.json: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Invoke-SaveWishlist {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    $bodyText = Read-RequestBody -Context $Context
+    if ([string]::IsNullOrWhiteSpace($bodyText)) {
+        Write-JsonResponse -Context $Context -StatusCode 400 -Payload @{ ok = $false; error = "Empty request body." }
+        return
+    }
+    try { $payload = $bodyText | ConvertFrom-Json } catch {
+        Write-JsonResponse -Context $Context -StatusCode 400 -Payload @{ ok = $false; error = "Invalid JSON body." }
+        return
+    }
+
+    if ($null -eq $payload.cards) {
+        Write-JsonResponse -Context $Context -StatusCode 400 -Payload @{ ok = $false; error = "Missing 'cards' field." }
+        return
+    }
+
+    # Validate and normalise each card entry. Accept either bare cardId strings or {id, name} objects.
+    $cardRegex = '^(PK|TR)_\d{2}_\d{6}(_\d{2})?$'
+    $normalised = New-Object 'System.Collections.Generic.List[object]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($entry in $payload.cards) {
+        $cardId = $null
+        $cardName = ""
+        if ($entry -is [string]) {
+            $cardId = $entry
+        } elseif ($null -ne $entry) {
+            $cardId = [string]$entry.id
+            if ($null -ne $entry.name) { $cardName = [string]$entry.name }
+        }
+        if ([string]::IsNullOrWhiteSpace($cardId)) { continue }
+        $cardId = $cardId.Trim()
+        if ($cardId -notmatch $cardRegex) { continue }
+        if (-not $seen.Add($cardId)) { continue }
+        $normalised.Add([pscustomobject]@{ id = $cardId; name = $cardName })
+    }
+
+    $payloadOut = [ordered]@{
+        version = 1
+        updatedAt = (Get-Date).ToString("o")
+        cards = $normalised.ToArray()
+    }
+    $json = $payloadOut | ConvertTo-Json -Depth 4
+
+    $path = Get-WishlistPath
+    $tmp = "$path.tmp"
+    try {
+        Write-Utf8File -Path $tmp -Text $json
+        Move-Item -LiteralPath $tmp -Destination $path -Force
+    } catch {
+        if (Test-Path -LiteralPath $tmp -PathType Leaf) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+        Write-JsonResponse -Context $Context -StatusCode 500 -Payload @{
+            ok = $false
+            error = "Failed to write wishlist.json: $($_.Exception.Message)"
+        }
+        return
+    }
+
+    Write-JsonResponse -Context $Context -StatusCode 200 -Payload @{
+        ok = $true
+        count = $normalised.Count
+        path = $path
+    }
+}
+
 function Is-LocalRequest {
     param([Parameter(Mandatory = $true)]$Context)
     $remoteAddress = $Context.Request.RemoteEndPoint.Address.ToString()
@@ -907,6 +1005,32 @@ try {
             }
             try {
                 Invoke-LoadAccountData -Context $context
+            } catch {
+                Write-JsonResponse -Context $context -StatusCode 500 -Payload @{ ok = $false; error = "Unexpected server error: $($_.Exception.Message)" }
+            }
+            continue
+        }
+
+        if ($request.Url.AbsolutePath -eq "/__dashboard/wishlist" -and $request.HttpMethod -eq "GET") {
+            if (-not (Is-LocalRequest -Context $context)) {
+                Write-JsonResponse -Context $context -StatusCode 403 -Payload @{ ok = $false; error = "Local requests only" }
+                continue
+            }
+            try {
+                Invoke-GetWishlist -Context $context
+            } catch {
+                Write-JsonResponse -Context $context -StatusCode 500 -Payload @{ ok = $false; error = "Unexpected server error: $($_.Exception.Message)" }
+            }
+            continue
+        }
+
+        if ($request.Url.AbsolutePath -eq "/__dashboard/wishlist" -and $request.HttpMethod -eq "POST") {
+            if (-not (Is-LocalRequest -Context $context)) {
+                Write-JsonResponse -Context $context -StatusCode 403 -Payload @{ ok = $false; error = "Local requests only" }
+                continue
+            }
+            try {
+                Invoke-SaveWishlist -Context $context
             } catch {
                 Write-JsonResponse -Context $context -StatusCode 500 -Payload @{ ok = $false; error = "Unexpected server error: $($_.Exception.Message)" }
             }

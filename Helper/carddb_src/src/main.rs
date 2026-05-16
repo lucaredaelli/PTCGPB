@@ -35,6 +35,8 @@ enum Command {
         delete_method: String,
         #[arg(long)]
         sort_method: String,
+        #[arg(long, default_value_t = 96, value_parser = clap::value_parser!(i64).range(70..=999))]
+        inject_wonderpick_min_packs: i64,
         #[arg(long, default_value_t = false)]
         wonderpick_for_event_missions: bool,
         #[arg(long, default_value_t = false)]
@@ -57,6 +59,8 @@ enum Command {
         delete_method: String,
         #[arg(long)]
         sort_method: String,
+        #[arg(long, default_value_t = 96, value_parser = clap::value_parser!(i64).range(70..=999))]
+        inject_wonderpick_min_packs: i64,
         #[arg(long, default_value_t = false)]
         wonderpick_for_event_missions: bool,
         #[arg(long, default_value_t = false)]
@@ -187,6 +191,7 @@ fn run(cli: Cli) -> Result<()> {
             instance,
             delete_method,
             sort_method,
+            inject_wonderpick_min_packs,
             wonderpick_for_event_missions,
             claim_special_missions,
             receive_gift,
@@ -200,6 +205,7 @@ fn run(cli: Cli) -> Result<()> {
                 instance,
                 delete_method,
                 sort_method,
+                inject_wonderpick_min_packs,
                 wonderpick_for_event_missions,
                 claim_special_missions,
                 receive_gift,
@@ -213,6 +219,7 @@ fn run(cli: Cli) -> Result<()> {
             instances,
             delete_method,
             sort_method,
+            inject_wonderpick_min_packs,
             wonderpick_for_event_missions,
             claim_special_missions,
             receive_gift,
@@ -226,6 +233,7 @@ fn run(cli: Cli) -> Result<()> {
                 instance: String::new(),
                 delete_method,
                 sort_method,
+                inject_wonderpick_min_packs,
                 wonderpick_for_event_missions,
                 claim_special_missions,
                 receive_gift,
@@ -1432,6 +1440,7 @@ struct ScheduleOptions {
     instance: String,
     delete_method: String,
     sort_method: String,
+    inject_wonderpick_min_packs: i64,
     wonderpick_for_event_missions: bool,
     claim_special_missions: bool,
     receive_gift: bool,
@@ -1622,11 +1631,12 @@ fn pack_count_allowed(
     method: &str,
     metadata_account: Option<&Value>,
     resolved_pack_count: i64,
+    inject_wonderpick_min_packs: i64,
 ) -> bool {
     if method == "Inject Wonderpick 96P+" {
         return metadata_account
             .and_then(explicit_pack_count)
-            .map_or(true, |pack_count| pack_count >= 70);
+            .map_or(true, |pack_count| pack_count >= inject_wonderpick_min_packs);
     }
 
     let (min_packs, max_packs) = pack_range(method);
@@ -1816,7 +1826,12 @@ fn schedule_accounts(root: &Path, options: ScheduleOptions) -> Result<()> {
 
         let pack_count =
             field_i64(account, "packCount").unwrap_or_else(|| extract_pack_count(&file_name));
-        if !pack_count_allowed(&options.delete_method, metadata_account, pack_count) {
+        if !pack_count_allowed(
+            &options.delete_method,
+            metadata_account,
+            pack_count,
+            options.inject_wonderpick_min_packs,
+        ) {
             continue;
         }
 
@@ -1906,7 +1921,12 @@ fn count_eligible_for_all_instances(
 
             let pack_count =
                 field_i64(account, "packCount").unwrap_or_else(|| extract_pack_count(&file_name));
-            if pack_count_allowed(&options.delete_method, metadata_account, pack_count) {
+            if pack_count_allowed(
+                &options.delete_method,
+                metadata_account,
+                pack_count,
+                options.inject_wonderpick_min_packs,
+            ) {
                 total += 1;
             }
         }
@@ -2783,6 +2803,7 @@ mod tests {
                 instance: "1".to_owned(),
                 delete_method: "Inject 13P+".to_owned(),
                 sort_method: "ModifiedAsc".to_owned(),
+                inject_wonderpick_min_packs: 96,
                 wonderpick_for_event_missions: false,
                 claim_special_missions: false,
                 receive_gift: false,

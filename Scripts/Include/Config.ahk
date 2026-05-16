@@ -11,6 +11,7 @@
         , "ui_Mains": "Mains"
         , "ui_deleteMethod": "deleteMethod"
         , "ui_packMethod": "packMethod"
+        , "ui_injectWonderpickMinPacks": "injectWonderpickMinPacks"
         , "ui_openExtraPack": "openExtraPack"
         , "ui_spendHourGlass": "spendHourGlass"
         , "ui_AccountName": "AccountName"
@@ -28,6 +29,7 @@
         , "instanceStartDelay": 10
         , "runMain": 0
         , "Mains": 0
+        , "injectWonderpickMinPacks": 96
         , "openExtraPack": 0
         , "spendHourGlass": 0
         , "injectSortMethod": "PacksDesc"
@@ -55,7 +57,9 @@
         , "stopPreferenceMain": ""
         , "s4tKeepSyntheticScreenshots": 0
         , "ocrLanguage": "en"
-        , "waitAfterBulkLaunch": 40000}
+        , "waitAfterBulkLaunch": 40000
+        , "WishlistCheck": 0
+        , "s4tWishlist": 0}
 
     generalSettings := {}
     packSettings := {}
