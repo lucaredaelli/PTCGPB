@@ -28,7 +28,7 @@ SetWorkingDir %A_ScriptDir%\..\..
 #Include Cockpit\CockpitInjectables.ahk
 #Include Cockpit\CockpitAggregatorEngine.ahk
 
-global GUI_W := 760
+global GUI_W := 850
 global GUI_H := 430
 global g_cockpitW := GUI_W
 global COCKPIT_TAB_STRIP := 26       ; approximate tab caption row inside Tab2
@@ -38,6 +38,8 @@ global COCKPIT_TAB_MARGIN_X := 14
 global g_cockpitTabTopY := 0           ; SepTop-relative; used by Cockpit_Relayout
 global g_cockpitMinTabInner := 220     ; COCKPIT_EVENTS_FILTER + COCKPIT_EVENTS_EDIT_MIN (+ margins): min usable Events tab body
 global LV_HWND := 0
+global g_cockpitHwnd := 0
+global g_cockpitLastInstLayoutN := 0   ; last instancesConfigured used for tab/LV geometry; drives Relayout on change
 global EV_HWND := 0
 global SB_HWND := 0
 global THEME_BG := "161A1D"
@@ -89,6 +91,7 @@ global g_ageAcctSortCol := 4
 global g_ageAcctSortDir := 1
 global g_ageInstRowsCache := []
 global g_ageAcctRowsCache := []
+global g_ageAcctMenuRow := 0
 global g_ageWindowH := 462
 global g_ageStandalone := false
 global g_emptySparkline := ""
@@ -114,10 +117,25 @@ if (!g_ageStandalone && !Cockpit_IsLaunchAllowed()) {
 }
 OnMessage(0x111, "Cockpit_OnCommand")
 OnMessage(0x20, "Cockpit_OnSetCursor")
-OnMessage(0x4E, "Cockpit_OnNotify")
-Menu, CockpitRowMenu, Add, Open Log, Cockpit_MenuOpenLog
+OnMessage(0x0112, "Cockpit_OnWmSysCommand")
+Menu, CockpitRowMenu, Add, Open Instance Log, Cockpit_MenuOpenLog
+Menu, CockpitRowMenu, Add,,
 Menu, CockpitRowMenu, Add, Open Account Folder, Cockpit_MenuOpenAccountFolder
 Menu, CockpitRowMenu, Add, Open Account XML, Cockpit_MenuOpenAccountXml
+Menu, CockpitRowMenu, Add, Copy Account XML Name, Cockpit_MenuCopyAccountXmlName
+Menu, CockpitRowMenu, Add, Copy Account XML, Cockpit_MenuCopyAccountXml
+Menu, CockpitRowMenu, Add,,
+Menu, CockpitRowMenu, Add, Open Account Metadata, Cockpit_MenuOpenAccountMetadata
+Menu, CockpitRowMenu, Add, Copy Account Metadata, Cockpit_MenuCopyAccountMetadata
+Menu, CockpitRowMenu, Add, Copy Account Metadata Name, Cockpit_MenuCopyAccountMetadataName
+Menu, CockpitAgeAcctMenu, Add, Open Account Folder, Cockpit_AgeMenuOpenAccountFolder
+Menu, CockpitAgeAcctMenu, Add, Open Account XML, Cockpit_AgeMenuOpenAccountXml
+Menu, CockpitAgeAcctMenu, Add, Copy Account XML Name, Cockpit_AgeMenuCopyAccountXmlName
+Menu, CockpitAgeAcctMenu, Add, Copy Account XML, Cockpit_AgeMenuCopyAccountXml
+Menu, CockpitAgeAcctMenu, Add,,
+Menu, CockpitAgeAcctMenu, Add, Open Account Metadata, Cockpit_AgeMenuOpenAccountMetadata
+Menu, CockpitAgeAcctMenu, Add, Copy Account Metadata, Cockpit_AgeMenuCopyAccountMetadata
+Menu, CockpitAgeAcctMenu, Add, Copy Account Metadata Name, Cockpit_AgeMenuCopyAccountMetadataName
 Cockpit_LoadColumnsPrefs()
 
 if (g_ageStandalone) {
@@ -146,6 +164,7 @@ if (g_ageStandalone) {
         Gui, Cockpit:Show, Center w%GUI_W% h%GUI_H%, PTCGPB Cockpit
     WinRestore, PTCGPB Cockpit
     WinActivate, PTCGPB Cockpit
+    Cockpit_DisableMainWindowMaximize(g_cockpitHwnd)
     Cockpit_PollMainTab()
     ; Phase first UI tick away from aggregator (also run at Agg_TickBody) to reduce simultaneous GUI+INI work spikes.
     SetTimer, Cockpit_RefreshTicker, % -447
@@ -156,16 +175,36 @@ Return
 ;===============================================================================
 ; GUI construction
 ;===============================================================================
+
+; Remove WS_MAXIMIZEBOX so the window cannot be maximized / pseudo-fullscreen from the title bar.
+Cockpit_DisableMainWindowMaximize(hwnd) {
+    if (!hwnd)
+        return
+    WinSet, Style, -0x10000, ahk_id %hwnd%
+}
+
+; Block SC_MAXIMIZE (Aero Snap to top, Win+Up, etc.) — WinSet alone is not enough on modern Windows.
+Cockpit_OnWmSysCommand(wParam, lParam, msg, hwnd) {
+    global g_cockpitHwnd
+    if (!g_cockpitHwnd || hwnd != g_cockpitHwnd)
+        return
+    cmd := wParam & 0xFFF0
+    if (cmd = 0xF030) { ; SC_MAXIMIZE
+        return 0
+    }
+}
+
 Cockpit_BuildGui() {
     global
-    local y, instancesConfigured, lvRows, lvHeight, eventsH
+    local y, instancesConfigured, lvRows, lvHeight, eventsH, lvInstancesW
 
     instancesConfigured := (botConfig.get("Instances") + 0)
     if (instancesConfigured <= 0)
         instancesConfigured := 1
     lvRows := instancesConfigured
 
-    Gui, Cockpit:New, +HwndhCockpit +Resize +MinSize760x480, PTCGPB Cockpit
+    Gui, Cockpit:New, +HwndhCockpit -Resize, PTCGPB Cockpit
+    g_cockpitHwnd := hCockpit
     Gui, Cockpit:Default
     Gui, Color, %THEME_BG%, %THEME_BG%
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
@@ -192,17 +231,17 @@ Cockpit_BuildGui() {
     y += 22
     ; Instances full-width
     Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
-    Gui, Add, Text, % "x14 y" . y . " w90 h16 Background" . THEME_BG, Instances
+    Gui, Add, Text, % "x14 y" . y . " w90 h18 Background" . THEME_BG, Instances
     Gui, Font, s9 c%THEME_SUCCESS%, %THEME_FONT%
-    Gui, Add, Text, % "x" . INST_SEG_X_RUN . " y" . y . " w" . INST_SEG_W_RUN . " h16 vlblInstRunVal Background" . THEME_BG, -
+    Gui, Add, Text, % "x" . INST_SEG_X_RUN . " y" . y . " w" . INST_SEG_W_RUN . " h18 vlblInstRunVal Background" . THEME_BG, -
     Gui, Font, s9 c%THEME_WARN%, %THEME_FONT%
-    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN) . " y" . y . " w" . INST_SEG_W_STK . " h16 vlblInstStkVal Background" . THEME_BG,
+    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN) . " y" . y . " w" . INST_SEG_W_STK . " h18 vlblInstStkVal Background" . THEME_BG,
     Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
-    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK) . " y" . y . " w" . INST_SEG_W_IDLE . " h16 vlblInstIdleVal Background" . THEME_BG,
+    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK) . " y" . y . " w" . INST_SEG_W_IDLE . " h18 vlblInstIdleVal Background" . THEME_BG,
     Gui, Font, s9 c%THEME_DANGER%, %THEME_FONT%
-    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE) . " y" . y . " w" . INST_SEG_W_DEAD . " h16 vlblInstDeadVal Background" . THEME_BG,
+    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE) . " y" . y . " w" . INST_SEG_W_DEAD . " h18 vlblInstDeadVal Background" . THEME_BG,
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE + INST_SEG_W_DEAD) . " y" . y . " w" . (GUI_W - (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE + INST_SEG_W_DEAD + 20)) . " h16 vlblInstMainVal Background" . THEME_BG,
+    Gui, Add, Text, % "x" . (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE + INST_SEG_W_DEAD) . " y" . y . " w" . (GUI_W - (INST_SEG_X_RUN + INST_SEG_W_RUN + INST_SEG_W_STK + INST_SEG_W_IDLE + INST_SEG_W_DEAD + 20)) . " h18 vlblInstMainVal Background" . THEME_BG,
     y += 26
 
     ; Progress bar
@@ -223,7 +262,7 @@ Cockpit_BuildGui() {
         . " vtxMainTabs gCockpit_MainTab Choose1 Background" . THEME_BG
         , % "Instances|Recent events"
 
-    ; --- Tab: Instances (ListView height = header + rows only, like pre-tabs layout) ---
+    ; --- Tab: Instances ---
     Gui, Tab, Instances,, Exact
     lvInnerW := tabCtrlW - 2 * COCKPIT_TAB_MARGIN_X
     ; +0x2000 = LVS_NOSCROLL
@@ -232,6 +271,7 @@ Cockpit_BuildGui() {
         , % Cockpit_BuildInstanceLvHeaderCsv()
     LV_HWND := hLv
 
+    Gui, ListView, InstancesLv
     Cockpit_ApplyColumnsToListView()
     Cockpit_StyleListView(hLv)
     Cockpit_DisableColumnResize(hLv)
@@ -274,17 +314,20 @@ Cockpit_BuildGui() {
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
 
     GUI_H := tabTopY + tabOuter + 10
+    g_cockpitLastInstLayoutN := instancesConfigured
+    Cockpit_DisableMainWindowMaximize(hCockpit)
 }
 
 ;-------------------------------------------------------------------------------
 ; Cockpit_AddPair - 90-px gray label + bold white value at (x, y)
+; (Same y + height for label and value so titles align with their values.)
 ;-------------------------------------------------------------------------------
 Cockpit_AddPair(text, x, y, vname) {
     global
     Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
-    Gui, Add, Text, % "x" . x . " y" . y . " w90 h16 Background" . THEME_BG, %text%
+    Gui, Add, Text, % "x" . x . " y" . y . " w90 h18 Background" . THEME_BG, %text%
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, Text, % "x" . (x + 95) . " y" . (y - 2) . " w260 h18 v" . vname . " Background" . THEME_BG, -
+    Gui, Add, Text, % "x" . (x + 95) . " y" . y . " w260 h18 v" . vname . " Background" . THEME_BG, -
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
 }
 
@@ -301,8 +344,14 @@ Cockpit_IsLaunchAllowed() {
     return (started != "ERROR" && (started + 0) = 1)
 }
 
-Cockpit_MeasureLvHeight(hLv, lvRows) {
+Cockpit_ListViewGetHeaderAndItemHeight(hLv, ByRef hdrH, ByRef itemH) {
     global g_lvColOrder
+    hdrH := 22
+    itemH := 17
+    if (!hLv)
+        return
+    Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     colN := g_lvColOrder.Length()
     if (colN <= 0)
         colN := 1
@@ -318,7 +367,6 @@ Cockpit_MeasureLvHeight(hLv, lvRows) {
     LV_Delete()
     if (itemH <= 0)
         itemH := 17
-
     SendMessage, 0x101F, 0, 0, , ahk_id %hLv%
     hHdr := ErrorLevel
     hdrH := 0
@@ -329,7 +377,10 @@ Cockpit_MeasureLvHeight(hLv, lvRows) {
     }
     if (hdrH <= 0)
         hdrH := 22
+}
 
+Cockpit_MeasureLvHeight(hLv, lvRows) {
+    Cockpit_ListViewGetHeaderAndItemHeight(hLv, hdrH, itemH)
     return hdrH + lvRows * itemH + 4
 }
 
@@ -457,6 +508,13 @@ Cockpit_RefreshBody(skipHeader := false) {
         SetTimer, Cockpit_RefreshTicker, Off
         ExitApp
     }
+
+    instCfg := state["Global"].HasKey("instancesConfigured") ? (state["Global"]["instancesConfigured"] + 0) : 0
+    if (instCfg <= 0)
+        instCfg := botConfig.get("Instances") + 0
+    if (instCfg <= 0)
+        instCfg := 1
+    Cockpit_MaybeRelayoutForInstanceCount(instCfg)
 
     if (!skipHeader)
         Cockpit_RenderHeader(state, stale)
@@ -696,10 +754,11 @@ Cockpit_RenderInstances(state) {
         g_rowMetaByRow[A_Index] := { "instanceId": r.instanceId, "accountFileName": r.accountFileName }
     }
 
+    Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     rowCount := LV_GetCount()
     needsRebuild := (rowCount != rows.Length() || g_lastLvRowSigs.Length() != rowSigs.Length())
 
-    Gui, Cockpit:Default
     if (needsRebuild) {
         GuiControl, -Redraw, InstancesLv
         LV_Delete()
@@ -719,8 +778,8 @@ Cockpit_RenderInstances(state) {
         }
     }
 
-    Cockpit_ApplyColumnsToListView()
     g_lastLvRowSigs := rowSigs
+    Cockpit_ApplyColumnsToListView()
 }
 
 Cockpit_IsInjectablesReady(state) {
@@ -1291,6 +1350,7 @@ Cockpit_ApplyColumnsToListView(forceRecompute := false) {
     if (!LV_HWND)
         return
     Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     meta := Cockpit_GetColumnMeta()
     visibleCols := []
     GuiControlGet, lvPos, Cockpit:Pos, InstancesLv
@@ -1759,6 +1819,7 @@ Cockpit_RenderStandalone() {
     g_lastLvRowSigs := []
     g_rowMetaByRow := []
     Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     GuiControl, -Redraw, InstancesLv
     LV_Delete()
     Loop, % instances {
@@ -1809,6 +1870,7 @@ Cockpit_RenderStartupPlaceholders(state) {
     g_lastLvRowSigs := []
     g_rowMetaByRow := []
     Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     GuiControl, -Redraw, InstancesLv
     LV_Delete()
     Loop, % instances {
@@ -1858,13 +1920,14 @@ Cockpit_OnInstancesLv:
         return
     }
     if (A_GuiEvent = "Normal" || A_GuiEvent = "I" || A_GuiEvent = "DoubleClick") {
+        Gui, Cockpit:Default
+        Gui, ListView, InstancesLv
         row := A_EventInfo + 0
         if (row <= 0) {
             row := LV_GetNext(0, "F")
             if (!row)
                 row := LV_GetNext(0)
         }
-        Gui, Cockpit:Default
         if (row > 0)
             g_contextRow := row
         return
@@ -1880,6 +1943,7 @@ CockpitGuiContextMenu:
             return
         }
         Gui, Cockpit:Default
+        Gui, ListView, InstancesLv
         row := LV_GetNext(0, "F")
         if (!row)
             row := LV_GetNext(0)
@@ -1971,6 +2035,7 @@ Cockpit_ColsApply:
     g_lastLvRowSigs := []
     Cockpit_ApplyColumnsToListView(true)
     Cockpit_RefreshBody()
+    botConfig.loadSettingsToConfig("ALL")
     Gui, CockpitCols:Hide
 return
 
@@ -2017,19 +2082,28 @@ Cockpit_OnSetCursor(wParam, lParam, msg, hwnd) {
     }
 }
 
-Cockpit_OnNotify(wParam, lParam, msg, hwnd) {
-    global LV_HWND, AGE_INST_HWND, AGE_ACCT_HWND
-    if (!lParam)
-        return
-    hwndFrom := NumGet(lParam + 0, 0, "Ptr")
-    if (hwndFrom != LV_HWND && hwndFrom != AGE_INST_HWND && hwndFrom != AGE_ACCT_HWND)
-        return
-    codeOffset := A_PtrSize * 2
-    code := NumGet(lParam + 0, codeOffset, "Int")
-}
+Cockpit_MenuCopyAccountXml:
+    Cockpit_CopySelectedAccountXml()
+return
+
+Cockpit_MenuCopyAccountXmlName:
+    Cockpit_CopySelectedAccountXmlName()
+return
 
 Cockpit_MenuOpenAccountXml:
     Cockpit_OpenSelectedAccountXml()
+return
+
+Cockpit_MenuCopyAccountMetadata:
+    Cockpit_CopySelectedAccountMetadataFile()
+return
+
+Cockpit_MenuCopyAccountMetadataName:
+    Cockpit_CopySelectedAccountMetadataName()
+return
+
+Cockpit_MenuOpenAccountMetadata:
+    Cockpit_OpenSelectedAccountMetadata()
 return
 
 Cockpit_MenuOpenLog:
@@ -2043,6 +2117,7 @@ return
 Cockpit_GetSelectedRowMeta() {
     global g_rowMetaByRow, g_contextRow
     Gui, Cockpit:Default
+    Gui, ListView, InstancesLv
     if (g_contextRow > 0 && g_rowMetaByRow.HasKey(g_contextRow))
         return g_rowMetaByRow[g_contextRow]
     row := LV_GetNext(0, "F")
@@ -2061,6 +2136,47 @@ Cockpit_GetSelectedRowMeta() {
     LV_GetText(idTxt, row, 1)
     LV_GetText(accountTxt, row, 3)
     return { "instanceId": (idTxt + 0), "accountFileName": accountTxt }
+}
+
+Cockpit_GetResolvedAccountXmlPath() {
+    meta := Cockpit_GetSelectedRowMeta()
+    if (!IsObject(meta))
+        return ""
+    instanceId := meta.instanceId + 0
+    accountFile := meta.accountFileName
+    if (instanceId <= 0 || accountFile = "" || accountFile = "-")
+        return ""
+    base := getScriptBaseFolder() . "\Accounts\Saved\" . instanceId
+    xmlPath := base . "\" . accountFile
+    if (!FileExist(xmlPath) && SubStr(accountFile, -3) != ".xml")
+        xmlPath := xmlPath . ".xml"
+    return xmlPath
+}
+
+; Returns Accounts\Cards\accounts\<deviceAccount>.json path, or "" if XML / deviceAccount missing.
+Cockpit_GetResolvedAccountMetadataPath() {
+    xmlPath := Cockpit_GetResolvedAccountXmlPath()
+    if (xmlPath = "" || !FileExist(xmlPath))
+        return ""
+    deviceAccount := AccountMetadata_GetDeviceAccountFromFile(xmlPath)
+    if (deviceAccount = "")
+        return ""
+    return AccountMetadata_AccountPath(deviceAccount)
+}
+
+; Copy a file to the clipboard so it can be pasted (e.g. in Explorer). Falls back to full path as text.
+Cockpit_CopyFileToClipboard(fullPath) {
+    if (fullPath = "" || !FileExist(fullPath))
+        return false
+    psPath := StrReplace(fullPath, "'", "''")
+    psCmd := "Set-Clipboard -LiteralPath '" . psPath . "'"
+    q := Chr(34)
+    RunWait, % "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command " . q . psCmd . q,, Hide
+    if (ErrorLevel) {
+        Clipboard := fullPath
+        return false
+    }
+    return true
 }
 
 Cockpit_OpenSelectedLog() {
@@ -2091,21 +2207,82 @@ Cockpit_OpenSelectedAccountFolder() {
 }
 
 Cockpit_OpenSelectedAccountXml() {
-    meta := Cockpit_GetSelectedRowMeta()
-    if (!IsObject(meta))
+    xmlPath := Cockpit_GetResolvedAccountXmlPath()
+    if (xmlPath = "")
         return
-    instanceId := meta.instanceId + 0
-    accountFile := meta.accountFileName
-    if (instanceId <= 0 || accountFile = "" || accountFile = "-")
-        return
-    base := getScriptBaseFolder() . "\Accounts\Saved\" . instanceId
-    xmlPath := base . "\" . accountFile
-    if (!FileExist(xmlPath) && SubStr(accountFile, -3) != ".xml")
-        xmlPath := xmlPath . ".xml"
     if (FileExist(xmlPath)) {
         Run, % """" . xmlPath . """"
-    } else
-        Run, % "explorer.exe """ . base . """"
+        return
+    }
+    SplitPath, xmlPath,, xmlDir
+    if (xmlDir != "")
+        Run, % "explorer.exe """ . xmlDir . """"
+}
+
+Cockpit_CopySelectedAccountXml() {
+    xmlPath := Cockpit_GetResolvedAccountXmlPath()
+    if (xmlPath = "")
+        return
+    if (!FileExist(xmlPath)) {
+        nf := "Account XML not found:`n" . xmlPath
+        MsgBox, 48, PTCGPB Cockpit, %nf%
+        return
+    }
+    Cockpit_CopyFileToClipboard(xmlPath)
+}
+
+Cockpit_CopySelectedAccountXmlName() {
+    xmlPath := Cockpit_GetResolvedAccountXmlPath()
+    if (xmlPath = "")
+        return
+    SplitPath, xmlPath, xmlOnlyName
+    Clipboard := xmlOnlyName
+}
+
+Cockpit_CopySelectedAccountMetadataFile() {
+    jsonPath := Cockpit_GetResolvedAccountMetadataPath()
+    if (jsonPath = "") {
+        MsgBox, 48, PTCGPB Cockpit, Could not resolve account metadata (missing XML or deviceAccount).
+        return
+    }
+    if (!FileExist(jsonPath)) {
+        nf := "Metadata file not found:`n" . jsonPath
+        MsgBox, 48, PTCGPB Cockpit, %nf%
+        return
+    }
+    Cockpit_CopyFileToClipboard(jsonPath)
+}
+
+Cockpit_CopySelectedAccountMetadataName() {
+    xmlPath := Cockpit_GetResolvedAccountXmlPath()
+    if (xmlPath != "" && FileExist(xmlPath)) {
+        da := AccountMetadata_GetDeviceAccountFromFile(xmlPath)
+        if (da != "") {
+            Clipboard := da
+            return
+        }
+    }
+    jsonPath := Cockpit_GetResolvedAccountMetadataPath()
+    if (jsonPath != "") {
+        SplitPath, jsonPath, jsonFn
+        Clipboard := RegExReplace(jsonFn, "\.json$", "")
+        return
+    }
+    MsgBox, 48, PTCGPB Cockpit, Could not copy metadata name.
+}
+
+Cockpit_OpenSelectedAccountMetadata() {
+    jsonPath := Cockpit_GetResolvedAccountMetadataPath()
+    if (jsonPath = "") {
+        MsgBox, 48, PTCGPB Cockpit, Could not resolve account metadata (missing XML or deviceAccount).
+        return
+    }
+    if (!FileExist(jsonPath)) {
+        nf2 := "Metadata file not found:`n" . jsonPath
+        MsgBox, 48, PTCGPB Cockpit, %nf2%
+        return
+    }
+    Run, % """" . jsonPath . """"
 }
 
 Cockpit_OpenAgeView:
@@ -2173,8 +2350,8 @@ Cockpit_AgeEnsureGui() {
 
     Gui, Font, s8 c%THEME_MUTED%, %THEME_FONT%
     Gui, Add, Text, x10  y64 w218 h16 Center Background%THEME_BG%, Total
-    Gui, Add, Text, x228 y64 w218 h16 Center Background%THEME_BG%, Eligible
-    Gui, Add, Text, x446 y64 w218 h16 Center Background%THEME_BG%, Cooling down
+    Gui, Add, Text, x228 y64 w218 h16 Center Background%THEME_BG%, Injectable
+    Gui, Add, Text, x446 y64 w218 h16 Center Background%THEME_BG%, Cooling
 
     Gui, Font, s15 c%THEME_TEXT% Bold, %THEME_FONT%
     Gui, Add, Text, x10  y82 w218 h26 Center vAgeCntTotal Background%THEME_BG%, 0
@@ -2188,7 +2365,7 @@ Cockpit_AgeEnsureGui() {
     Gui, Font, s9 c%THEME_MUTED%, %THEME_FONT%
     Gui, Add, Text, x14 y124 w220 h16 Background%THEME_BG%, Instance summary
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, ListView, x10 y142 w654 h104 vAgeInstLv gCockpit_OnAgeInstLv hwndhAgeInstLv -Multi -ReadOnly Grid -0x100000 -0x200000 +0x2000 -0x200, Instance|Total|Eligible|Cooling
+    Gui, Add, ListView, x10 y142 w654 h104 vAgeInstLv gCockpit_OnAgeInstLv hwndhAgeInstLv -Multi -ReadOnly Grid -0x100000 -0x200000 +0x2000 -0x200, Instance|Total|Injectable|Cooling
     AGE_INST_HWND := hAgeInstLv
     LV_ModifyCol(1, "160 Center")
     LV_ModifyCol(2, "160 Center")
@@ -2204,12 +2381,12 @@ Cockpit_AgeEnsureGui() {
     Gui, Add, Text, x14 y260 w80 h16 vAgeLblAccounts Background%THEME_BG%, Accounts
     Gui, Font, s8 c%THEME_TEXT%, %THEME_FONT%
     Gui, Add, Edit, x120 y258 w188 h20 vAgeFilterText gCockpit_AgeFilterChanged
-    Gui, Add, DropDownList, x324 y258 w118 vAgeFilterStatus gCockpit_AgeFilterChanged, All|Eligible|Cooling
+    Gui, Add, DropDownList, x324 y258 w118 vAgeFilterStatus gCockpit_AgeFilterChanged, All|Injectable|Cooling
     Gui, Add, DropDownList, x458 y258 w90 vAgeFilterInst gCockpit_AgeFilterChanged, All
     GuiControl, CockpitAge:ChooseString, AgeFilterStatus, All
     GuiControl, CockpitAge:ChooseString, AgeFilterInst, All
     Gui, Font, s9 c%THEME_TEXT%, %THEME_FONT%
-    Gui, Add, ListView, x10 y286 w654 h214 vAgeAcctLv gCockpit_OnAgeAcctLv hwndhAgeAcctLv -Multi -ReadOnly Grid -0x100000 -0x200, XML|Instance|Last login|Ready in|Status
+    Gui, Add, ListView, x10 y286 w654 h214 vAgeAcctLv gCockpit_OnAgeAcctLv hwndhAgeAcctLv -Multi -ReadOnly Grid -0x100000 -0x200, XML|Instance|Last Login|Ready In|Status
     AGE_ACCT_HWND := hAgeAcctLv
     LV_ModifyCol(1, "250 Center")
     LV_ModifyCol(2, "64 Center")
@@ -2342,7 +2519,7 @@ Cockpit_AgeRefresh() {
         gateValue := Cockpit_AgeDriverTimeForMethod(method, content, lastLogin, hasLogin, rewardsOpts)
         gateValue := Cockpit_AgeNormalizeGateDisplay(gateValue)
         if (baseEligible) {
-            status := "Eligible"
+            status := "Injectable"
             gateValue := "Ready"
             gReady++
         } else {
@@ -2354,13 +2531,14 @@ Cockpit_AgeRefresh() {
         if (!instAgg.HasKey(inst))
             instAgg[inst] := {"t":0, "r":0, "w":0}
         instAgg[inst]["t"]++
-        if (status = "Eligible")
+        if (status = "Injectable")
             instAgg[inst]["r"]++
         else
             instAgg[inst]["w"]++
 
         displayName := (metaFileName != "" && metaFileName != "-") ? metaFileName : accountName
-        acctRows.Push({"account": displayName, "inst": inst, "login": loginDisp, "gate": gateValue, "status": status})
+        instanceIdNum := inst + 0
+        acctRows.Push({"account": displayName, "inst": inst, "instanceId": instanceIdNum, "login": loginDisp, "gate": gateValue, "status": status, "jsonPath": filePath})
         if (!instSeen.HasKey(inst))
             instSeen[inst] := 1
     }
@@ -2402,7 +2580,7 @@ Cockpit_AgeRefresh() {
     Cockpit_AgeRenderInstRows(instRows)
     Cockpit_AgeRenderAcctRows(filteredRows)
 
-    GuiControl, CockpitAge:, AgeStatusLbl, % "Mode: " . method . " | Updated: " . upd . " | Total: " . gTotal . " | Eligible: " . gReady . " | Cooling: " . gWait
+    GuiControl, CockpitAge:, AgeStatusLbl, % "Mode: " . method . " | Updated: " . upd . " | Total: " . gTotal . " | Injectable: " . gReady . " | Cooling: " . gWait
 }
 
 Cockpit_AgeEligibleForMethod(method, jsonText, lastLoggedIn, rewardsOpts) {
@@ -3025,7 +3203,7 @@ Cockpit_AgeNormalizeGateDisplay(txt) {
 }
 
 Cockpit_AgeStatusRank(status) {
-    if (status = "Eligible")
+    if (status = "Injectable")
         return 1
     if (status = "Cooling")
         return 2
@@ -3038,6 +3216,195 @@ Cockpit_AgePadInt(n, width) {
         s := "0" . s
     return s
 }
+
+Cockpit_AgeMenuRowObject() {
+    global g_ageAcctMenuRow, g_ageAcctRowsCache
+    row := g_ageAcctMenuRow + 0
+    if (row <= 0 || !IsObject(g_ageAcctRowsCache) || row > g_ageAcctRowsCache.Length())
+        return ""
+    return g_ageAcctRowsCache[row]
+}
+
+Cockpit_GetResolvedAgeRowXmlPath(r) {
+    if (!IsObject(r))
+        return ""
+    instanceId := r.instanceId + 0
+    accountFile := r.account
+    if (instanceId <= 0 || accountFile = "" || accountFile = "-")
+        return ""
+    base := getScriptBaseFolder() . "\Accounts\Saved\" . instanceId
+    xmlPath := base . "\" . accountFile
+    if (!FileExist(xmlPath) && SubStr(accountFile, -3) != ".xml")
+        xmlPath := xmlPath . ".xml"
+    return xmlPath
+}
+
+; Prefer row's cards JSON path; else resolve from XML + deviceAccount.
+Cockpit_GetResolvedAgeRowMetadataPath(r) {
+    if (!IsObject(r))
+        return ""
+    if (r.HasKey("jsonPath") && r.jsonPath != "")
+        return r.jsonPath
+    xmlPath := Cockpit_GetResolvedAgeRowXmlPath(r)
+    if (xmlPath = "" || !FileExist(xmlPath))
+        return ""
+    deviceAccount := AccountMetadata_GetDeviceAccountFromFile(xmlPath)
+    if (deviceAccount = "")
+        return ""
+    return AccountMetadata_AccountPath(deviceAccount)
+}
+
+Cockpit_OpenAgeRowAccountFolder(r) {
+    if (!IsObject(r))
+        return
+    instanceId := r.instanceId + 0
+    if (instanceId <= 0)
+        return
+    folder := getScriptBaseFolder() . "\Accounts\Saved\" . instanceId
+    Run, % "explorer.exe """ . folder . """"
+}
+
+Cockpit_OpenAgeRowAccountXml(r) {
+    xmlPath := Cockpit_GetResolvedAgeRowXmlPath(r)
+    if (xmlPath = "")
+        return
+    if (FileExist(xmlPath)) {
+        Run, % """" . xmlPath . """"
+        return
+    }
+    SplitPath, xmlPath,, xmlDir
+    if (xmlDir != "")
+        Run, % "explorer.exe """ . xmlDir . """"
+}
+
+Cockpit_CopyAgeRowAccountXml(r) {
+    xmlPath := Cockpit_GetResolvedAgeRowXmlPath(r)
+    if (xmlPath = "")
+        return
+    if (!FileExist(xmlPath)) {
+        nf := "Account XML not found:`n" . xmlPath
+        MsgBox, 48, Injection Queue, %nf%
+        return
+    }
+    Cockpit_CopyFileToClipboard(xmlPath)
+}
+
+Cockpit_CopyAgeRowAccountXmlName(r) {
+    xmlPath := Cockpit_GetResolvedAgeRowXmlPath(r)
+    if (xmlPath = "")
+        return
+    SplitPath, xmlPath, xmlOnlyName
+    Clipboard := xmlOnlyName
+}
+
+Cockpit_CopyAgeRowAccountMetadataFile(r) {
+    jsonPath := Cockpit_GetResolvedAgeRowMetadataPath(r)
+    if (jsonPath = "") {
+        MsgBox, 48, Injection Queue, Could not resolve account metadata (missing XML or deviceAccount).
+        return
+    }
+    if (!FileExist(jsonPath)) {
+        nf := "Metadata file not found:`n" . jsonPath
+        MsgBox, 48, Injection Queue, %nf%
+        return
+    }
+    Cockpit_CopyFileToClipboard(jsonPath)
+}
+
+Cockpit_CopyAgeRowAccountMetadataName(r) {
+    xmlPath := Cockpit_GetResolvedAgeRowXmlPath(r)
+    if (xmlPath != "" && FileExist(xmlPath)) {
+        da := AccountMetadata_GetDeviceAccountFromFile(xmlPath)
+        if (da != "") {
+            Clipboard := da
+            return
+        }
+    }
+    jsonPath := Cockpit_GetResolvedAgeRowMetadataPath(r)
+    if (jsonPath != "") {
+        SplitPath, jsonPath, jsonFn
+        Clipboard := RegExReplace(jsonFn, "\.json$", "")
+        return
+    }
+    MsgBox, 48, Injection Queue, Could not copy metadata name.
+}
+
+Cockpit_OpenAgeRowAccountMetadata(r) {
+    jsonPath := Cockpit_GetResolvedAgeRowMetadataPath(r)
+    if (jsonPath = "") {
+        MsgBox, 48, Injection Queue, Could not resolve account metadata (missing XML or deviceAccount).
+        return
+    }
+    if (!FileExist(jsonPath)) {
+        nf := "Metadata file not found:`n" . jsonPath
+        MsgBox, 48, Injection Queue, %nf%
+        return
+    }
+    Run, % """" . jsonPath . """"
+}
+
+CockpitAgeGuiContextMenu:
+    if (A_GuiControl != "AgeAcctLv")
+        return
+    Gui, CockpitAge:Default
+    Gui, ListView, AgeAcctLv
+    row := A_EventInfo + 0
+    if (row <= 0)
+        row := LV_GetNext(0, "F")
+    if (row <= 0)
+        return
+    g_ageAcctMenuRow := row
+    Menu, CockpitAgeAcctMenu, Show
+return
+
+Cockpit_AgeMenuOpenAccountFolder:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_OpenAgeRowAccountFolder(r)
+return
+
+Cockpit_AgeMenuOpenAccountXml:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_OpenAgeRowAccountXml(r)
+return
+
+Cockpit_AgeMenuCopyAccountXmlName:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_CopyAgeRowAccountXmlName(r)
+return
+
+Cockpit_AgeMenuCopyAccountXml:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_CopyAgeRowAccountXml(r)
+return
+
+Cockpit_AgeMenuOpenAccountMetadata:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_OpenAgeRowAccountMetadata(r)
+return
+
+Cockpit_AgeMenuCopyAccountMetadata:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_CopyAgeRowAccountMetadataFile(r)
+return
+
+Cockpit_AgeMenuCopyAccountMetadataName:
+    r := Cockpit_AgeMenuRowObject()
+    if (!IsObject(r))
+        return
+    Cockpit_CopyAgeRowAccountMetadataName(r)
+return
 
 CockpitAgeGuiClose:
 CockpitAgeGuiEscape:
@@ -3061,12 +3428,20 @@ CockpitGuiEscape:
     ExitApp
 
 CockpitGuiSize:
+    global g_cockpitHwnd
     if (A_EventInfo = 1)
         return
+    if (g_cockpitHwnd) {
+        WinGet, mm, MinMax, ahk_id %g_cockpitHwnd%
+        if (mm = 1) {
+            WinRestore, ahk_id %g_cockpitHwnd%
+            return
+        }
+    }
     Cockpit_Relayout(A_GuiWidth, A_GuiHeight)
 return
 
-Cockpit_Relayout(w, h) {
+    Cockpit_Relayout(w, h, forcedInstN := 0) {
     global botConfig, g_cockpitW, g_instSingleMode, g_cockpitTabTopY, COCKPIT_TAB_STRIP
         , COCKPIT_EVENTS_FILTER, COCKPIT_TAB_MARGIN_X
         , g_cockpitMinTabInner, LV_HWND, g_instLayoutLineCache
@@ -3097,7 +3472,9 @@ Cockpit_Relayout(w, h) {
     evtEditH := innerH - evtTopRel - 10
     lvInnerW := tpW - 2 * COCKPIT_TAB_MARGIN_X
 
-    instN := botConfig.get("Instances") + 0
+    instN := (forcedInstN + 0)
+    if (instN <= 0)
+        instN := botConfig.get("Instances") + 0
     if (instN <= 0)
         instN := 1
     lvNeed := LV_HWND ? Cockpit_MeasureLvHeight(LV_HWND, instN) : (innerH - 16)
@@ -3125,6 +3502,41 @@ Cockpit_Relayout(w, h) {
         g_instLayoutLineCache := ""
         GuiControlGet, instTxt, Cockpit:, lblInstRunVal
         Cockpit_LayoutInstancesSingle(instTxt)
+    }
+}
+
+; When Instances (N) changes while Cockpit is open, retab page + ListView height + Events filter DDL (fixed-size window skips GuiSize).
+Cockpit_MaybeRelayoutForInstanceCount(instN) {
+    global g_cockpitLastInstLayoutN, g_cockpitHwnd, GUI_W, GUI_H, botConfig
+    if (instN <= 0)
+        instN := 1
+    if (instN = g_cockpitLastInstLayoutN)
+        return
+    g_cockpitLastInstLayoutN := instN
+    if (!g_cockpitHwnd)
+        return
+    botConfig.loadSettingsToConfig("ALL")
+    Gui, Cockpit:Default
+    Cockpit_Relayout(GUI_W, GUI_H, instN)
+    Cockpit_UpdateEventFilterDdl(instN)
+}
+
+Cockpit_UpdateEventFilterDdl(instN) {
+    global g_eventFilter
+    if (instN <= 0)
+        instN := 1
+    filterChoices := "All|Warnings|System"
+    Loop, %instN%
+        filterChoices .= "|Instance " . A_Index
+    GuiControl, Cockpit:, ddlEventFilter, |%filterChoices%
+    prev := g_eventFilter
+    if (prev = "" || prev = "ERROR")
+        prev := "All"
+    GuiControl, Cockpit:ChooseString, ddlEventFilter, %prev%
+    if ErrorLevel {
+        g_eventFilter := "All"
+        GuiControl, Cockpit:ChooseString, ddlEventFilter, % "All"
+        Cockpit_SaveEventFilter("All")
     }
 }
 
