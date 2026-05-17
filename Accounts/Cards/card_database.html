@@ -1525,6 +1525,7 @@
                     (var(--trade-pad-inline) * 2) +
                         (var(--trade-thumb-w) * 2) + 16px + 1.35rem
                 );
+                position: relative;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -1578,6 +1579,46 @@
                 color: var(--accent, var(--muted));
                 font-weight: 700;
                 flex: 0 0 auto;
+            }
+            .pair-unpair-btn {
+                position: absolute;
+                top: 2px;
+                right: 4px;
+                z-index: 1;
+                width: 22px;
+                height: 22px;
+                padding: 0;
+                margin: 0;
+                border: none;
+                border-radius: 999px;
+                font-size: 1rem;
+                line-height: 1;
+                cursor: pointer;
+                color: var(--muted);
+                background: rgba(0, 0, 0, 0.35);
+                display: grid;
+                place-items: center;
+            }
+            .pair-unpair-btn:hover {
+                color: var(--text);
+                background: rgba(220, 80, 80, 0.45);
+            }
+            .received-pair--no-pair {
+                border-style: dashed;
+            }
+            .received-pair .pair-thumb--no-pair {
+                padding: 3px;
+            }
+            .pair-no-pair-label {
+                font-size: 0.54rem;
+                font-weight: 700;
+                color: var(--muted);
+                line-height: 1.15;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                text-align: center;
+                max-width: 100%;
+                overflow-wrap: break-word;
             }
             .pairs-row {
                 display: flex;
@@ -4280,6 +4321,7 @@
             .catalog-account-name {
                 display: inline-flex;
                 align-items: center;
+                gap: 6px;
                 justify-content: flex-start;
                 width: fit-content;
                 max-width: 100%;
@@ -4309,6 +4351,19 @@
                 background: var(--chip-active-bg);
                 color: var(--accent-2);
                 box-shadow: 0 0 0 2px rgba(142, 180, 255, 0.14);
+            }
+
+            .account-pin-badge {
+                display: inline-flex;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                color: inherit;
+                opacity: 0.92;
+            }
+
+            .account-pin-badge svg {
+                display: block;
             }
 
             .catalog-account-meta {
@@ -5717,6 +5772,61 @@
                 });
             }
 
+            /** Footer line scans every known card — defer so sidebar/tiles paint first (like Traded view scope). */
+            let _catalogFooterLightIdleHandle = null;
+            let _catalogFooterLightCountsPending = null;
+            let _catalogFooterLightIdleIsRic = false;
+
+            function cancelCatalogFooterLightIdle() {
+                if (_catalogFooterLightIdleHandle == null) return;
+                if (_catalogFooterLightIdleIsRic) {
+                    if (typeof cancelIdleCallback === "function")
+                        cancelIdleCallback(_catalogFooterLightIdleHandle);
+                } else {
+                    clearTimeout(_catalogFooterLightIdleHandle);
+                }
+                _catalogFooterLightIdleHandle = null;
+                _catalogFooterLightIdleIsRic = false;
+                _catalogFooterLightCountsPending = null;
+            }
+
+            function scheduleCatalogFooterLightRefresh(counts) {
+                _catalogFooterLightCountsPending = counts;
+                if (_catalogFooterLightIdleHandle != null) return;
+                const flush = () => {
+                    _catalogFooterLightIdleHandle = null;
+                    _catalogFooterLightIdleIsRic = false;
+                    const c = _catalogFooterLightCountsPending;
+                    _catalogFooterLightCountsPending = null;
+                    if (!c || state.view !== "allcards") return;
+                    const selBefore = state.selectedCatalogCardId;
+                    const parts = computeCatalogLibraryLightMetrics(c);
+                    el.resultNote.textContent = parts.hasVisibleCards
+                        ? `${formatNumber(parts.availableCards)} of ${formatNumber(parts.byCardIdSize)} cards available · ${formatNumber(parts.availableCopies)} total available ${pluralWord(parts.availableCopies, "copy", "copies")}.`
+                        : "No cards match the selected rarity filters.";
+                    if (parts.hasVisibleCards && parts.hiddenCardCount)
+                        el.resultNote.textContent += parts.clippedNote;
+                    if (selBefore !== state.selectedCatalogCardId) {
+                        const fresh = buildCardAccountCounts();
+                        renderCatalogSidePanel({
+                            patchOnly: true,
+                            skipBaseModel: true,
+                            prefetchedCounts: fresh,
+                        });
+                    }
+                };
+                if (typeof requestIdleCallback !== "undefined") {
+                    _catalogFooterLightIdleIsRic = true;
+                    _catalogFooterLightIdleHandle = requestIdleCallback(
+                        flush,
+                        { timeout: 180 },
+                    );
+                } else {
+                    _catalogFooterLightIdleIsRic = false;
+                    _catalogFooterLightIdleHandle = setTimeout(flush, 0);
+                }
+            }
+
             // Cache DOM for DB views (rows/accounts/traded/shared) to reuse on tab return.
             // Invalidate on filter/sort/data/expansion/pagination changes.
             const DB_VIEWS = ["rows", "accounts", "traded", "shared"];
@@ -6484,28 +6594,99 @@
                         state.tradedMeta.delete(key);
                         saveTradedMeta();
                         state.accountRows = null;
-                        invalidateCatalogAccountCounts();
                     }
                 } else {
                     state.tradedSet.add(key);
-                    // Record the trade timestamp once per card so we can sort
-                    // by trade date. Don't overwrite an existing entry - that
-                    // would clobber any recorded pair data.
                     if (!state.tradedMeta.has(key)) {
                         state.tradedMeta.set(key, {
                             timestampMs: Date.now(),
+                            count: 1,
                         });
                         saveTradedMeta();
                     }
                     nowTraded = true;
                 }
                 saveTradedState();
+                invalidateCatalogAccountCounts();
                 invalidateViewDomCache();
                 return nowTraded;
             }
 
             function isTraded(account, cardId) {
                 return state.tradedSet.has(tradedKey(account, cardId));
+            }
+
+            /* Per-copy traded count. Pre-count entries default to 1 so old data still acts
+               like a single traded copy. */
+            function getTradedCount(account, cardId) {
+                const key = tradedKey(account, cardId);
+                if (!state.tradedSet.has(key)) return 0;
+                const meta = state.tradedMeta.get(key);
+                if (meta && Number.isFinite(meta.count) && meta.count > 0)
+                    return meta.count;
+                return 1;
+            }
+
+            function addTradedCopy(account, cardId) {
+                const key = tradedKey(account, cardId);
+                const newCount = getTradedCount(account, cardId) + 1;
+                state.tradedSet.add(key);
+                const existing = state.tradedMeta.get(key) || {};
+                existing.count = newCount;
+                if (
+                    !Number.isFinite(existing.timestampMs) ||
+                    existing.timestampMs === 0
+                ) {
+                    existing.timestampMs = Date.now();
+                }
+                state.tradedMeta.set(key, existing);
+                saveTradedState();
+                saveTradedMeta();
+                state.accountRows = null;
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+                return newCount;
+            }
+
+            /** Remove one traded copy; clears the key only when count reaches 0. */
+            function removeOneTradedCopy(account, cardId) {
+                const key = tradedKey(account, cardId);
+                if (!state.tradedSet.has(key)) return false;
+                const count = getTradedCount(account, cardId);
+                if (count <= 1) {
+                    state.tradedSet.delete(key);
+                    if (state.tradedMeta.has(key)) {
+                        state.tradedMeta.delete(key);
+                        saveTradedMeta();
+                        state.accountRows = null;
+                        invalidateCatalogAccountCounts();
+                    }
+                    saveTradedState();
+                    invalidateViewDomCache();
+                    return true;
+                }
+                const norm = normalizeTradeMeta(state.tradedMeta.get(key));
+                norm.count = count - 1;
+                /* Drop a pairing only when every copy had one; extras without pairing must not steal pairings (LIFO pop). */
+                if (
+                    count === norm.pairings.length &&
+                    norm.pairings.length > 0
+                ) {
+                    norm.pairings.pop();
+                }
+                let maxTs = 0;
+                for (let i = 0; i < norm.pairings.length; i++) {
+                    const t = Number(norm.pairings[i].timestampMs) || 0;
+                    if (t > maxTs) maxTs = t;
+                }
+                norm.timestampMs = maxTs;
+                state.tradedMeta.set(key, serializeTradeMeta(norm));
+                saveTradedMeta();
+                saveTradedState();
+                state.accountRows = null;
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+                return true;
             }
 
             function loadSharedState() {
@@ -6658,12 +6839,44 @@
                 const key = tradedKey(account, cardId);
                 state.sharedSet.add(key);
                 if (!state.sharedMeta.has(key)) {
-                    state.sharedMeta.set(key, { timestampMs: Date.now() });
+                    state.sharedMeta.set(key, {
+                        timestampMs: Date.now(),
+                        count: 1,
+                    });
                     saveSharedMeta();
                 }
                 saveSharedState();
                 invalidateCatalogAccountCounts();
                 invalidateViewDomCache();
+            }
+
+            function getSharedCount(account, cardId) {
+                const key = tradedKey(account, cardId);
+                if (!state.sharedSet.has(key)) return 0;
+                const meta = state.sharedMeta.get(key);
+                if (meta && Number.isFinite(meta.count) && meta.count > 0)
+                    return meta.count;
+                return 1;
+            }
+
+            function addSharedCopy(account, cardId) {
+                const key = tradedKey(account, cardId);
+                const newCount = getSharedCount(account, cardId) + 1;
+                state.sharedSet.add(key);
+                const existing = state.sharedMeta.get(key) || {};
+                existing.count = newCount;
+                if (
+                    !Number.isFinite(existing.timestampMs) ||
+                    existing.timestampMs === 0
+                ) {
+                    existing.timestampMs = Date.now();
+                }
+                state.sharedMeta.set(key, existing);
+                saveSharedState();
+                saveSharedMeta();
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+                return newCount;
             }
 
             function removeShared(account, cardId) {
@@ -6676,6 +6889,26 @@
                 saveSharedState();
                 invalidateCatalogAccountCounts();
                 invalidateViewDomCache();
+            }
+
+            /** Remove one shared copy; clears the key only when count reaches 0. */
+            function removeOneSharedCopy(account, cardId) {
+                const key = tradedKey(account, cardId);
+                if (!state.sharedSet.has(key)) return false;
+                const count = getSharedCount(account, cardId);
+                if (count <= 1) {
+                    removeShared(account, cardId);
+                    return true;
+                }
+                const prev = state.sharedMeta.get(key) || {};
+                const existing = { ...prev };
+                existing.count = count - 1;
+                state.sharedMeta.set(key, existing);
+                saveSharedMeta();
+                saveSharedState();
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+                return true;
             }
 
             // For any set entry that pre-dates timestamp tracking, write a
@@ -6725,24 +6958,15 @@
             function setTradeMeta(account, cardId, meta) {
                 const key = tradedKey(account, cardId);
                 if (meta && meta.receivedCardId) {
-                    const existing = state.tradedMeta.get(key);
-                    const preservedTs =
-                        existing &&
-                        Number.isFinite(existing.timestampMs) &&
-                        existing.timestampMs > 0
-                            ? existing.timestampMs
-                            : null;
-                    state.tradedMeta.set(key, {
-                        receivedCardId: String(meta.receivedCardId),
+                    appendTradePairing(account, cardId, {
+                        receivedCardId: meta.receivedCardId,
                         timestampMs: Number.isFinite(meta.timestampMs)
                             ? meta.timestampMs
-                            : preservedTs != null
-                              ? preservedTs
-                              : Date.now(),
+                            : Date.now(),
                     });
-                } else {
-                    state.tradedMeta.delete(key);
+                    return;
                 }
+                state.tradedMeta.delete(key);
                 saveTradedMeta();
                 state.accountRows = null;
                 invalidateCatalogAccountCounts();
@@ -6751,6 +6975,129 @@
 
             function getTradeMeta(account, cardId) {
                 return state.tradedMeta.get(tradedKey(account, cardId)) || null;
+            }
+
+            /** Normalize traded meta: multiple pairings per account+card, legacy single receivedCardId migrated on read. */
+            function normalizeTradeMeta(raw) {
+                if (!raw || typeof raw !== "object") {
+                    return { pairings: [], timestampMs: 0, count: undefined };
+                }
+                let pairings = [];
+                if (Array.isArray(raw.pairings)) {
+                    for (let i = 0; i < raw.pairings.length; i++) {
+                        const p = raw.pairings[i];
+                        if (p && p.receivedCardId) {
+                            pairings.push({
+                                receivedCardId: String(p.receivedCardId),
+                                timestampMs: Number.isFinite(p.timestampMs)
+                                    ? p.timestampMs
+                                    : 0,
+                            });
+                        }
+                    }
+                }
+                if (
+                    pairings.length === 0 &&
+                    raw.receivedCardId != null &&
+                    String(raw.receivedCardId).trim() !== ""
+                ) {
+                    pairings.push({
+                        receivedCardId: String(raw.receivedCardId),
+                        timestampMs: Number.isFinite(raw.timestampMs)
+                            ? raw.timestampMs
+                            : 0,
+                    });
+                }
+                let timestampMs = Number.isFinite(raw.timestampMs)
+                    ? raw.timestampMs
+                    : 0;
+                for (let i = 0; i < pairings.length; i++) {
+                    const t = Number(pairings[i].timestampMs) || 0;
+                    if (t > timestampMs) timestampMs = t;
+                }
+                const count =
+                    Number.isFinite(raw.count) && raw.count > 0
+                        ? raw.count
+                        : undefined;
+                return { pairings, timestampMs, count };
+            }
+
+            function serializeTradeMeta(norm) {
+                const pairings = norm.pairings || [];
+                const out = {
+                    pairings: pairings.map((p) => ({
+                        receivedCardId: String(p.receivedCardId),
+                        timestampMs: Number(p.timestampMs) || 0,
+                    })),
+                    timestampMs: Number(norm.timestampMs) || 0,
+                };
+                if (Number.isFinite(norm.count) && norm.count > 0)
+                    out.count = norm.count;
+                return out;
+            }
+
+            function getTradePairings(account, cardId) {
+                const raw = state.tradedMeta.get(tradedKey(account, cardId));
+                return normalizeTradeMeta(raw).pairings;
+            }
+
+            function appendTradePairing(account, cardId, pairing) {
+                const key = tradedKey(account, cardId);
+                const norm = normalizeTradeMeta(state.tradedMeta.get(key));
+                const ts = Number.isFinite(pairing.timestampMs)
+                    ? pairing.timestampMs
+                    : Date.now();
+                norm.pairings.push({
+                    receivedCardId: String(pairing.receivedCardId),
+                    timestampMs: ts,
+                });
+                norm.count = getTradedCount(account, cardId);
+                let maxTs = Number(norm.timestampMs) || 0;
+                if (ts > maxTs) maxTs = ts;
+                for (let i = 0; i < norm.pairings.length; i++) {
+                    const t = Number(norm.pairings[i].timestampMs) || 0;
+                    if (t > maxTs) maxTs = t;
+                }
+                norm.timestampMs = maxTs;
+                state.tradedMeta.set(key, serializeTradeMeta(norm));
+                saveTradedMeta();
+                state.accountRows = null;
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+            }
+
+            /** Remove one specific pairing by index; drops one traded copy (same net effect as removeOneTradedCopy for that slot). */
+            function removeTradedPairingAt(account, cardId, pairingIndex) {
+                const key = tradedKey(account, cardId);
+                if (!state.tradedSet.has(key)) return false;
+                const idx = Number(pairingIndex);
+                if (!Number.isFinite(idx) || idx < 0) return false;
+                const norm = normalizeTradeMeta(state.tradedMeta.get(key));
+                if (idx >= norm.pairings.length) return false;
+                norm.pairings.splice(idx, 1);
+                const count = getTradedCount(account, cardId);
+                const nextCount = count - 1;
+                if (nextCount <= 0) {
+                    state.tradedSet.delete(key);
+                    state.tradedMeta.delete(key);
+                    saveTradedMeta();
+                    saveTradedState();
+                } else {
+                    norm.count = nextCount;
+                    let maxTs = 0;
+                    for (let i = 0; i < norm.pairings.length; i++) {
+                        const t = Number(norm.pairings[i].timestampMs) || 0;
+                        if (t > maxTs) maxTs = t;
+                    }
+                    norm.timestampMs = maxTs;
+                    state.tradedMeta.set(key, serializeTradeMeta(norm));
+                    saveTradedMeta();
+                    saveTradedState();
+                }
+                state.accountRows = null;
+                invalidateCatalogAccountCounts();
+                invalidateViewDomCache();
+                return true;
             }
 
             // Rarity values that may be exchanged for the given rarity.
@@ -6852,6 +7199,19 @@
                 );
             }
 
+            /** Pushpin badge shown next to the account label when pinned (Catalog / Multi-card). */
+            function pinnedAccountBadgeHtml() {
+                return (
+                    `<span class="account-pin-badge" aria-hidden="true" title="Pinned account">` +
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">` +
+                    `<line x1="12" x2="12" y1="17" y2="22"></line>` +
+                    `<path d="M5 17h14v-1a7 7 0 0 0-14 0v1z"></path>` +
+                    `<path d="M12 17V9"></path>` +
+                    `<circle cx="12" cy="5" r="3"></circle>` +
+                    `</svg></span>`
+                );
+            }
+
             function renderAccountFilterToggles(options) {
                 const {
                     ageInputId,
@@ -6938,8 +7298,10 @@
                 const out = [];
                 for (const [key, meta] of state.tradedMeta) {
                     if (!key.startsWith(prefix)) continue;
-                    if (meta && meta.receivedCardId)
-                        out.push(meta.receivedCardId);
+                    const norm = normalizeTradeMeta(meta);
+                    for (let i = 0; i < norm.pairings.length; i++) {
+                        out.push(norm.pairings[i].receivedCardId);
+                    }
                 }
                 return out;
             }
@@ -9581,10 +9943,10 @@
                     const entry = byAccount.get(acc);
                     entry.cardIds.push(cid);
                     const meta = metaMap.get(key);
-                    const ts =
-                        meta && Number.isFinite(meta.timestampMs)
-                            ? meta.timestampMs
-                            : 0;
+                    let ts = 0;
+                    if (meta) {
+                        ts = normalizeTradeMeta(meta).timestampMs || 0;
+                    }
                     if (ts > entry.latestTs) entry.latestTs = ts;
                 }
                 const list = [...byAccount.values()].map((a) => ({
@@ -9607,12 +9969,36 @@
                     state.tradedMeta,
                 );
                 const totalCards = accounts.reduce(
-                    (s, a) => s + a.cardIds.length,
+                    (s, a) =>
+                        s +
+                        a.cardIds.reduce(
+                            (t, cid) =>
+                                t + getTradedCount(a.account, cid),
+                            0,
+                        ),
                     0,
                 );
                 const totalAccounts = accounts.length;
                 const shown = Math.min(state.displayLimit, totalAccounts);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} traded ${pluralWord(totalCards, "card", "cards")}.`;
+                let totalPairings = 0;
+                let totalNoPairSlots = 0;
+                for (const key of state.tradedSet) {
+                    const sep = key.indexOf("::");
+                    if (sep < 0) continue;
+                    const accPart = key.slice(0, sep);
+                    const cidPart = key.slice(sep + 2);
+                    const plist = getTradePairings(accPart, cidPart);
+                    totalPairings += plist.length;
+                    totalNoPairSlots += Math.max(
+                        0,
+                        getTradedCount(accPart, cidPart) - plist.length,
+                    );
+                }
+                const pairingSummary =
+                    totalNoPairSlots > 0
+                        ? `${formatNumber(totalPairings)} recorded ${pluralWord(totalPairings, "pairing", "pairings")} \u00b7 ${formatNumber(totalNoPairSlots)} without pairing`
+                        : `${formatNumber(totalPairings)} recorded ${pluralWord(totalPairings, "trade pairing", "trade pairings")}`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} traded ${pluralWord(totalCards, "copy", "copies")} \u00b7 ${pairingSummary}.`;
                 const fragment = document.createDocumentFragment();
                 for (let i = 0; i < shown; i++) {
                     fragment.appendChild(
@@ -9636,30 +10022,71 @@
                     : escapeHtml(acc);
                 const pairs = [];
                 for (const cid of cardIds) {
-                    const meta = getTradeMeta(acc, cid);
-                    if (meta && meta.receivedCardId)
+                    const plist = getTradePairings(acc, cid);
+                    const tradedTotal = getTradedCount(acc, cid);
+                    for (let pi = 0; pi < plist.length; pi++) {
                         pairs.push({
+                            kind: "paired",
                             gave: cid,
-                            received: meta.receivedCardId,
+                            received: plist[pi].receivedCardId,
+                            pairingIndex: pi,
                         });
+                    }
+                    const unpairedCopies = Math.max(
+                        0,
+                        tradedTotal - plist.length,
+                    );
+                    for (let u = 0; u < unpairedCopies; u++) {
+                        pairs.push({ kind: "unpaired", gave: cid });
+                    }
                 }
+                const pairedChipCount = pairs.filter(
+                    (p) => p.kind === "paired",
+                ).length;
+                const noPairChipCount = pairs.filter(
+                    (p) => p.kind === "unpaired",
+                ).length;
+                let pairsMetaLabel = "";
+                if (noPairChipCount === 0)
+                    pairsMetaLabel = `${formatNumber(pairedChipCount)} ${pluralWord(pairedChipCount, "trade pair", "trade pairs")}`;
+                else if (pairedChipCount === 0)
+                    pairsMetaLabel = `${formatNumber(noPairChipCount)} without pairing`;
+                else
+                    pairsMetaLabel = `${formatNumber(pairedChipCount)} paired \u00b7 ${formatNumber(noPairChipCount)} no pairing`;
                 let pairsHtml = "";
                 if (pairs.length) {
                     const items = pairs
                         .map((p) => {
                             const g = getCardInfo(p.gave);
-                            const r = getCardInfo(p.received);
                             const gThumb = g.imageUrl
                                 ? `<span class="pair-thumb"><img src="${escapeHtml(g.imageUrl)}" alt="" loading="lazy" decoding="async"></span>`
                                 : `<span class="pair-thumb pair-thumb--empty" aria-hidden="true"></span>`;
+                            if (p.kind === "unpaired") {
+                                const tip = `${g.name} \u2014 no pairing recorded`;
+                                const aria = `Trade: gave ${g.name}, no pairing recorded`;
+                                const unpairBtn =
+                                    `<button type="button" class="pair-unpair-btn" title="Remove one traded copy (no pairing)" aria-label="Remove unpaired traded copy" data-trade-unpair-account="${escapeHtml(acc)}" data-trade-unpair-gave="${escapeHtml(p.gave)}" data-trade-unpair-no-pair="1">\u00d7</button>`;
+                                return (
+                                    `<span class="received-pair received-pair--no-pair" role="group" title="${escapeHtml(tip)}" aria-label="${escapeHtml(aria)}">` +
+                                    unpairBtn +
+                                    `<span class="pair-side">${gThumb}</span>` +
+                                    `<span class="pair-arrow" aria-hidden="true">-></span>` +
+                                    `<span class="pair-side"><span class="pair-thumb pair-thumb--empty pair-thumb--no-pair"><span class="pair-no-pair-label">No pairing</span></span></span>` +
+                                    `</span>`
+                                );
+                            }
+                            const r = getCardInfo(p.received);
                             const rThumb = r.imageUrl
                                 ? `<span class="pair-thumb"><img src="${escapeHtml(r.imageUrl)}" alt="" loading="lazy" decoding="async"></span>`
                                 : `<span class="pair-thumb pair-thumb--empty" aria-hidden="true"></span>`;
                             const tip =
                                 `Gave ${g.name}\u2192\u00a0${r.name}`;
                             const aria = `Trade: gave ${g.name}, received ${r.name}`;
+                            const unpairBtn =
+                                `<button type="button" class="pair-unpair-btn" title="Remove this pairing (removes one traded copy)" aria-label="Remove pairing" data-trade-unpair-account="${escapeHtml(acc)}" data-trade-unpair-gave="${escapeHtml(p.gave)}" data-trade-unpair-index="${escapeHtml(String(p.pairingIndex))}">\u00d7</button>`;
                             return (
                                 `<span class="received-pair" role="group" title="${escapeHtml(tip)}" aria-label="${escapeHtml(aria)}">` +
+                                unpairBtn +
                                 `<span class="pair-side">${gThumb}</span>` +
                                 `<span class="pair-arrow" aria-hidden="true">-></span>` +
                                 `<span class="pair-side">${rThumb}</span>` +
@@ -9673,13 +10100,18 @@
                     account.latestTs > 0
                         ? `<span title="Most recent trade date">${escapeHtml(formatEpochTimestamp(account.latestTs))}</span>`
                         : "";
+                const tradedSum = cardIds.reduce(
+                    (s, cid) => s + getTradedCount(acc, cid),
+                    0,
+                );
                 const article = document.createElement("article");
                 article.className = "db-row panel";
-                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} traded ${pluralWord(cardIds.length, "card", "cards")}</span><span>${formatNumber(pairs.length)} ${pluralWord(pairs.length, "trade pair", "trade pairs")}</span>${latestLabel}</div></div></div>${pairsHtml}<div class="row-body"></div>`;
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(tradedSum)} traded ${pluralWord(tradedSum, "copy", "copies")}</span><span>${escapeHtml(pairsMetaLabel)}</span>${latestLabel}</div></div></div>${pairsHtml}<div class="row-body"></div>`;
                 const body = article.querySelector(".row-body");
                 body.appendChild(
                     renderCardGrid(cardIds, {
                         showQuantity: false,
+                        showCopyCount: true,
                         account: acc,
                     }),
                 );
@@ -9691,6 +10123,47 @@
                             copyBtn.getAttribute("data-copy-file") || "",
                         );
                     });
+                article.addEventListener("click", async (e) => {
+                    const btn = e.target.closest(".pair-unpair-btn");
+                    if (!btn) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const accountUnpair =
+                        btn.getAttribute("data-trade-unpair-account") || "";
+                    const gave =
+                        btn.getAttribute("data-trade-unpair-gave") || "";
+                    const preferred =
+                        state.accountFileLabelMap.get(accountUnpair) ||
+                        accountUnpair;
+                    if (
+                        btn.getAttribute("data-trade-unpair-no-pair") === "1"
+                    ) {
+                        if (!accountUnpair || !gave) return;
+                        const ok = await showConfirm(
+                            `Remove one traded copy with no pairing recorded?\n\nCard: ${formatCardLabel(gave)}\n\nAccount: ${escapeHtml(preferred)}.`,
+                            { html: true },
+                        );
+                        if (!ok) return;
+                        removeOneTradedCopy(accountUnpair, gave);
+                        renderTradedView();
+                        return;
+                    }
+                    const idxStr =
+                        btn.getAttribute("data-trade-unpair-index") || "";
+                    const idx = Number(idxStr);
+                    if (!accountUnpair || !gave || !Number.isFinite(idx))
+                        return;
+                    const plist = getTradePairings(accountUnpair, gave);
+                    const slot = plist[idx];
+                    if (!slot) return;
+                    const ok = await showConfirm(
+                        `Remove this trade pairing?\n\nGave: ${formatCardLabel(gave)}\nReceived: ${formatCardLabel(slot.receivedCardId)}\n\nThis removes one traded copy for ${escapeHtml(preferred)}.`,
+                        { html: true },
+                    );
+                    if (!ok) return;
+                    removeTradedPairingAt(accountUnpair, gave, idx);
+                    renderTradedView();
+                });
                 return article;
             }
 
@@ -9707,12 +10180,18 @@
                     state.sharedMeta,
                 );
                 const totalCards = accounts.reduce(
-                    (s, a) => s + a.cardIds.length,
+                    (s, a) =>
+                        s +
+                        a.cardIds.reduce(
+                            (t, cid) =>
+                                t + getSharedCount(a.account, cid),
+                            0,
+                        ),
                     0,
                 );
                 const totalAccounts = accounts.length;
                 const shown = Math.min(state.displayLimit, totalAccounts);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} shared ${pluralWord(totalCards, "card", "cards")}.`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} shared ${pluralWord(totalCards, "copy", "copies")}.`;
                 const fragment = document.createDocumentFragment();
                 for (let i = 0; i < shown; i++) {
                     fragment.appendChild(
@@ -9738,13 +10217,18 @@
                     account.latestTs > 0
                         ? `<span title="Most recent share date">${escapeHtml(formatEpochTimestamp(account.latestTs))}</span>`
                         : "";
+                const sharedSum = cardIds.reduce(
+                    (s, cid) => s + getSharedCount(acc, cid),
+                    0,
+                );
                 const article = document.createElement("article");
                 article.className = "db-row panel";
-                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} shared ${pluralWord(cardIds.length, "card", "cards")}</span>${latestLabel}</div></div><div class="row-actions"><button type="button" class="clear-shared-btn" data-clear-shared-account="${escapeHtml(acc)}" title="Remove all shared cards for this account">Clear all</button></div></div><div class="row-body"></div>`;
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(sharedSum)} shared ${pluralWord(sharedSum, "copy", "copies")}</span>${latestLabel}</div></div><div class="row-actions"><button type="button" class="clear-shared-btn" data-clear-shared-account="${escapeHtml(acc)}" title="Remove all shared cards for this account">Clear all</button></div></div><div class="row-body"></div>`;
                 const body = article.querySelector(".row-body");
                 body.appendChild(
                     renderCardGrid(cardIds, {
                         showQuantity: false,
+                        showCopyCount: true,
                         account: acc,
                         sharedView: true,
                     }),
@@ -9764,8 +10248,12 @@
                     clearBtn.addEventListener("click", async () => {
                         const accLabel =
                             state.accountFileLabelMap.get(acc) || acc;
+                        const sharedSum = cardIds.reduce(
+                            (s, cid) => s + getSharedCount(acc, cid),
+                            0,
+                        );
                         const ok = await showConfirm(
-                            `Remove all ${cardIds.length} shared ${pluralWord(cardIds.length, "card", "cards")} for ${accLabel}?`,
+                            `Remove all ${formatNumber(sharedSum)} shared ${pluralWord(sharedSum, "copy", "copies")} (${formatNumber(cardIds.length)} ${pluralWord(cardIds.length, "card", "cards")}) for ${accLabel}?`,
                         );
                         if (!ok) return;
                         for (const cid of cardIds) removeShared(acc, cid);
@@ -9826,9 +10314,12 @@
             function getAvailableCopyCount(cardId, accountCounts) {
                 let totalCopies = 0;
                 for (const [account, count] of accountCounts) {
-                    if (isTraded(account, cardId)) continue;
-                    if (isShared(account, cardId)) continue;
-                    totalCopies += count;
+                    const remaining =
+                        count -
+                        getTradedCount(account, cardId) -
+                        getSharedCount(account, cardId);
+                    if (remaining <= 0) continue;
+                    totalCopies += remaining;
                 }
                 return totalCopies;
             }
@@ -9928,11 +10419,14 @@
             ) {
                 const accountRows = [];
                 for (const [account, count] of accountCounts) {
-                    if (isTraded(account, cardId)) continue;
-                    if (isShared(account, cardId)) continue;
+                    const remaining =
+                        count -
+                        getTradedCount(account, cardId) -
+                        getSharedCount(account, cardId);
+                    if (remaining <= 0) continue;
                     accountRows.push({
                         account,
-                        count,
+                        count: remaining,
                         instance: String(
                             state.accountMetadataMap.get(account)?.instance ||
                                 "",
@@ -10157,8 +10651,11 @@
                     const accountCounts =
                         cardToAccounts.get(card.id) || new Map();
                     for (const [account, count] of accountCounts) {
-                        if (isTraded(account, card.id)) continue;
-                        if (isShared(account, card.id)) continue;
+                        const remaining =
+                            count -
+                            getTradedCount(account, card.id) -
+                            getSharedCount(account, card.id);
+                        if (remaining <= 0) continue;
                         let row = rowsByAccount.get(account);
                         if (!row) {
                             row = {
@@ -10183,8 +10680,8 @@
                             rowsByAccount.set(account, row);
                         }
                         row.matchedCardIds.add(card.id);
-                        row.perCardCounts.set(card.id, count);
-                        row.totalCopies += count;
+                        row.perCardCounts.set(card.id, remaining);
+                        row.totalCopies += remaining;
                     }
                 }
                 if (
@@ -10404,7 +10901,7 @@
                                 )
                               ? `<button type="button" class="primary start-trade-btn" disabled title="Account must be at least ${TRADE_READY_MIN_AGE_DAYS} days old to trade">Start trade</button>`
                             : "";
-                        return `<div class="multi-result-item${isSelectedAccount ? " selected" : ""}" data-multi-result-account="${escapeHtml(row.account)}"><div class="multi-result-head"><div class="multi-result-head-main"><div class="catalog-account-name${isSelectedAccount ? " selected" : ""}">${accountNameLabel}</div><div class="catalog-account-meta"><span>${escapeHtml(shinedustLabel)}</span>${requiredShinedustLabel ? `<span>${escapeHtml(requiredShinedustLabel)}</span>` : ""}${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div></div><div class="multi-score">${formatNumber(row.matchedUnique)}/${formatNumber(selectedCount)}</div></div>${matchedHtml ? `<div class="multi-card-mini-list">${matchedHtml}</div>` : ""}${missingCards.length ? `<div class="multi-card-mini-list">${missingHtml}${extraMissing}</div>` : ""}<div class="multi-result-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${startTradeBtn}</div></div>`;
+                        return `<div class="multi-result-item${isSelectedAccount ? " selected" : ""}" data-multi-result-account="${escapeHtml(row.account)}"><div class="multi-result-head"><div class="multi-result-head-main"><div class="catalog-account-name${isSelectedAccount ? " selected" : ""}">${isSelectedAccount ? pinnedAccountBadgeHtml() : ""}${accountNameLabel}</div><div class="catalog-account-meta"><span>${escapeHtml(shinedustLabel)}</span>${requiredShinedustLabel ? `<span>${escapeHtml(requiredShinedustLabel)}</span>` : ""}${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div></div><div class="multi-score">${formatNumber(row.matchedUnique)}/${formatNumber(selectedCount)}</div></div>${matchedHtml ? `<div class="multi-card-mini-list">${matchedHtml}</div>` : ""}${missingCards.length ? `<div class="multi-card-mini-list">${missingHtml}${extraMissing}</div>` : ""}<div class="multi-result-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${startTradeBtn}</div></div>`;
                     })
                     .join("");
                 const clipped =
@@ -10422,32 +10919,33 @@
                 if (!result) {
                     return;
                 }
-                const nowTraded = toggleTraded(account, cardId);
-                if (nowTraded) {
-                    if (result.receivedCardId) {
-                        const ok = await showConfirm(
-                            `Confirm trade pairing:\n\nGave:     ${formatCardLabel(cardId)}\nReceived: ${formatCardLabel(result.receivedCardId)}\n\nFor ${escapeHtml(preferredAccountName)}.`,
+                addTradedCopy(account, cardId);
+                let partnerReceivedId = "";
+                if (result.receivedCardId) {
+                    const ok = await showConfirm(
+                        `Confirm trade pairing:\n\nGave:     ${formatCardLabel(cardId)}\nReceived: ${formatCardLabel(result.receivedCardId)}\n\nFor ${escapeHtml(preferredAccountName)}.`,
+                        { html: true },
+                    );
+                    if (ok) {
+                        setTradeMeta(account, cardId, {
+                            receivedCardId: result.receivedCardId,
+                            timestampMs: Date.now(),
+                        });
+                        partnerReceivedId = result.receivedCardId;
+                        showToast(
+                            `Recorded trade: ${formatCardLabel(cardId)} -> ${formatCardLabel(result.receivedCardId)}`,
+                            "success",
+                            4000,
                             { html: true },
                         );
-                        if (ok) {
-                            setTradeMeta(account, cardId, {
-                                receivedCardId: result.receivedCardId,
-                                timestampMs: Date.now(),
-                            });
-                            showToast(
-                                `Recorded trade: ${formatCardLabel(cardId)} -> ${formatCardLabel(result.receivedCardId)}`,
-                                "success",
-                                4000,
-                                { html: true },
-                            );
-                        } else {
-                            showToast("Marked as traded.", "success", 2500);
-                        }
                     } else {
                         showToast("Marked as traded.", "success", 2500);
                     }
+                } else {
+                    showToast("Marked as traded.", "success", 2500);
                 }
-                renderAfter();
+                if (typeof renderAfter === "function")
+                    renderAfter(partnerReceivedId);
             }
 
             async function startTradeForMultiAccount(
@@ -10666,7 +11164,7 @@
                             await markSelectedCardTraded(
                                 account,
                                 cardId,
-                                renderMultiCardSearchView,
+                                () => deferRender(renderMultiCardSearchView),
                             );
                         });
                     });
@@ -10696,9 +11194,8 @@
                                 { html: true },
                             ).then((confirmed) => {
                                 if (!confirmed) return;
-                                if (!isTraded(account, cardId))
-                                    addShared(account, cardId);
-                                renderMultiCardSearchView();
+                                addSharedCopy(account, cardId);
+                                deferRender(renderMultiCardSearchView);
                             });
                         });
                     });
@@ -11629,29 +12126,7 @@
                             if (state.selectedCatalogAccount === account)
                                 return;
                             state.selectedCatalogAccount = account;
-                            sideRoot
-                                .querySelectorAll(
-                                    "[data-select-catalog-account]",
-                                )
-                                .forEach((item) => {
-                                    const isSelected =
-                                        item.getAttribute(
-                                            "data-select-catalog-account",
-                                        ) === account;
-                                    item.classList.toggle("selected", isSelected);
-                                    item.setAttribute(
-                                        "aria-pressed",
-                                        isSelected ? "true" : "false",
-                                    );
-                                    const nameEl = item.querySelector(
-                                        ".catalog-account-name",
-                                    );
-                                    if (nameEl)
-                                        nameEl.classList.toggle(
-                                            "selected",
-                                            isSelected,
-                                        );
-                                });
+                            renderCatalogSidePanel({ patchOnly: true });
                         };
                         btn.addEventListener("click", (event) => {
                             if (
@@ -11703,7 +12178,13 @@
                             await markSelectedCardTraded(
                                 account,
                                 cardId,
-                                refreshCatalogLibraryMainOnly,
+                                (partnerId) =>
+                                    deferRender(() =>
+                                        refreshCatalogLibraryTradeShareLight(
+                                            cardId,
+                                            partnerId || "",
+                                        ),
+                                    ),
                             );
                         });
                     });
@@ -11728,10 +12209,13 @@
                                 { html: true },
                             ).then((confirmed) => {
                                 if (!confirmed) return;
-                                if (!isTraded(account, cardId)) {
-                                    addShared(account, cardId);
-                                }
-                                refreshCatalogLibraryMainOnly();
+                                addSharedCopy(account, cardId);
+                                deferRender(() =>
+                                    refreshCatalogLibraryTradeShareLight(
+                                        cardId,
+                                        "",
+                                    ),
+                                );
                             });
                         });
                     });
@@ -11770,14 +12254,48 @@
             }
 
             function renderCatalogSidePanel(options) {
-                const base = buildCatalogBaseModel();
-                const byCardId = new Map();
-                for (const section of base.sectionListAll) {
-                    for (const card of section.cards) byCardId.set(card.id, card);
+                const patchOnly = options && options.patchOnly;
+                const prefetchedCounts =
+                    options && options.prefetchedCounts;
+                const skipBaseModel =
+                    options &&
+                    options.skipBaseModel &&
+                    patchOnly &&
+                    prefetchedCounts;
+
+                let base;
+                let selected = null;
+
+                if (skipBaseModel) {
+                    base = {
+                        cardToAccounts: prefetchedCounts.cardToAccounts,
+                        accountFirstSeenMs:
+                            prefetchedCounts.accountFirstSeenMs,
+                    };
+                    const sid = state.selectedCatalogCardId;
+                    if (sid) {
+                        const info = getCardInfo(sid);
+                        selected = {
+                            id: sid,
+                            info,
+                            totalCopies: getAvailableCopyCount(
+                                sid,
+                                prefetchedCounts.cardToAccounts.get(sid) ||
+                                    new Map(),
+                            ),
+                        };
+                    }
+                } else {
+                    base = buildCatalogBaseModel();
+                    const byCardId = new Map();
+                    for (const section of base.sectionListAll) {
+                        for (const card of section.cards)
+                            byCardId.set(card.id, card);
+                    }
+                    selected = state.selectedCatalogCardId
+                        ? byCardId.get(state.selectedCatalogCardId)
+                        : null;
                 }
-                const selected = state.selectedCatalogCardId
-                    ? byCardId.get(state.selectedCatalogCardId)
-                    : null;
                 const requiredShinedust = selected
                     ? getTradeShinedustCost(selected.id, selected.info)
                     : 0;
@@ -11880,7 +12398,7 @@
                                       row.account === state.selectedCatalogAccount;
                                   return `<div class="catalog-account-item${isSelected ? " selected" : ""}" data-select-catalog-account="${escapeHtml(
                                       row.account,
-                                  )}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}"><div class="catalog-account-name${isSelected ? " selected" : ""}">${accountNameLabel}</div><div class="catalog-account-meta"><span>Copies ${formatNumber(
+                                  )}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}"><div class="catalog-account-name${isSelected ? " selected" : ""}">${isSelected ? pinnedAccountBadgeHtml() : ""}${accountNameLabel}</div><div class="catalog-account-meta"><span>Copies ${formatNumber(
                                       row.count,
                                   )}</span><span>${escapeHtml(
                                       shinedustLabel,
@@ -11931,7 +12449,6 @@
                     return;
                 }
 
-                const patchOnly = options && options.patchOnly;
                 if (patchOnly) {
                     const metaSlot = sideEl.querySelector(
                         ".catalog-side-meta-slot",
@@ -12276,13 +12793,16 @@
                 // Fold in received cards from recorded trade pairings.
                 const receivedByAccount = new Map();
                 for (const [key, meta] of state.tradedMeta) {
-                    if (!meta || !meta.receivedCardId) continue;
+                    const norm = normalizeTradeMeta(meta);
+                    if (!norm.pairings.length) continue;
                     const sep = key.indexOf("::");
                     if (sep < 0) continue;
                     const acc = key.slice(0, sep);
                     if (!receivedByAccount.has(acc))
                         receivedByAccount.set(acc, []);
-                    receivedByAccount.get(acc).push(meta.receivedCardId);
+                    const bucket = receivedByAccount.get(acc);
+                    for (let i = 0; i < norm.pairings.length; i++)
+                        bucket.push(norm.pairings[i].receivedCardId);
                 }
                 for (const [acc, cardIds] of receivedByAccount) {
                     for (const cardId of cardIds) {
@@ -12301,10 +12821,16 @@
             }
 
             function sortCatalogAccounts(rows) {
+                const pinned = state.selectedCatalogAccount || "";
                 const mode = state.catalogAccountSort;
                 const asc = state.catalogAccountSortAsc;
                 const dir = asc ? 1 : -1;
                 rows.sort((a, b) => {
+                    if (pinned) {
+                        const aPinned = a.account === pinned;
+                        const bPinned = b.account === pinned;
+                        if (aPinned !== bPinned) return aPinned ? -1 : 1;
+                    }
                     if (mode === "shinedust") {
                         const aDust = Number.isFinite(a.shinedust)
                             ? a.shinedust
@@ -12703,7 +13229,7 @@
                                   const isSelected =
                                       row.account ===
                                       state.selectedCatalogAccount;
-                                  return `<div class="catalog-account-item${isSelected ? " selected" : ""}" data-select-catalog-account="${escapeHtml(row.account)}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}"><div class="catalog-account-name${isSelected ? " selected" : ""}">${accountNameLabel}</div><div class="catalog-account-meta"><span>Copies ${formatNumber(row.count)}</span><span>${escapeHtml(shinedustLabel)}</span>${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div><div class="catalog-account-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${tradeBtn}${sharedBtn}${startTradeBtn}</div></div>`;
+                                  return `<div class="catalog-account-item${isSelected ? " selected" : ""}" data-select-catalog-account="${escapeHtml(row.account)}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}"><div class="catalog-account-name${isSelected ? " selected" : ""}">${isSelected ? pinnedAccountBadgeHtml() : ""}${accountNameLabel}</div><div class="catalog-account-meta"><span>Copies ${formatNumber(row.count)}</span><span>${escapeHtml(shinedustLabel)}</span>${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div><div class="catalog-account-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${tradeBtn}${sharedBtn}${startTradeBtn}</div></div>`;
                               })
                               .join("")
                         : `<div class="empty panel" style="padding:14px">${getCatalogNoAccountMessage(allAccountRows, requiredShinedust)}</div>`
@@ -12799,8 +13325,219 @@
                         });
             }
 
+            function computeCatalogLibraryLightMetrics(counts) {
+                const searchTerm = normaliseSearch(state.catalogCardSearch);
+                const allIds = getAllKnownCardIds();
+                const catalogRarityKeys = getCatalogRarityKeys(allIds);
+
+                if (!state.catalogRaritiesInitialized) {
+                    state.catalogSelectedRarities = new Set(catalogRarityKeys);
+                    state.catalogRaritiesInitialized = true;
+                }
+
+                const allRaritiesSelected =
+                    catalogRarityKeys.size > 0 &&
+                    state.catalogSelectedRarities.size ===
+                        catalogRarityKeys.size;
+
+                let byCardIdSize = 0;
+                let availableCards = 0;
+                let availableCopies = 0;
+                const cardsMatchingSearch = [];
+
+                for (let i = 0; i < allIds.length; i++) {
+                    const cardId = allIds[i];
+                    const info = getCardInfo(cardId);
+                    if (searchTerm && !info.searchBlob.includes(searchTerm))
+                        continue;
+                    byCardIdSize++;
+                    const totalCopies = getAvailableCopyCount(
+                        cardId,
+                        counts.cardToAccounts.get(cardId) || new Map(),
+                    );
+                    if (totalCopies > 0) {
+                        availableCards++;
+                        availableCopies += totalCopies;
+                    }
+                    cardsMatchingSearch.push({
+                        id: cardId,
+                        info,
+                        totalCopies,
+                        sectionCode:
+                            getCardExpansionId(cardId) || "__unknown__",
+                        expansionNo: getCardExpansionNumber(cardId, info),
+                    });
+                }
+
+                const rarityFiltered = [];
+                for (let i = 0; i < cardsMatchingSearch.length; i++) {
+                    const card = cardsMatchingSearch[i];
+                    if (allRaritiesSelected) {
+                        rarityFiltered.push(card);
+                        continue;
+                    }
+                    const key = getCardRarityFilterKey(card.id, card.info);
+                    if (key && state.catalogSelectedRarities.has(key))
+                        rarityFiltered.push(card);
+                }
+
+                rarityFiltered.sort((a, b) => {
+                    const an = Number.isFinite(a.expansionNo)
+                        ? a.expansionNo
+                        : Number.POSITIVE_INFINITY;
+                    const bn = Number.isFinite(b.expansionNo)
+                        ? b.expansionNo
+                        : Number.POSITIVE_INFINITY;
+                    if (an !== bn) return an - bn;
+                    return (
+                        a.info.name.localeCompare(b.info.name) ||
+                        a.id.localeCompare(b.id)
+                    );
+                });
+
+                const hasCardSearch =
+                    String(state.catalogCardSearch || "").trim() !== "";
+                const isAllExpansions =
+                    state.catalogExpansionFilter === "__all__";
+                const hasRaritySelection =
+                    !allRaritiesSelected &&
+                    state.catalogSelectedRarities.size > 0;
+                const showingAllExpansions =
+                    isAllExpansions &&
+                    !hasCardSearch &&
+                    !hasRaritySelection;
+
+                let filteredCards;
+                if (isAllExpansions) {
+                    filteredCards = rarityFiltered;
+                } else {
+                    filteredCards = [];
+                    for (let i = 0; i < rarityFiltered.length; i++) {
+                        const c = rarityFiltered[i];
+                        if (c.sectionCode === state.catalogExpansionFilter)
+                            filteredCards.push(c);
+                    }
+                }
+
+                const filteredCardCount = filteredCards.length;
+                const hiddenCardCount = 0;
+                const renderedCardCount = filteredCardCount;
+                const hasVisibleCards = filteredCardCount > 0;
+
+                let selectedInFiltered = false;
+                if (hasVisibleCards && state.selectedCatalogCardId) {
+                    const sel = state.selectedCatalogCardId;
+                    for (let i = 0; i < filteredCards.length; i++) {
+                        if (filteredCards[i].id === sel) {
+                            selectedInFiltered = true;
+                            break;
+                        }
+                    }
+                }
+                if (!selectedInFiltered) {
+                    state.selectedCatalogCardId = "";
+                    state.selectedCatalogAccount = "";
+                }
+
+                const clippedNote = hiddenCardCount
+                    ? ` Showing first ${formatNumber(renderedCardCount)} of ${formatNumber(filteredCardCount)} matching cards.`
+                    : "";
+
+                return {
+                    availableCards,
+                    availableCopies,
+                    byCardIdSize,
+                    hasVisibleCards,
+                    hiddenCardCount,
+                    clippedNote,
+                    showingAllExpansions,
+                };
+            }
+
+            function catalogTradeShareAffectedIds(gaveCardId, partnerReceivedId) {
+                const set = new Set();
+                if (gaveCardId) set.add(String(gaveCardId));
+                if (partnerReceivedId) set.add(String(partnerReceivedId));
+                return set;
+            }
+
+            function patchCatalogCardTilesForTradeShare(
+                mainEl,
+                cardIdsSet,
+                prefetchedCounts,
+            ) {
+                const counts =
+                    prefetchedCounts || buildCardAccountCounts();
+                mainEl.querySelectorAll("[data-catalog-card-id]").forEach(
+                    (btn) => {
+                        const id =
+                            btn.getAttribute("data-catalog-card-id") || "";
+                        if (!cardIdsSet.has(id)) return;
+                        const total = getAvailableCopyCount(
+                            id,
+                            counts.cardToAccounts.get(id) || new Map(),
+                        );
+                        const qty = btn.querySelector(".qty");
+                        if (qty)
+                            qty.textContent = `×${formatNumber(total)}`;
+                        const tile = btn.querySelector(".card-tile");
+                        if (tile)
+                            tile.classList.toggle("unavailable", total <= 0);
+                    },
+                );
+            }
+
+            /**
+             * After traded/shared metadata changes: refresh sidebar + footer counts and patch
+             * affected card tiles without rebuilding the entire catalog grid. Uses full refresh when
+             * the expansion overview grid is visible (completion rings must update).
+             */
+            function refreshCatalogLibraryTradeShareLight(
+                gaveCardId,
+                partnerReceivedId,
+            ) {
+                if (state.view !== "allcards") {
+                    deferRender(refreshCatalogLibraryMainOnly);
+                    return;
+                }
+                if (
+                    !state.cardmaster ||
+                    !state.localisation ||
+                    !state.cardmap
+                )
+                    return;
+                const layout = el.rows.querySelector(".catalog-layout");
+                const mainEl = el.rows.querySelector(".catalog-library-main");
+                if (!layout || !mainEl) {
+                    deferRender(refreshCatalogLibraryMainOnly);
+                    return;
+                }
+
+                const counts = buildCardAccountCounts();
+
+                if (mainEl.querySelector(".expansions-grid")) {
+                    deferRender(refreshCatalogLibraryMainOnly);
+                    return;
+                }
+
+                renderCatalogSidePanel({
+                    patchOnly: true,
+                    skipBaseModel: true,
+                    prefetchedCounts: counts,
+                });
+
+                const affected = catalogTradeShareAffectedIds(
+                    gaveCardId,
+                    partnerReceivedId,
+                );
+                patchCatalogCardTilesForTradeShare(mainEl, affected, counts);
+
+                scheduleCatalogFooterLightRefresh(counts);
+            }
+
             function refreshCatalogLibraryMainOnly() {
                 if (state.view !== "allcards") return;
+                cancelCatalogFooterLightIdle();
                 if (
                     !state.cardmaster ||
                     !state.localisation ||
@@ -13188,32 +13925,7 @@
                             if (state.selectedCatalogAccount === account)
                                 return;
                             state.selectedCatalogAccount = account;
-                            el.rows
-                                .querySelectorAll(
-                                    "[data-select-catalog-account]",
-                                )
-                                .forEach((item) => {
-                                    const isSelected =
-                                        item.getAttribute(
-                                            "data-select-catalog-account",
-                                        ) === account;
-                                    item.classList.toggle(
-                                        "selected",
-                                        isSelected,
-                                    );
-                                    item.setAttribute(
-                                        "aria-pressed",
-                                        isSelected ? "true" : "false",
-                                    );
-                                    const nameEl = item.querySelector(
-                                        ".catalog-account-name",
-                                    );
-                                    if (nameEl)
-                                        nameEl.classList.toggle(
-                                            "selected",
-                                            isSelected,
-                                        );
-                                });
+                            renderCatalogSidePanel({ patchOnly: true });
                         };
                         btn.addEventListener("click", (event) => {
                             if (
@@ -13358,40 +14070,17 @@
                             const cardId =
                                 btn.getAttribute("data-mark-traded-card") || "";
                             if (!account || !cardId) return;
-                            const cardName = getCardInfo(cardId).name || cardId;
-                            const preferredAccountName =
-                                state.accountFileLabelMap.get(account) ||
-                                account;
-                            const nowTraded = toggleTraded(account, cardId);
-                            if (nowTraded) {
-                                const result = await pickReceivedCard(
-                                    account,
-                                    cardId,
-                                );
-                                if (result && result.receivedCardId) {
-                                    const recvName =
-                                        getCardInfo(result.receivedCardId)
-                                            .name || result.receivedCardId;
-                                    const ok = await showConfirm(
-                                        `Confirm trade pairing:\n\nGave:     ${formatCardLabel(cardId)}\nReceived: ${formatCardLabel(result.receivedCardId)}\n\nFor ${escapeHtml(preferredAccountName)}.`,
-                                        { html: true },
-                                    );
-                                    if (ok) {
-                                        setTradeMeta(account, cardId, {
-                                            receivedCardId:
-                                                result.receivedCardId,
-                                            timestampMs: Date.now(),
-                                        });
-                                        showToast(
-                                            `Recorded trade: ${formatCardLabel(cardId)} -> ${formatCardLabel(result.receivedCardId)}`,
-                                            "success",
-                                            4000,
-                                            { html: true },
-                                        );
-                                    }
-                                }
-                            }
-                            refreshCatalogLibraryMainOnly();
+                            await markSelectedCardTraded(
+                                account,
+                                cardId,
+                                (partnerId) =>
+                                    deferRender(() =>
+                                        refreshCatalogLibraryTradeShareLight(
+                                            cardId,
+                                            partnerId || "",
+                                        ),
+                                    ),
+                            );
                         });
                     });
 
@@ -13416,10 +14105,13 @@
                                 { html: true },
                             ).then((confirmed) => {
                                 if (!confirmed) return;
-                                if (!isTraded(account, cardId)) {
-                                    addShared(account, cardId);
-                                }
-                                refreshCatalogLibraryMainOnly();
+                                addSharedCopy(account, cardId);
+                                deferRender(() =>
+                                    refreshCatalogLibraryTradeShareLight(
+                                        cardId,
+                                        "",
+                                    ),
+                                );
                             });
                         });
                     });
@@ -13696,7 +14388,8 @@
                 // O(accounts × metaEntries), now it's a single pass.
                 const receivedByAccount = new Map();
                 for (const [key, meta] of state.tradedMeta) {
-                    if (!meta || !meta.receivedCardId) continue;
+                    const norm = normalizeTradeMeta(meta);
+                    if (!norm.pairings.length) continue;
                     const sep = key.indexOf("::");
                     if (sep < 0) continue;
                     const acc = key.slice(0, sep);
@@ -13706,7 +14399,8 @@
                         arr = [];
                         receivedByAccount.set(acc, arr);
                     }
-                    arr.push(meta.receivedCardId);
+                    for (let i = 0; i < norm.pairings.length; i++)
+                        arr.push(norm.pairings[i].receivedCardId);
                 }
                 for (const [acc, received] of receivedByAccount) {
                     const account = accountMap.get(acc);
@@ -14087,9 +14781,17 @@
                     const fallbackClass = card.imageUrl
                         ? "hidden empty"
                         : "empty";
+                    let copyCount = 0;
+                    if (options.showCopyCount && account) {
+                        copyCount = options.sharedView
+                            ? getSharedCount(account, id)
+                            : getTradedCount(account, id);
+                    }
                     const qtyPart = options.showQuantity
                         ? `<div class="qty">×${formatNumber(count)}</div>`
-                        : "";
+                        : copyCount > 1
+                          ? `<div class="qty">×${formatNumber(copyCount)}</div>`
+                          : "";
                     const noTrade =
                         card.rarityValue === 800 ||
                         card.rarityValue === 900 ||
@@ -14100,9 +14802,15 @@
                         !disableTrade && account && isTraded(account, id);
                     const tradedClass = isInTraded ? " traded" : "";
                     const sharedClass = isInShared ? " shared" : "";
+                    const tradedCnt =
+                        account && !options.sharedView
+                            ? getTradedCount(account, id)
+                            : 0;
                     const tradedMarkGlyph = isInTraded ? "\u2715" : "\u2713";
                     const tradedMarkTitle = isInTraded
-                        ? "Remove from traded"
+                        ? tradedCnt > 1
+                            ? "Remove one traded copy"
+                            : "Remove from traded"
                         : "Toggle traded status";
                     const tradedBtn =
                         !disableTrade &&
@@ -14111,9 +14819,17 @@
                         !options.sharedView
                             ? `<button class="traded-btn traded-mark-btn" type="button" data-account="${escapeHtml(account)}" data-card-id="${escapeHtml(id)}" title="${escapeHtml(tradedMarkTitle)}">${tradedMarkGlyph}</button>`
                             : "";
+                    const sharedCnt =
+                        options.sharedView && account
+                            ? getSharedCount(account, id)
+                            : 0;
+                    const sharedRemoveTitle =
+                        options.sharedView && account && sharedCnt > 1
+                            ? "Remove one shared copy"
+                            : "Remove from shared";
                     const sharedRemoveBtn =
                         options.sharedView && account
-                            ? `<button class="traded-btn shared-remove-btn" type="button" data-shared-remove-account="${escapeHtml(account)}" data-shared-remove-card="${escapeHtml(id)}" title="Remove from shared">\u2715</button>`
+                            ? `<button class="traded-btn shared-remove-btn" type="button" data-shared-remove-account="${escapeHtml(account)}" data-shared-remove-card="${escapeHtml(id)}" title="${escapeHtml(sharedRemoveTitle)}">\u2715</button>`
                             : "";
                     parts.push(
                         `<div class="card-tile${tradedClass}${sharedClass}">${tradedBtn}${sharedRemoveBtn}<div class="card-media">${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div>${qtyPart}</div><div class="card-name">${escapeHtml(card.name)}</div><div class="card-badges"><span class="mini-badge">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(id, card))}</span></div></div>`,
@@ -14137,14 +14853,27 @@
                                     "data-shared-remove-card",
                                 ) || "";
                             if (!acc || !cid) return;
-                            showConfirm(
-                                `Remove ${formatCardLabel(cid)} from shared cards?`,
-                                { html: true },
-                            ).then((confirmed) => {
-                                if (!confirmed) return;
-                                removeShared(acc, cid);
-                                if (state.view === "shared") renderSharedView();
-                            });
+                            const sharedTotal = getSharedCount(acc, cid);
+                            const sharedMsg =
+                                sharedTotal > 1
+                                    ? `Remove one shared copy of ${formatCardLabel(cid)}? (${formatNumber(sharedTotal)} marked; ${formatNumber(sharedTotal - 1)} will remain.)`
+                                    : `Remove ${formatCardLabel(cid)} from shared cards?`;
+                            showConfirm(sharedMsg, { html: true }).then(
+                                (confirmed) => {
+                                    if (!confirmed) return;
+                                    removeOneSharedCopy(acc, cid);
+                                    if (state.view === "shared")
+                                        renderSharedView();
+                                    else if (state.view === "allcards")
+                                        deferRender(() =>
+                                            refreshCatalogLibraryTradeShareLight(
+                                                cid,
+                                                "",
+                                            ),
+                                        );
+                                    else refreshCatalogLibraryMainOnly();
+                                },
+                            );
                             return;
                         }
                         const btn = e.target.closest(".traded-btn");
@@ -14156,52 +14885,76 @@
                         const tile = btn.closest(".card-tile");
                         const alreadyTraded = isTraded(acc, cid);
                         if (alreadyTraded) {
-                            showConfirm(
-                                `Remove ${formatCardLabel(cid)} from traded cards?`,
-                                { html: true },
-                            ).then((confirmed) => {
-                                if (!confirmed) return;
-                                toggleTraded(acc, cid);
-                                tile.classList.toggle(
-                                    "traded",
-                                    isTraded(acc, cid),
-                                );
-                                if (state.view === "traded") {
-                                    tile.classList.add("traded-tile-removing");
-                                    setTimeout(() => renderTradedView(), 220);
-                                }
-                            });
+                            const tradedTotal = getTradedCount(acc, cid);
+                            const tradedMsg =
+                                tradedTotal > 1
+                                    ? `Remove one traded copy of ${formatCardLabel(cid)}? (${formatNumber(tradedTotal)} marked; ${formatNumber(tradedTotal - 1)} will remain.)`
+                                    : `Remove ${formatCardLabel(cid)} from traded cards?`;
+                            showConfirm(tradedMsg, { html: true }).then(
+                                (confirmed) => {
+                                    if (!confirmed) return;
+                                    removeOneTradedCopy(acc, cid);
+                                    tile.classList.toggle(
+                                        "traded",
+                                        isTraded(acc, cid),
+                                    );
+                                    if (state.view === "traded")
+                                        renderTradedView();
+                                    else if (state.view === "allcards")
+                                        deferRender(() =>
+                                            refreshCatalogLibraryTradeShareLight(
+                                                cid,
+                                                "",
+                                            ),
+                                        );
+                                    else refreshCatalogLibraryMainOnly();
+                                },
+                            );
                             return;
                         }
                         const nowTraded = toggleTraded(acc, cid);
                         tile.classList.toggle("traded", isTraded(acc, cid));
                         if (nowTraded) {
-                            pickReceivedCard(acc, cid).then(async (result) => {
-                                if (result && result.receivedCardId) {
-                                    const accLabel =
-                                        state.accountFileLabelMap.get(acc) ||
-                                        acc;
-                                    const ok = await showConfirm(
-                                        `Confirm trade pairing:\n\nGave:     ${formatCardLabel(cid)}\nReceived: ${formatCardLabel(result.receivedCardId)}\n\nFor ${escapeHtml(accLabel)}.`,
-                                        { html: true },
-                                    );
-                                    if (ok) {
-                                        setTradeMeta(acc, cid, {
-                                            receivedCardId:
-                                                result.receivedCardId,
-                                            timestampMs: Date.now(),
-                                        });
-                                        showToast(
-                                            `Recorded trade: ${formatCardLabel(cid)} -> ${formatCardLabel(result.receivedCardId)}`,
-                                            "success",
-                                            4000,
+                            let partnerReceivedId = "";
+                            pickReceivedCard(acc, cid)
+                                .then(async (result) => {
+                                    if (result && result.receivedCardId) {
+                                        const accLabel =
+                                            state.accountFileLabelMap.get(
+                                                acc,
+                                            ) || acc;
+                                        const ok = await showConfirm(
+                                            `Confirm trade pairing:\n\nGave:     ${formatCardLabel(cid)}\nReceived: ${formatCardLabel(result.receivedCardId)}\n\nFor ${escapeHtml(accLabel)}.`,
                                             { html: true },
                                         );
-                                        if (state.view === "traded")
-                                            renderTradedView();
+                                        if (ok) {
+                                            setTradeMeta(acc, cid, {
+                                                receivedCardId:
+                                                    result.receivedCardId,
+                                                timestampMs: Date.now(),
+                                            });
+                                            partnerReceivedId =
+                                                result.receivedCardId;
+                                            showToast(
+                                                `Recorded trade: ${formatCardLabel(cid)} -> ${formatCardLabel(result.receivedCardId)}`,
+                                                "success",
+                                                4000,
+                                                { html: true },
+                                            );
+                                            if (state.view === "traded")
+                                                renderTradedView();
+                                        }
                                     }
-                                }
-                            });
+                                })
+                                .finally(() => {
+                                    if (state.view === "allcards")
+                                        deferRender(() =>
+                                            refreshCatalogLibraryTradeShareLight(
+                                                cid,
+                                                partnerReceivedId,
+                                            ),
+                                        );
+                                });
                         }
                     });
                 }
