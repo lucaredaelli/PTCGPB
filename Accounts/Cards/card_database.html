@@ -49,6 +49,8 @@
                     var(--app-sticky-safe-top) + var(--section-switcher-stack) +
                         10px
                 );
+                /* Vertical gap between stacked major panels across tabs */
+                --page-panel-stack-y: 12px;
             }
 
             [data-theme="light"] {
@@ -214,7 +216,7 @@
             [data-theme="light"] .card-media > img {
                 background: rgba(218, 230, 246, 0.6);
             }
-            [data-theme="light"] .received-pair .pair-side img {
+            [data-theme="light"] .received-pair .pair-thumb img {
                 background: rgba(218, 230, 246, 0.6);
             }
             [data-theme="light"] .received-picker-tile:hover {
@@ -262,11 +264,22 @@
                 border-color: rgba(19, 122, 85, 0.65);
                 background: rgba(19, 122, 85, 0.12);
             }
+
+            /* Multi-results: pinned account pill matches Catalog markup but tones to row accent */
+            [data-theme="light"]
+                .multi-result-item.selected
+                .catalog-account-name.selected {
+                border-color: rgba(19, 122, 85, 0.6);
+                background: rgba(19, 122, 85, 0.16);
+                color: var(--accent-2);
+                box-shadow: 0 0 0 2px rgba(19, 122, 85, 0.16);
+            }
             [data-theme="light"] .multi-missing-chip {
                 border-color: rgba(160, 27, 27, 0.55);
                 background: rgba(160, 27, 27, 0.1);
                 color: var(--muted);
             }
+
             [data-theme="light"] .multi-picker-row.selected {
                 border-color: rgba(19, 122, 85, 0.75);
                 background: rgba(19, 122, 85, 0.1);
@@ -353,9 +366,16 @@
             }
 
             .page {
-                width: min(1440px, calc(100vw - 32px));
+                /* Shell width mixes viewport with --page-shell-cap: min((100vw+7*cap)/8, vw-2*--page-shell-gutter). */
+                --page-shell-cap: 1440px;
+                --page-shell-gutter: 24px;
+                width: min(
+                    calc((100vw + (7 * var(--page-shell-cap))) / 8),
+                    calc(100vw - (var(--page-shell-gutter) * 2))
+                );
                 margin: 0 auto;
-                padding: 32px 0 56px;
+                padding: 22px 0 42px;
+                box-sizing: border-box;
             }
 
             header {
@@ -363,7 +383,7 @@
                 justify-content: space-between;
                 align-items: flex-start;
                 gap: 12px;
-                margin-bottom: 24px;
+                margin-bottom: var(--page-panel-stack-y);
             }
 
             .header-left {
@@ -401,7 +421,7 @@
             }
 
             .subtitle {
-                margin: 10px 0 0;
+                margin: 6px 0 0;
                 color: var(--muted);
                 font-size: 1.05rem;
             }
@@ -417,24 +437,76 @@
                 border-radius: var(--radius);
             }
 
+            .section-switcher-row {
+                position: sticky;
+                top: var(--app-sticky-safe-top);
+                z-index: 40;
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: var(--page-panel-stack-y);
+                pointer-events: none;
+            }
+
+            .section-switcher-row > * {
+                pointer-events: auto;
+            }
+
+            .section-switcher-side {
+                display: flex;
+                align-items: center;
+            }
+
+            .section-switcher-side--right {
+                justify-content: flex-end;
+            }
+
             .section-switcher {
-                display: inline-flex;
+                display: flex;
                 flex-wrap: wrap;
+                justify-content: center;
                 gap: 4px;
                 padding: 5px;
-                margin-bottom: 18px;
+                margin-inline: auto;
                 background: var(--panel);
                 border: 1px solid var(--border);
                 border-radius: 14px;
                 box-shadow:
                     var(--shadow),
                     0 1px 0 var(--border) inset;
-                position: sticky;
-                top: var(--app-sticky-safe-top);
-                z-index: 40;
                 width: fit-content;
                 max-width: 100%;
-                align-self: flex-start;
+            }
+
+            .back-to-top-btn {
+                flex: 0 0 auto;
+                padding: 10px 16px;
+                font-size: 0.88rem;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+                border-radius: 12px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                color: var(--text);
+                cursor: pointer;
+                box-shadow: var(--shadow);
+                transition: background 0.18s ease, color 0.18s ease, transform 60ms ease-out;
+            }
+
+            .back-to-top-btn:hover {
+                background: var(--chip-bg);
+            }
+
+            .back-to-top-btn:active {
+                transform: translateY(1px);
+            }
+
+            [data-theme="light"] .back-to-top-btn {
+                box-shadow:
+                    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+                    0 6px 18px rgba(20, 40, 80, 0.08),
+                    0 10px 28px rgba(20, 40, 80, 0.06);
             }
 
             [data-theme="light"] .section-switcher {
@@ -472,11 +544,24 @@
             }
 
             .toolbar {
-                padding: 18px;
+                padding: 11px 14px;
                 display: grid;
-                grid-template-columns: 1.2fr 1fr;
-                gap: 18px;
-                margin-bottom: 18px;
+                grid-template-columns: max-content minmax(0, 1fr);
+                gap: 10px;
+                align-items: end;
+                margin-bottom: var(--page-panel-stack-y);
+            }
+
+            .toolbar-controls {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                height: 100%;
+                min-width: 0;
+            }
+
+            .toolbar-status {
+                min-width: 0;
             }
 
             @media (max-width: 900px) {
@@ -485,18 +570,11 @@
                 }
             }
 
-            .toolbar-controls {
-                display: flex;
-                align-items: center;
-                justify-content: flex-start;
-                height: 100%;
-            }
-
             .toolbar-control-grid {
                 display: grid;
                 grid-template-columns: max-content minmax(220px, 320px);
                 align-items: end;
-                gap: 18px;
+                gap: 10px;
                 width: auto;
                 max-width: 100%;
             }
@@ -701,8 +779,8 @@
             .stats {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 12px;
-                margin: 18px 0;
+                gap: 8px;
+                margin: var(--page-panel-stack-y) 0;
             }
 
             @media (max-width: 1000px) {
@@ -719,9 +797,10 @@
 
             .stat-card {
                 position: relative;
-                padding: 16px;
+                padding: 12px 13px;
                 overflow: hidden;
                 transition: transform 160ms ease, box-shadow 160ms ease;
+                text-align: center;
             }
 
             .stat-card::before {
@@ -755,12 +834,12 @@
             }
 
             .controls {
-                padding: 16px;
+                padding: 11px 12px;
                 display: grid;
                 grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
                 gap: 14px;
                 align-items: start;
-                margin-bottom: 18px;
+                margin-bottom: var(--page-panel-stack-y);
             }
 
             @media (max-width: 900px) {
@@ -773,12 +852,12 @@
                 background: var(--section-bg);
                 border: 1px solid var(--row-sep);
                 border-radius: 14px;
-                padding: 14px 14px 12px;
+                padding: 11px 12px 10px;
                 transition: border-color 160ms ease, box-shadow 160ms ease;
             }
 
             .control-section--query .control-head {
-                margin-bottom: 12px;
+                margin-bottom: 8px;
             }
 
             .control-section--query .field-grid {
@@ -887,25 +966,86 @@
             }
 
             #packFilters {
+                --pack-filter-chip: 6.875rem;
+                --pack-logo-max-h: 2.375rem;
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                gap: 10px;
-                max-height: 240px;
+                justify-content: start;
+                grid-template-columns: repeat(
+                    auto-fill,
+                    var(--pack-filter-chip)
+                );
+                gap: 6px 8px;
+                max-height: 220px;
+                /* Symmetric inset; scrollbar-gutter reserves space when scrollbars appear. */
+                padding: 6px 0;
+                scrollbar-gutter: stable;
             }
 
-            #packFilters .check-chip {
+            #packFilters .check-chip.pack-filter-chip {
                 position: relative;
-                width: 100%;
-                min-height: 38px;
+                width: var(--pack-filter-chip);
+                max-width: 100%;
+                flex-direction: column;
+                gap: 3px;
+                min-height: 50px;
+                padding: 6px 6px;
+                justify-content: center;
+            }
+
+            #packFilters .pack-filter-chip-media {
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                text-align: center;
+                width: 100%;
+                min-height: var(--pack-logo-max-h);
             }
 
-            #packFilters .check-chip span {
+            #packFilters .pack-filter-logo {
+                max-width: 100%;
+                max-height: var(--pack-logo-max-h);
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+            }
+
+            [data-theme="light"] #packFilters .pack-filter-logo {
+                filter: drop-shadow(0 1px 2px rgba(20, 40, 80, 0.22));
+            }
+
+            #packFilters .pack-filter-fallback {
+                display: none;
                 width: 100%;
                 text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-size: 0.75rem;
+                font-weight: 700;
+                font-variant-numeric: tabular-nums;
+                letter-spacing: 0.02em;
+            }
+
+            #packFilters
+                .pack-filter-chip-media.pack-filter-logo-error
+                .pack-filter-logo {
+                display: none;
+            }
+
+            #packFilters
+                .pack-filter-chip-media.pack-filter-logo-error
+                .pack-filter-fallback {
+                display: block;
+            }
+
+            /* When there is no icon URL */
+            #packFilters .pack-filter-chip-media.pack-filter-no-logo .pack-filter-logo {
+                display: none;
+            }
+
+            #packFilters .pack-filter-chip-media.pack-filter-no-logo .pack-filter-fallback {
+                display: block;
             }
 
             .control-section:hover {
@@ -1007,8 +1147,8 @@
                 display: grid;
                 grid-template-columns: auto 1fr auto;
                 align-items: center;
-                gap: 12px;
-                margin-bottom: 14px;
+                gap: 10px;
+                margin-bottom: 4px;
             }
 
             .view-bar .result-note {
@@ -1026,13 +1166,9 @@
                 }
             }
 
-            /* Database Workspace: keep filters + view tabs pinned while scrolling rows */
+            /* Database Workspace: filters + view tabs wrapper. */
             .db-workspace-controls-sticky {
-                position: sticky;
-                top: var(--sticky-below-tabs);
-                z-index: 8;
-                align-self: start;
-                margin-bottom: 18px;
+                margin-bottom: var(--page-panel-stack-y);
                 background: var(--panel);
                 border: 1px solid var(--border);
                 border-radius: var(--radius);
@@ -1057,7 +1193,7 @@
 
             .db-workspace-controls-sticky #viewBarSection.view-bar {
                 margin: 0;
-                padding: 12px 16px 14px;
+                padding: 7px 12px 8px;
                 border-top: 1px solid var(--row-sep);
             }
 
@@ -1102,7 +1238,7 @@
 
             .rows {
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
             }
 
             .db-row {
@@ -1201,15 +1337,15 @@
                 position: relative;
                 display: flex;
                 flex-direction: column;
-                align-items: stretch;
-                gap: 4px;
+                align-items: center;
+                gap: 5px;
                 padding: 6px;
                 border: 1px solid transparent;
                 border-radius: 8px;
                 cursor: pointer;
                 background: transparent;
                 color: inherit;
-                text-align: left;
+                text-align: center;
                 transition: background 120ms, border-color 120ms;
             }
             .received-picker-tile:hover {
@@ -1218,14 +1354,52 @@
             }
             .received-picker-tile img {
                 width: 100%;
+                max-width: 100%;
                 aspect-ratio: 0.72;
                 object-fit: contain;
                 border-radius: 6px;
+                align-self: stretch;
+            }
+            .received-picker-tile .rp-noimg {
+                width: 100%;
+                align-self: stretch;
+                aspect-ratio: 0.72;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-sizing: border-box;
+                color: var(--muted);
+                font-size: 0.75rem;
+                border: 1px dashed var(--border);
+                border-radius: 6px;
+            }
+            .received-picker-tile .rp-caption {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 2px;
+                width: 100%;
+                min-width: 0;
             }
             .received-picker-tile .rp-name {
                 font-size: 0.78rem;
                 line-height: 1.2;
                 color: var(--text);
+                text-align: center;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
+                width: 100%;
+            }
+            .received-picker-tile .rp-expansion {
+                font-size: 0.64rem;
+                line-height: 1.25;
+                font-weight: 700;
+                color: var(--muted);
+                text-align: center;
+                width: 100%;
                 overflow: hidden;
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
@@ -1233,56 +1407,201 @@
                 -webkit-box-orient: vertical;
             }
             .received-picker-tile .rp-rarity {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 2px;
+                min-height: 1.2em;
                 font-size: 0.7rem;
                 color: var(--muted);
+            }
+
+            .received-picker-tile .rp-rarity .multi-picker-rarity-stack-img {
+                width: 13px;
+                height: 13px;
+                min-width: 13px;
+                min-height: 13px;
+                max-width: 13px;
+                max-height: 13px;
+                object-fit: contain;
+            }
+
+            .received-picker-tile .rp-rarity .multi-picker-rarity-badge > .rarity-icon {
+                height: 16px;
+                min-width: 20px;
+            }
+
+            .format-card-label-rarity {
+                display: inline-flex;
+                align-items: baseline;
+                vertical-align: baseline;
+                margin-left: 0.2em;
+            }
+
+            .format-card-label-rarity .multi-picker-rarity-badge {
+                display: inline-flex;
+                align-items: baseline;
+            }
+
+            .format-card-label-rarity .multi-picker-rarity-stack {
+                gap: 4px;
+                align-items: baseline;
+            }
+
+            .format-card-label-rarity .multi-picker-rarity-stack-img {
+                width: 16px;
+                height: 16px;
+                min-width: 16px;
+                min-height: 16px;
+                max-width: 16px;
+                max-height: 16px;
+                object-fit: contain;
+            }
+
+            /* Picker overlay: align title baseline and separate rarity badges so stacks do not overlap */
+            .received-picker-overlay-title {
+                font-size: 1rem;
+                font-weight: 600;
+                line-height: 1.45;
+            }
+
+            .received-picker-gave-label {
+                display: inline-flex;
+                flex-wrap: wrap;
+                align-items: baseline;
+                gap: 0.35em;
+                vertical-align: baseline;
+            }
+
+            .received-picker-gave-label .format-card-label-rarity {
+                margin-left: 0;
+            }
+
+            .received-picker-overlay-title .multi-picker-rarity-stack-img {
+                width: 17px;
+                height: 17px;
+                min-width: 17px;
+                min-height: 17px;
+                max-width: 17px;
+                max-height: 17px;
+            }
+
+            .received-picker-overlay-summary {
+                font-size: 0.82rem;
+                color: var(--muted);
+                line-height: 1.5;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35em;
+                align-items: center;
+            }
+
+            .received-picker-overlay-summary .received-picker-allowed {
+                display: inline-flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.35em;
+            }
+
+            .received-picker-overlay-summary .multi-picker-rarity-stack {
+                gap: 4px;
+            }
+
+            .received-picker-overlay-summary .multi-picker-rarity-stack-img {
+                width: 15px;
+                height: 15px;
+                min-width: 15px;
+                min-height: 15px;
+                max-width: 15px;
+                max-height: 15px;
             }
             .received-pair {
+                /* Two portrait thumbs + gutters + arrow; fixed pill width for every trade.
+                   Extra horizontal inset so thumbnails clear the capsule curves. */
+                --trade-thumb-w: 48px;
+                --trade-pad-inline: 18px;
+                --trade-chip-w: calc(
+                    (var(--trade-pad-inline) * 2) +
+                        (var(--trade-thumb-w) * 2) + 16px + 1.35rem
+                );
                 display: inline-flex;
                 align-items: center;
+                justify-content: center;
                 gap: 8px;
-                padding: 6px 10px;
+                box-sizing: border-box;
+                width: var(--trade-chip-w);
+                min-width: var(--trade-chip-w);
+                max-width: var(--trade-chip-w);
+                padding-block: 10px;
+                padding-inline: var(--trade-pad-inline);
                 border: 1px solid var(--border);
                 border-radius: 999px;
-                background: var(--panel-2, rgba(127,127,127,0.06));
+                background: var(--panel-2, rgba(127, 127, 127, 0.06));
                 font-size: 0.78rem;
                 line-height: 1.2;
-                white-space: nowrap;
             }
             .received-pair .pair-side {
-                display: inline-flex;
+                display: flex;
                 align-items: center;
-                gap: 6px;
+                justify-content: center;
+                flex-shrink: 0;
             }
-            .received-pair .pair-side img {
-                width: 22px;
-                height: 30px;
+            .received-pair .pair-thumb {
+                width: var(--trade-thumb-w);
+                aspect-ratio: 5 / 7;
+                display: grid;
+                place-items: center;
+                border-radius: 5px;
+                background: rgba(0, 0, 0, 0.22);
+                overflow: hidden;
+            }
+            .received-pair .pair-thumb img {
+                width: 100%;
+                height: 100%;
                 object-fit: contain;
-                border-radius: 3px;
-                background: rgba(0,0,0,0.18);
+                display: block;
             }
-            .received-pair .pair-name {
-                color: var(--text);
-            }
-            .received-pair .pair-rarity {
-                color: var(--muted);
-                font-size: 0.7rem;
+            .received-pair .pair-thumb--empty {
+                background: repeating-linear-gradient(
+                    -55deg,
+                    rgba(255, 255, 255, 0.04),
+                    rgba(255, 255, 255, 0.04) 3px,
+                    rgba(0, 0, 0, 0.08) 3px,
+                    rgba(0, 0, 0, 0.08) 6px
+                );
+                box-sizing: border-box;
+                outline: 1px dashed rgba(255, 255, 255, 0.12);
+                outline-offset: -4px;
             }
             .received-pair .pair-arrow {
                 color: var(--accent, var(--muted));
                 font-weight: 700;
+                flex: 0 0 auto;
             }
             .pairs-row {
                 display: flex;
-                flex-wrap: wrap;
+                flex-direction: column;
                 gap: 8px;
-                padding: 12px 16px 4px;
-                align-items: center;
+                padding: 12px 16px 10px;
+                align-items: stretch;
+                border-bottom: 1px solid var(--row-sep);
             }
-            .pairs-row > strong {
+            .pairs-row-head {
+                display: block;
+            }
+            .pairs-row-head > strong {
+                display: block;
                 font-size: 0.72rem;
                 color: var(--muted);
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
+            }
+            .pairs-row-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
             }
 
             .cards-grid {
@@ -1463,14 +1782,171 @@
                 color: var(--muted);
                 font-size: 0.92rem;
             }
+            .wishlist-intro {
+                display: flex;
+                align-items: center;
+                gap: 12px 16px;
+                padding: 14px 16px;
+                border-radius: 14px;
+                border: 1px solid rgba(142, 180, 255, 0.22);
+                background: linear-gradient(
+                    135deg,
+                    rgba(142, 180, 255, 0.12),
+                    rgba(142, 180, 255, 0.02) 38%,
+                    transparent 72%
+                );
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+            }
+
+            .wishlist-intro-glyph {
+                width: 2.5rem;
+                height: 2.5rem;
+                flex-shrink: 0;
+                display: grid;
+                place-items: center;
+                font-size: 1.35rem;
+                line-height: 1;
+                border-radius: 12px;
+                background: rgba(142, 180, 255, 0.12);
+                border: 1px solid rgba(142, 180, 255, 0.25);
+                color: rgba(223, 234, 255, 0.95);
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            }
+
+            [data-theme="light"] .wishlist-intro {
+                border-color: rgba(26, 79, 184, 0.22);
+                background: linear-gradient(
+                    135deg,
+                    rgba(26, 79, 184, 0.12),
+                    rgba(26, 79, 184, 0.03) 45%,
+                    transparent 70%
+                );
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+            }
+
+            [data-theme="light"] .wishlist-intro-glyph {
+                background: rgba(26, 79, 184, 0.1);
+                border-color: rgba(26, 79, 184, 0.22);
+                color: rgba(26, 79, 184, 0.88);
+            }
+
+            .wishlist-intro-copy {
+                flex: 1;
+                min-width: 0;
+                color: var(--muted);
+                font-size: 0.86rem;
+                line-height: 1.55;
+            }
+
+            .wishlist-intro-lead {
+                margin: 0 0 12px;
+                color: var(--text);
+                font-size: 0.93rem;
+                font-weight: 700;
+                line-height: 1.38;
+                letter-spacing: -0.01em;
+            }
+
+            .wishlist-intro-points {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                display: grid;
+                gap: 11px;
+            }
+
+            .wishlist-intro-point {
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 8px 12px;
+                align-items: center;
+                padding: 10px 11px;
+                border-radius: 10px;
+                background: rgba(0, 0, 0, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+            }
+
+            [data-theme="light"] .wishlist-intro-point {
+                background: rgba(218, 230, 246, 0.45);
+                border-color: rgba(112, 142, 188, 0.28);
+            }
+
+            /* Same pill footprint; S4T = blue tint, InjectWP = red tint */
+            .wishlist-intro-point-label {
+                box-sizing: border-box;
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                flex-shrink: 0;
+                width: 6.875rem;
+                min-height: 1.625rem;
+                padding: 4px 6px;
+                font-size: 0.62rem;
+                font-weight: 800;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                border-radius: 6px;
+                white-space: nowrap;
+                line-height: 1;
+            }
+
+            .wishlist-intro-point--sft .wishlist-intro-point-label {
+                color: rgba(210, 228, 255, 0.98);
+                background: rgba(142, 180, 255, 0.16);
+                border: 1px solid rgba(142, 180, 255, 0.45);
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+            }
+
+            .wishlist-intro-point--inj .wishlist-intro-point-label {
+                color: rgba(255, 210, 210, 0.98);
+                background: rgba(255, 157, 157, 0.13);
+                border: 1px solid rgba(255, 157, 157, 0.42);
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+            }
+
+            [data-theme="light"] .wishlist-intro-point--sft .wishlist-intro-point-label {
+                color: #1f4aaf;
+                background: rgba(26, 79, 184, 0.12);
+                border-color: rgba(26, 79, 184, 0.35);
+            }
+
+            [data-theme="light"] .wishlist-intro-point--inj .wishlist-intro-point-label {
+                color: #961818;
+                background: rgba(160, 27, 27, 0.1);
+                border-color: rgba(160, 27, 27, 0.35);
+            }
+
+            .wishlist-intro-point-body {
+                margin: 0;
+                color: var(--muted);
+                font-size: 0.84rem;
+                line-height: 1.5;
+            }
+
+            .wishlist-intro-copy code {
+                font-size: 0.92em;
+                padding: 0.1em 0.35em;
+                border-radius: 5px;
+                background: rgba(0, 0, 0, 0.22);
+                word-break: break-word;
+            }
+
+            [data-theme="light"] .wishlist-intro-copy code {
+                background: rgba(218, 230, 246, 0.75);
+            }
+
+            .wishlist-intro-copy strong {
+                color: var(--text);
+                font-weight: 700;
+            }
             .wishlist-groups {
                 display: grid;
-                gap: 14px;
+                gap: 8px;
             }
             .wishlist-section {
-                padding: 14px;
+                padding: 11px;
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
             }
             .wishlist-section .catalog-section-head {
                 margin-bottom: 0;
@@ -1653,6 +2129,42 @@
                 height: 20px;
                 min-width: 20px;
             }
+
+            .mini-badge .multi-picker-rarity-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                max-width: 100%;
+            }
+
+            .mini-badge .multi-picker-rarity-stack {
+                display: inline-flex;
+                align-items: center;
+                gap: 1px;
+            }
+
+            .mini-badge .multi-picker-rarity-stack-img {
+                width: 14px;
+                height: 14px;
+                min-width: 14px;
+                min-height: 14px;
+                max-width: 14px;
+                max-height: 14px;
+                object-fit: contain;
+                vertical-align: middle;
+            }
+
+            .mini-badge .multi-picker-rarity-badge > .rarity-icon,
+            .mini-badge
+                .multi-picker-rarity-badge
+                .rarity-icon-wrap
+                .rarity-icon {
+                height: 18px;
+                min-width: 22px;
+                max-height: 18px;
+            }
+
             .rp-rarity .rarity-icon {
                 height: 14px;
                 min-width: 20px;
@@ -1661,6 +2173,13 @@
                 display: inline-flex;
                 flex-wrap: wrap;
                 gap: 4px;
+                vertical-align: middle;
+                align-items: center;
+            }
+
+            .rarity-icon-list--picker-badges .multi-picker-rarity-badge {
+                display: inline-flex;
+                align-items: center;
                 vertical-align: middle;
             }
             .rarity-icon-wrap {
@@ -1684,26 +2203,58 @@
                 gap: 6px;
             }
             .rarity-count-chip {
+                position: relative;
                 display: inline-flex;
                 align-items: center;
-                gap: 5px;
+                justify-content: center;
                 border: 1px solid var(--border);
                 background: var(--chip-bg);
                 color: var(--muted);
                 border-radius: 999px;
-                padding: 4px 9px 4px 7px;
+                padding: 4px 24px;
                 font-size: 0.8rem;
                 font-weight: 600;
                 line-height: 1;
                 user-select: none;
+                vertical-align: middle;
+                box-sizing: border-box;
+            }
+            .rarity-count-chip .multi-picker-rarity-badge {
+                display: inline-flex;
+                align-items: center;
+                flex-shrink: 0;
+                /* Badge column width equals rarity key 400: four C.png at 13px + three 1px gaps. */
+                width: calc(13px * 4 + 3px);
+                min-width: calc(13px * 4 + 3px);
+                justify-content: center;
+                box-sizing: border-box;
+            }
+            .rarity-count-chip .multi-picker-rarity-stack {
+                display: inline-flex;
+                align-items: center;
+                gap: 1px;
+            }
+            .rarity-count-chip .multi-picker-rarity-stack-img {
+                width: 13px;
+                height: 13px;
+                min-width: 13px;
+                min-height: 13px;
+                max-width: 13px;
+                max-height: 13px;
+                object-fit: contain;
             }
             .rarity-count-chip .rarity-icon {
                 height: 15px;
             }
             .rarity-count-value {
+                position: absolute;
+                left: 13px;
+                top: 50%;
+                transform: translateY(-50%);
                 min-width: 1.1em;
-                text-align: center;
+                text-align: left;
                 font-weight: 700;
+                font-variant-numeric: tabular-nums;
             }
 
             .qty {
@@ -1925,7 +2476,7 @@
             .catalog-layout {
                 display: grid;
                 grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
-                gap: 16px;
+                gap: 10px;
                 /* align-items:start for sticky side columns */
                 align-items: start;
             }
@@ -1934,7 +2485,7 @@
                 display: grid;
                 grid-template-columns: minmax(0, 1fr);
                 align-items: stretch;
-                gap: 10px;
+                gap: var(--page-panel-stack-y);
             }
 
             .catalog-controls > .panel,
@@ -1951,12 +2502,14 @@
                 display: grid;
                 grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1fr);
                 align-items: stretch;
-                gap: 10px;
+                row-gap: var(--page-panel-stack-y);
+                column-gap: 10px;
             }
 
             .catalog-controls-panel {
-                padding: 14px;
-                gap: 10px;
+                padding: 11px;
+                row-gap: var(--page-panel-stack-y);
+                column-gap: 10px;
             }
 
             .catalog-control-section {
@@ -2045,14 +2598,14 @@
              * so replacing .catalog-library-main innerHTML does not drop the grid for a frame. */
             .catalog-library-picker {
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
                 align-content: start;
                 min-width: 0;
             }
 
             .catalog-library-main {
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
                 align-content: start;
                 min-width: 0;
             }
@@ -2070,7 +2623,7 @@
                 top: var(--sticky-below-tabs);
                 z-index: 4;
                 align-self: start;
-                margin-bottom: 10px;
+                margin-bottom: var(--page-panel-stack-y);
             }
 
             .catalog-library-picker .catalog-controls > .catalog-controls-panel {
@@ -2090,7 +2643,7 @@
             }
 
             .catalog-section {
-                padding: 12px;
+                padding: 10px 11px;
                 content-visibility: auto;
                 contain-intrinsic-size: 0 420px;
             }
@@ -2103,7 +2656,7 @@
             .expansions-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-                gap: 16px;
+                gap: 10px;
             }
             .catalog-select-row {
                 display: flex;
@@ -2350,12 +2903,27 @@
             }
 
             .multi-card-search {
-                padding: 14px;
+                padding: 11px;
                 display: grid;
-                gap: 10px;
+                gap: 7px;
+                align-content: start;
+                justify-items: stretch;
                 position: sticky;
                 top: var(--sticky-below-tabs);
                 z-index: 5;
+                /* Visible chip rows before scroll (keep row-gap synced with .multi-card-chip-list). */
+                --multi-selected-sheet-visible-rows: 2;
+                /* Row band for ~.multi-card-chip (thumb + text); tune if captions wrap taller. */
+                --multi-selected-sheet-cell-h: 72px;
+                --multi-selected-sheet-row-gap: 10px;
+                --multi-selected-sheet-visual-trim: 20px;
+                --multi-selected-sheet-cap: calc(
+                    var(--multi-selected-sheet-visible-rows) *
+                        var(--multi-selected-sheet-cell-h) +
+                        (var(--multi-selected-sheet-visible-rows) - 1) *
+                            var(--multi-selected-sheet-row-gap) -
+                        var(--multi-selected-sheet-visual-trim)
+                );
                 /* Opaque sticky bar (overrides .panel gradient bleed-through). */
                 background: var(--panel);
                 box-shadow:
@@ -2369,10 +2937,42 @@
                     0 1px 0 rgba(255, 255, 255, 0.85) inset;
             }
 
-            .multi-card-search .multi-card-chip-list {
-                max-height: 28vh;
+            .multi-card-search .multi-card-chip-sheet {
+                width: 100%;
+                box-sizing: border-box;
+                min-height: 0;
+                height: var(--multi-selected-sheet-cap);
+                max-height: var(--multi-selected-sheet-cap);
                 overflow-y: auto;
-                padding-right: 4px;
+                overflow-x: hidden;
+                padding-inline: 4px;
+                scrollbar-gutter: stable;
+                overscroll-behavior: contain;
+            }
+
+            /* Center the hint when nothing is selected (fixed-height sheet stays open). */
+            .multi-card-chip-list:has(> .multi-card-empty:only-child) {
+                min-height: 100%;
+                align-content: center;
+            }
+
+            /* Fixed-column grid centered as a bundle for symmetric gutters */
+            .multi-card-chip-list {
+                box-sizing: border-box;
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(min(246px, 100%), 246px));
+                column-gap: 10px;
+                row-gap: var(--multi-selected-sheet-row-gap, 10px);
+                justify-content: center;
+                min-height: 36px;
+            }
+
+            /* Empty-state hint spans the full grid row */
+            .multi-card-chip-list > .multi-card-empty {
+                grid-column: 1 / -1;
+                justify-self: center;
+                text-align: center;
             }
 
             .multi-card-search-head,
@@ -2394,27 +2994,21 @@
                 font-size: 0.82rem;
             }
 
-            .multi-card-chip-list {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                min-height: 32px;
-            }
-
             .multi-card-chip {
                 display: grid;
                 grid-template-columns: auto minmax(0, 1fr) auto;
                 grid-template-rows: auto auto;
                 align-items: center;
-                column-gap: 8px;
-                row-gap: 3px;
-                width: 200px;
-                padding: 6px 10px 6px 10px;
+                column-gap: 10px;
+                row-gap: 4px;
+                width: auto;
+                min-width: 0;
+                padding: 8px 12px 8px 12px;
                 border: 1px solid var(--border);
                 border-radius: 999px;
                 background: var(--chip-bg);
                 color: var(--text);
-                font-size: 0.78rem;
+                font-size: 0.86rem;
                 font-weight: 700;
             }
 
@@ -2430,18 +3024,18 @@
             }
 
             .multi-card-chip-thumb-wrap img {
-                width: 24px;
-                height: 34px;
+                width: 30px;
+                height: 42px;
                 object-fit: contain;
-                border-radius: 4px;
+                border-radius: 5px;
                 background: rgba(0, 0, 0, 0.18);
                 display: block;
             }
 
             .multi-card-chip-thumb-fallback {
-                width: 24px;
-                height: 34px;
-                border-radius: 4px;
+                width: 30px;
+                height: 42px;
+                border-radius: 5px;
                 background: rgba(0, 0, 0, 0.18);
                 flex-shrink: 0;
             }
@@ -2456,30 +3050,40 @@
                 align-self: end;
             }
 
-            .multi-card-chip-rarity.multi-picker-rarity {
+            .multi-card-chip-bottom-row {
                 grid-column: 2;
                 grid-row: 2;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 6px;
+                min-width: 0;
                 justify-self: start;
-                align-self: start;
+            }
+
+            .multi-card-chip-rarity.multi-picker-rarity {
+                flex-shrink: 0;
+                justify-self: unset;
+                align-self: unset;
             }
 
             /* Compact rarity badges inside selected chips (inherits multi-picker-rarity rules) */
             .multi-card-chip .multi-picker-rarity .multi-picker-rarity-stack-img {
-                width: 12px;
-                height: 12px;
-                min-width: 12px;
-                min-height: 12px;
-                max-width: 12px;
-                max-height: 12px;
+                width: 14px;
+                height: 14px;
+                min-width: 14px;
+                min-height: 14px;
+                max-width: 14px;
+                max-height: 14px;
             }
 
             .multi-card-chip .multi-picker-rarity .multi-picker-rarity-badge > .rarity-icon {
-                width: 18px;
-                height: 14px;
-                min-width: 18px;
-                min-height: 14px;
-                max-width: 18px;
-                max-height: 14px;
+                width: 21px;
+                height: 16px;
+                min-width: 21px;
+                min-height: 16px;
+                max-width: 21px;
+                max-height: 16px;
             }
 
             .multi-card-chip
@@ -2487,12 +3091,12 @@
                 .multi-picker-rarity-badge
                 .rarity-icon-wrap
                 .rarity-icon {
-                width: 18px;
-                height: 14px;
-                min-width: 18px;
-                min-height: 14px;
-                max-width: 18px;
-                max-height: 14px;
+                width: 21px;
+                height: 16px;
+                min-width: 21px;
+                min-height: 16px;
+                max-width: 21px;
+                max-height: 16px;
             }
 
             .multi-card-chip .multi-picker-rarity .multi-picker-rarity-stack {
@@ -2503,43 +3107,74 @@
                 grid-column: 3;
                 grid-row: 1 / span 2;
                 align-self: center;
+                justify-self: end;
                 border: 0;
+                border-radius: 8px;
                 background: transparent;
                 color: var(--muted);
                 cursor: pointer;
-                padding: 0 2px;
+                padding: 4px 6px;
+                margin: -2px -4px -2px 0;
+                min-width: 36px;
+                min-height: 36px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
                 font: inherit;
+                font-size: 1.35rem;
                 font-weight: 900;
+                line-height: 1;
+                transition:
+                    color 120ms ease,
+                    background-color 120ms ease;
+            }
+
+            .multi-card-remove:hover {
+                color: var(--danger, #f06b6b);
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            .multi-card-remove:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 1px;
+            }
+
+            [data-theme="light"] .multi-card-remove:hover {
+                background: rgba(15, 40, 85, 0.06);
             }
 
             .multi-card-empty {
                 color: var(--muted);
                 font-size: 0.82rem;
-                align-self: center;
             }
 
             .multi-search-page {
                 display: grid;
-                gap: 14px;
+                gap: var(--page-panel-stack-y);
                 align-content: start;
                 align-items: start;
                 width: 100%;
                 min-width: 0;
+                isolation: isolate;
             }
 
             .multi-search-layout {
                 display: grid;
                 grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.9fr);
-                gap: 16px;
-                /* align-items:start so sticky works (stretch fills row height and breaks sticky). */
-                align-items: start;
+                gap: 8px;
+                /* Same row height for both columns: short right column kills position:sticky early. */
+                align-items: stretch;
             }
 
-            .multi-search-picker,
-            .multi-search-results {
+            .multi-search-picker {
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
                 align-content: start;
+                min-height: 0;
+                align-self: stretch;
+                width: 100%;
+                min-width: 0;
             }
 
             /* Controls wrapper hoists .catalog-controls into the picker grid */
@@ -2550,7 +3185,7 @@
             /* Avoid display:contents here: during innerHTML replacement the grid loses rows for a frame. */
             .multi-search-picker-main {
                 display: grid;
-                gap: 12px;
+                gap: var(--page-panel-stack-y);
                 align-content: start;
                 min-width: 0;
             }
@@ -2558,8 +3193,10 @@
             /* Pick cards + rarity: sticky the control stack */
             .multi-search-picker .catalog-controls {
                 position: sticky;
-                /* Below Selected cards: --multi-search-sticky-secondary-top set on .multi-search-page via JS */
-                top: var(--multi-search-sticky-secondary-top, 10px);
+                top: var(
+                    --multi-search-sticky-secondary-top,
+                    calc(var(--sticky-below-tabs, 82px) + 240px)
+                );
                 z-index: 4;
             }
 
@@ -2582,24 +3219,63 @@
                     0 1px 0 rgba(255, 255, 255, 0.85) inset;
             }
 
-            /* Best accounts: sticky the whole results column (compact grid item). */
             .multi-search-results {
-                position: sticky;
-                top: var(--multi-search-sticky-secondary-top, 10px);
-                z-index: 4;
-                align-self: start;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                align-self: stretch;
                 width: 100%;
                 min-width: 0;
+                min-height: 0;
+            }
+
+            /* Sticky shell stays content-height; panel max-height caps the visible block to
+               the viewport band below Selected. */
+            .multi-results-sticky {
+                position: sticky;
+                top: var(
+                    --multi-search-sticky-secondary-top,
+                    calc(var(--sticky-below-tabs, 82px) + 240px)
+                );
+                z-index: 4;
+                width: 100%;
+                min-width: 0;
+                align-self: flex-start;
+                flex: 0 0 auto;
+                --multi-results-sticky-viewport-h: 100vh;
+                --multi-results-sticky-bottom-gap: var(--page-panel-stack-y);
+            }
+
+            @supports (height: 100dvh) {
+                .multi-results-sticky {
+                    --multi-results-sticky-viewport-h: 100dvh;
+                }
             }
 
             .multi-results-panel {
-                padding: 14px;
-                display: grid;
-                gap: 12px;
+                padding: 11px;
+                display: flex;
+                flex-direction: column;
+                gap: var(--page-panel-stack-y);
+                box-sizing: border-box;
+                max-height: max(
+                    0px,
+                    calc(
+                        var(--multi-results-sticky-viewport-h) -
+                            var(
+                                --multi-search-sticky-secondary-top,
+                                calc(var(--sticky-below-tabs, 82px) + 240px)
+                            ) - var(--multi-results-sticky-bottom-gap)
+                    )
+                );
+                min-height: 0;
+                overflow: hidden;
+                container: multisearch-best / inline-size;
             }
 
             .multi-results-title-row {
                 display: flex;
+                flex: 0 0 auto;
                 justify-content: space-between;
                 align-items: flex-start;
                 gap: 10px;
@@ -2625,10 +3301,13 @@
 
             .multi-results-toolbar {
                 display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
+                flex: 0 0 auto;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                gap: 0;
                 margin-top: 2px;
                 width: 100%;
+                align-items: stretch;
             }
 
             .multi-results-title {
@@ -2644,22 +3323,28 @@
 
             .multi-result-list {
                 display: grid;
-                gap: 9px;
-                max-height: 68vh;
+                gap: var(--page-panel-stack-y);
+                flex: 1 1 auto;
+                max-height: none;
                 overflow: auto;
                 padding-right: 2px;
+                min-height: 0;
+                min-width: 0;
+                overscroll-behavior: contain;
+                scrollbar-gutter: stable;
             }
 
             .multi-result-item {
                 border: 1px solid var(--row-sep);
                 background: var(--section-bg);
                 border-radius: 12px;
-                padding: 10px;
+                padding: 9px 10px;
                 display: grid;
-                gap: 9px;
+                gap: var(--page-panel-stack-y);
                 cursor: pointer;
                 content-visibility: auto;
-                contain-intrinsic-size: 0 220px;
+                contain-intrinsic-size: 0 216px;
+                min-width: 0;
                 transition:
                     border-color 150ms ease,
                     background 150ms ease,
@@ -2683,6 +3368,21 @@
                 gap: 10px;
             }
 
+            /* Matches .catalog-account-item vertical rhythm between name block and meta */
+            .multi-result-head-main {
+                min-width: 0;
+                flex: 1 1 auto;
+                display: grid;
+                gap: 8px;
+            }
+
+            .multi-result-item.selected .catalog-account-name.selected {
+                border-color: rgba(176, 240, 208, 0.78);
+                background: rgba(176, 240, 208, 0.14);
+                color: var(--accent-2);
+                box-shadow: 0 0 0 2px rgba(176, 240, 208, 0.14);
+            }
+
             .multi-score {
                 flex: 0 0 auto;
                 min-width: 58px;
@@ -2696,44 +3396,58 @@
                 white-space: nowrap;
             }
 
-            .multi-result-meta {
-                display: flex;
-                flex-wrap: wrap;
+            .multi-card-mini-list {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 6px;
+                width: 100%;
+                min-width: 0;
                 color: var(--muted);
                 font-size: 0.78rem;
             }
 
-            .multi-card-mini-list {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
-                gap: 6px;
-                color: var(--muted);
-                font-size: 0.78rem;
+            /* Narrow results pane: stack mini columns when space is tighter than ~two chips */
+            @container multisearch-best (max-width: 480px) {
+                .multi-card-mini-list {
+                    grid-template-columns: minmax(0, 1fr);
+                }
             }
 
             .multi-match-chip,
             .multi-missing-chip {
                 display: grid;
-                grid-template-columns: minmax(52px, auto) minmax(0, 1fr) 34px;
                 align-items: center;
                 gap: 6px;
+                column-gap: 10px;
                 width: 100%;
                 min-width: 0;
-                min-height: 32px;
+                min-height: 0;
                 max-width: 100%;
-                padding: 5px 8px;
+                padding: 5px 9px;
                 border-radius: 8px;
                 border: 1px solid var(--chip-border);
                 background: var(--chip-bg);
                 color: var(--text);
                 font-weight: 700;
+                font-size: 0.78rem;
+                grid-template-columns:
+                    auto minmax(0, 1fr) minmax(52px, max-content) 70px;
             }
 
-            .multi-match-chip {
-                border-color: rgba(176, 240, 208, 0.62);
-                background: rgba(176, 240, 208, 0.12);
-                color: var(--text);
+            .multi-match-chip > .multi-card-chip-thumb-wrap,
+            .multi-missing-chip > .multi-card-chip-thumb-wrap {
+                grid-row: 1 / -1;
+                align-self: center;
+                justify-self: start;
+                padding-left: 0;
+                padding-right: 10px;
+            }
+
+            /* Stesse dimensioni immagine delle chip Selected (.multi-card-chip-thumb-wrap img) */
+            .multi-result-mini-thumb--ghost .multi-card-chip-thumb-fallback {
+                visibility: visible;
+                opacity: 0;
+                pointer-events: none;
             }
 
             .multi-missing-chip {
@@ -2742,76 +3456,20 @@
                 color: var(--muted);
             }
 
+            .multi-match-chip {
+                border-color: rgba(176, 240, 208, 0.62);
+                background: rgba(176, 240, 208, 0.12);
+                color: var(--text);
+            }
+
             .multi-chip-rarity.multi-picker-rarity {
-                display: inline-flex;
+                display: flex;
                 align-items: center;
                 justify-content: center;
                 justify-self: center;
+                align-self: center;
                 min-width: 0;
                 max-width: 100%;
-            }
-
-            .multi-match-chip .multi-chip-rarity .multi-picker-rarity-stack-img,
-            .multi-missing-chip .multi-chip-rarity .multi-picker-rarity-stack-img {
-                width: 13px;
-                height: 13px;
-                min-width: 13px;
-                min-height: 13px;
-                max-width: 13px;
-                max-height: 13px;
-                object-fit: contain;
-                object-position: center;
-                flex-shrink: 0;
-            }
-
-            .multi-match-chip .multi-chip-rarity .multi-picker-rarity-stack,
-            .multi-missing-chip .multi-chip-rarity .multi-picker-rarity-stack {
-                gap: 1px;
-            }
-
-            .multi-match-chip .multi-chip-rarity .multi-picker-rarity-badge > .rarity-icon,
-            .multi-missing-chip .multi-chip-rarity .multi-picker-rarity-badge > .rarity-icon {
-                width: 22px;
-                height: 16px;
-                min-width: 22px;
-                min-height: 16px;
-                max-width: 22px;
-                max-height: 16px;
-                object-fit: contain;
-                object-position: center;
-                flex-shrink: 0;
-            }
-
-            .multi-match-chip
-                .multi-chip-rarity
-                .multi-picker-rarity-badge
-                .rarity-icon-wrap
-                .rarity-icon,
-            .multi-missing-chip
-                .multi-chip-rarity
-                .multi-picker-rarity-badge
-                .rarity-icon-wrap
-                .rarity-icon {
-                width: 22px;
-                height: 16px;
-                min-width: 22px;
-                min-height: 16px;
-                max-width: 22px;
-                max-height: 16px;
-                object-fit: contain;
-                object-position: center;
-                flex-shrink: 0;
-            }
-
-            .multi-match-chip .multi-chip-rarity .rarity-icon-wrap,
-            .multi-missing-chip .multi-chip-rarity .rarity-icon-wrap {
-                gap: 2px;
-            }
-
-            .multi-match-chip .multi-chip-rarity .rarity-tag,
-            .multi-missing-chip .multi-chip-rarity .rarity-tag {
-                font-size: 0.52rem;
-                padding: 1px 3px;
             }
 
             .multi-chip-name {
@@ -2822,13 +3480,306 @@
                 white-space: nowrap;
             }
 
+            /* Match/missing chips: names left-aligned in the-name column away from thumbnails */
+            .multi-match-chip .multi-chip-name-stack,
+            .multi-missing-chip .multi-chip-name-stack {
+                justify-items: start;
+                padding-inline-start: 2px;
+            }
+
+            .multi-match-chip .multi-chip-name,
+            .multi-missing-chip .multi-chip-name {
+                text-align: left;
+                width: 100%;
+            }
+
+            .multi-match-chip .multi-chip-name-stack > .multi-chip-expansion,
+            .multi-missing-chip .multi-chip-name-stack > .multi-chip-expansion {
+                justify-self: start;
+            }
+
+            .multi-chip-expansion--match-chip,
+            .multi-chip-expansion--missing-chip {
+                text-align: left;
+            }
+
+            .multi-chip-name-stack {
+                display: grid;
+                gap: 3px;
+                min-width: 0;
+                min-height: 0;
+                justify-items: center;
+                align-content: center;
+                align-self: center;
+                justify-self: stretch;
+                padding-block: 0;
+            }
+
+            .multi-chip-name-stack > .multi-chip-expansion {
+                justify-self: center;
+            }
+
+            .multi-chip-expansion {
+                display: block;
+                min-width: 0;
+                max-width: 100%;
+                line-height: 1.25;
+                text-align: center;
+            }
+
+            /* Picker keeps expansion line aligned with the card name column */
+            .multi-chip-expansion--picker {
+                text-align: left;
+                justify-self: stretch;
+                width: 100%;
+            }
+
+            .multi-chip-expansion--picker .multi-chip-expansion-text {
+                text-align: left;
+            }
+
+            .multi-chip-expansion--selected-chip {
+                text-align: left;
+            }
+
+            .multi-chip-expansion--selected-chip .multi-chip-expansion-text {
+                text-align: left;
+            }
+
+            .multi-chip-expansion-text {
+                font-size: 0.64rem;
+                font-weight: 800;
+                color: var(--muted);
+                letter-spacing: 0.02em;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: block;
+                max-width: 100%;
+            }
+
+            .multi-chip-expansion--picker .multi-chip-expansion-text {
+                font-size: 0.68rem;
+                max-width: min(168px, 100%);
+            }
+
+            .multi-chip-expansion--selected-chip .multi-chip-expansion-text {
+                font-size: 0.62rem;
+                max-width: min(136px, 100%);
+            }
+
+            .multi-chip-expansion--match-chip .multi-chip-expansion-text,
+            .multi-chip-expansion--missing-chip .multi-chip-expansion-text {
+                font-size: 0.6rem;
+                max-width: 100%;
+                text-align: left;
+            }
+
             .multi-chip-count {
-                min-width: 28px;
+                min-width: 30px;
                 text-align: right;
                 white-space: nowrap;
                 color: var(--muted);
-                font-size: 0.74rem;
+                font-size: 0.72rem;
                 font-weight: 900;
+                justify-self: end;
+                align-self: center;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+
+            .multi-match-chip .multi-chip-count,
+            .multi-missing-chip .multi-chip-count,
+            .multi-match-chip .multi-chip-count--placeholder,
+            .multi-missing-chip .multi-chip-count--placeholder {
+                padding-inline-start: 16px;
+            }
+
+            /* Invisible spacer: keeps col 3 width when qty is rendered in trailing column only */
+            .multi-chip-count--placeholder {
+                visibility: hidden;
+                pointer-events: none;
+                font-size: 0.72rem;
+                font-weight: 900;
+            }
+
+            /* Short muted dash ("Jolteon style") below Trade/Share / ghost zone */
+            .multi-chip-actions-foot-dash {
+                display: inline-block;
+                min-width: 1em;
+                margin-top: 2px;
+                color: rgba(148, 160, 180, 0.52);
+                font-size: 0.86rem;
+                font-weight: 800;
+                line-height: 1;
+                text-align: right;
+                cursor: help;
+                flex-shrink: 0;
+                align-self: flex-end;
+            }
+
+            .multi-match-chip .multi-chip-actions-foot-dash {
+                color: rgba(148, 160, 180, 0.58);
+                cursor: help;
+            }
+
+            [data-theme="light"] .multi-chip-actions-foot-dash,
+            [data-theme="light"] .multi-match-chip .multi-chip-actions-foot-dash {
+                color: rgba(100, 112, 130, 0.6);
+            }
+
+            .multi-match-chip-actions--missing-foot {
+                pointer-events: none;
+            }
+
+            .multi-chip-count--missing {
+                color: rgba(148, 160, 180, 0.42);
+                font-weight: 800;
+            }
+
+            [data-theme="light"] .multi-chip-count--missing {
+                color: rgba(100, 112, 130, 0.55);
+            }
+
+            /* Reserve approximate Trade+Share column height when primary actions collapse */
+            .multi-match-chip-actions-primary--ghost:empty {
+                flex: 0 0 auto;
+                min-height: 0;
+                height: 0;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                width: 100%;
+                visibility: hidden;
+            }
+
+            .multi-match-chip-actions {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0;
+                justify-self: end;
+                align-self: center;
+                text-align: right;
+                min-width: 0;
+                min-height: 0;
+                justify-content: center;
+            }
+
+            .multi-match-chip-actions--nontrade-indicator {
+                justify-content: center;
+                gap: 0;
+                padding-top: 0;
+            }
+
+            .multi-match-chip-actions-primary {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 3px;
+                justify-content: center;
+                flex: 0 1 auto;
+                min-height: 0;
+                width: 100%;
+            }
+
+            .multi-match-chip-actions--nontrade-indicator
+                .multi-match-chip-actions-primary--ghost {
+                justify-content: center;
+                flex: 0 0 auto;
+            }
+
+            .multi-match-chip-trade-row {
+                display: flex;
+                width: 100%;
+                justify-content: flex-end;
+                min-width: 0;
+            }
+
+            .multi-match-chip-trade-hint {
+                display: inline-block;
+                min-width: 1.15em;
+                color: rgba(148, 160, 180, 0.88);
+                font-size: 0.84rem;
+                font-weight: 800;
+                line-height: 1;
+                text-align: center;
+                cursor: help;
+            }
+
+            .multi-match-chip-trade-btn {
+                margin: 0;
+                border: 1px solid rgba(176, 240, 208, 0.55);
+                border-radius: 6px;
+                padding: 2px 6px;
+                background: rgba(16, 32, 24, 0.35);
+                color: inherit;
+                font: inherit;
+                font-size: 0.66rem;
+                font-weight: 900;
+                letter-spacing: 0.03em;
+                line-height: 1.2;
+                white-space: nowrap;
+                cursor: pointer;
+            }
+
+            .multi-match-chip-trade-btn:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 1px;
+            }
+
+            .multi-match-chip-trade-btn:hover:not(:disabled) {
+                border-color: rgba(176, 240, 208, 0.95);
+                background: rgba(176, 240, 208, 0.18);
+                color: var(--accent-2);
+            }
+
+            .multi-match-chip-share-btn {
+                margin: 0;
+                border: 1px solid rgba(142, 180, 255, 0.45);
+                border-radius: 6px;
+                padding: 2px 6px;
+                background: rgba(26, 54, 112, 0.22);
+                color: inherit;
+                font: inherit;
+                font-size: 0.66rem;
+                font-weight: 900;
+                letter-spacing: 0.03em;
+                line-height: 1.2;
+                white-space: nowrap;
+                cursor: pointer;
+            }
+
+            .multi-match-chip-share-btn:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 1px;
+            }
+
+            .multi-match-chip-share-btn:hover:not(:disabled) {
+                border-color: rgba(142, 180, 255, 0.88);
+                background: rgba(142, 180, 255, 0.2);
+                color: var(--accent-2);
+            }
+
+            [data-theme="light"] .multi-match-chip-trade-btn {
+                background: rgba(19, 122, 85, 0.12);
+                border-color: rgba(19, 122, 85, 0.45);
+            }
+
+            [data-theme="light"] .multi-match-chip-trade-btn:hover:not(:disabled) {
+                background: rgba(19, 122, 85, 0.22);
+                border-color: rgba(19, 122, 85, 0.75);
+            }
+
+            [data-theme="light"] .multi-match-chip-share-btn {
+                background: rgba(26, 79, 184, 0.1);
+                border-color: rgba(26, 79, 184, 0.38);
+            }
+
+            [data-theme="light"] .multi-match-chip-share-btn:hover:not(:disabled) {
+                background: rgba(26, 79, 184, 0.16);
+                border-color: rgba(26, 79, 184, 0.65);
             }
 
             .multi-result-actions {
@@ -2838,6 +3789,7 @@
             }
 
             .multi-result-actions .start-trade-btn {
+                margin-left: auto;
                 box-shadow: none;
             }
 
@@ -2851,6 +3803,36 @@
                 padding: 6px 10px;
                 font-size: 0.78rem;
                 white-space: nowrap;
+            }
+
+            /* Account eligibility toggles: checkbox kept for a11y, hit target is the pill */
+            .account-filter-toggle {
+                position: relative;
+                gap: 0;
+                padding-inline: 12px;
+            }
+
+            .account-filter-toggle input[type="checkbox"] {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+                opacity: 0;
+                accent-color: transparent;
+                pointer-events: none;
+                appearance: none;
+            }
+
+            .account-filter-toggle:has(input:focus-visible) {
+                box-shadow:
+                    0 0 0 2px var(--panel),
+                    0 0 0 4px rgba(142, 180, 255, 0.55);
+                z-index: 1;
             }
 
             .trade-ready-age {
@@ -2875,38 +3857,6 @@
                 width: 100%;
                 justify-content: center;
                 margin-top: 8px;
-            }
-
-            .multi-trade-actions {
-                display: grid;
-                gap: 6px;
-            }
-
-            .multi-trade-action {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
-                align-items: center;
-                gap: 8px;
-                padding: 7px 8px;
-                border: 1px solid var(--row-sep);
-                border-radius: 8px;
-                background: rgba(255, 255, 255, 0.025);
-            }
-
-            .multi-trade-card {
-                min-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                font-size: 0.82rem;
-                font-weight: 800;
-            }
-
-            .multi-trade-buttons {
-                display: flex;
-                gap: 6px;
-                flex-wrap: wrap;
-                justify-content: flex-end;
             }
 
             .multi-picker-section {
@@ -2945,19 +3895,19 @@
             .multi-picker-list {
                 display: grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 6px;
+                gap: 8px;
             }
 
             .multi-picker-row {
                 width: 100%;
                 display: grid;
-                grid-template-columns: 34px minmax(0, 1fr) auto;
+                grid-template-columns: 40px minmax(0, 1fr) auto;
                 align-items: center;
-                gap: 8px;
-                min-height: 58px;
-                padding: 6px 8px;
+                gap: 9px;
+                min-height: 68px;
+                padding: 8px 10px;
                 border: 1px solid var(--row-sep);
-                border-radius: 8px;
+                border-radius: 10px;
                 background: var(--section-bg);
                 color: var(--text);
                 font: inherit;
@@ -2986,11 +3936,11 @@
             }
 
             .multi-picker-thumb {
-                width: 34px;
-                height: 47px;
+                width: 40px;
+                height: 54px;
                 display: grid;
                 place-items: center;
-                border-radius: 5px;
+                border-radius: 6px;
                 background: rgba(0, 0, 0, 0.16);
                 overflow: hidden;
             }
@@ -3004,6 +3954,8 @@
 
             .multi-picker-main {
                 min-width: 0;
+                display: grid;
+                gap: 4px;
             }
 
             .multi-picker-name {
@@ -3011,7 +3963,7 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 font-weight: 800;
-                font-size: 0.9rem;
+                font-size: 0.95rem;
             }
 
             .multi-picker-rarity {
@@ -3042,12 +3994,12 @@
             }
 
             .multi-picker-rarity .multi-picker-rarity-stack-img {
-                width: 17px;
-                height: 17px;
-                min-width: 17px;
-                min-height: 17px;
-                max-width: 17px;
-                max-height: 17px;
+                width: 18px;
+                height: 18px;
+                min-width: 18px;
+                min-height: 18px;
+                max-width: 18px;
+                max-height: 18px;
                 object-fit: contain;
                 object-position: center;
                 flex-shrink: 0;
@@ -3056,12 +4008,12 @@
 
             /* Fallback: single PNG / wrap when no stack rule (unknown rarities) */
             .multi-picker-rarity .multi-picker-rarity-badge > .rarity-icon {
-                width: 26px;
-                height: 20px;
-                min-width: 26px;
-                min-height: 20px;
-                max-width: 26px;
-                max-height: 20px;
+                width: 27px;
+                height: 21px;
+                min-width: 27px;
+                min-height: 21px;
+                max-width: 27px;
+                max-height: 21px;
                 object-fit: contain;
                 object-position: center;
                 flex-shrink: 0;
@@ -3077,12 +4029,12 @@
             }
 
             .multi-picker-rarity .multi-picker-rarity-badge .rarity-icon-wrap .rarity-icon {
-                width: 26px;
-                height: 20px;
-                min-width: 26px;
-                min-height: 20px;
-                max-width: 26px;
-                max-height: 20px;
+                width: 27px;
+                height: 21px;
+                min-width: 27px;
+                min-height: 21px;
+                max-width: 27px;
+                max-height: 21px;
                 object-fit: contain;
                 object-position: center;
                 flex-shrink: 0;
@@ -3206,15 +4158,7 @@
                 }
 
                 .multi-picker-row {
-                    grid-template-columns: 34px minmax(0, 1fr) auto;
-                }
-
-                .multi-trade-action {
-                    grid-template-columns: 1fr;
-                }
-
-                .multi-trade-buttons {
-                    justify-content: flex-start;
+                    grid-template-columns: 40px minmax(0, 1fr) auto;
                 }
             }
 
@@ -3259,6 +4203,17 @@
             .catalog-side-meta-card .catalog-side-card-rarity {
                 display: inline-flex;
                 align-items: center;
+                gap: 2px;
+            }
+
+            .catalog-side-meta-card .catalog-side-card-rarity .multi-picker-rarity-stack-img {
+                width: 14px;
+                height: 14px;
+                min-width: 14px;
+                min-height: 14px;
+                max-width: 14px;
+                max-height: 14px;
+                object-fit: contain;
             }
 
             .catalog-side-meta-stats {
@@ -3429,43 +4384,58 @@
                 </button>
             </header>
 
-            <div
-                class="section-switcher"
-                role="tablist"
-                aria-label="Tool sections"
-            >
-                <button
-                    id="sectionDbBtn"
-                    type="button"
-                    class="section-switcher-btn active"
-                    role="tab"
+            <div class="section-switcher-row">
+                <div class="section-switcher-side section-switcher-side--left"></div>
+                <div
+                    class="section-switcher"
+                    role="tablist"
+                    aria-label="Tool sections"
                 >
-                    Database Workspace
-                </button>
-                <button
-                    id="sectionLibraryBtn"
-                    type="button"
-                    class="section-switcher-btn"
-                    role="tab"
-                >
-                    Card Library
-                </button>
-                <button
-                    id="sectionMultiBtn"
-                    type="button"
-                    class="section-switcher-btn"
-                    role="tab"
-                >
-                    Multi-card Search
-                </button>
-                <button
-                    id="sectionWishlistBtn"
-                    type="button"
-                    class="section-switcher-btn"
-                    role="tab"
-                >
-                    Wishlist
-                </button>
+                    <button
+                        id="sectionDbBtn"
+                        type="button"
+                        class="section-switcher-btn active"
+                        role="tab"
+                    >
+                        Database Workspace
+                    </button>
+                    <button
+                        id="sectionLibraryBtn"
+                        type="button"
+                        class="section-switcher-btn"
+                        role="tab"
+                    >
+                        Card Library
+                    </button>
+                    <button
+                        id="sectionMultiBtn"
+                        type="button"
+                        class="section-switcher-btn"
+                        role="tab"
+                    >
+                        Multi-card Search
+                    </button>
+                    <button
+                        id="sectionWishlistBtn"
+                        type="button"
+                        class="section-switcher-btn"
+                        role="tab"
+                    >
+                        Wishlist
+                    </button>
+                </div>
+                <div class="section-switcher-side section-switcher-side--right">
+                    <button
+                        id="backToTopBtn"
+                        type="button"
+                        class="back-to-top-btn"
+                        title="Back to top"
+                        aria-label="Back to top"
+                        hidden
+                    >
+                        Back to top
+                    </button>
+                </div>
             </div>
 
             <section
@@ -3506,7 +4476,7 @@
                         </div>
                     </div>
                 </div>
-                <div>
+                <div class="toolbar-status">
                     <label class="field-label" for="status">Status</label>
                     <div
                         class="status"
@@ -3831,7 +4801,7 @@
                     "
                 >
                     <input type="checkbox" id="instancePickerSendFR" />
-                    <span>Send friend request(s) after inject</span>
+                    <span>Send friend requests after inject</span>
                 </label>
                 <div
                     style="
@@ -4247,15 +5217,11 @@
             >
                 <div
                     id="receivedPickerTitle"
-                    style="font-size: 1rem; font-weight: 600; line-height: 1.3"
+                    class="received-picker-overlay-title"
                 ></div>
                 <div
                     id="receivedPickerSummary"
-                    style="
-                        font-size: 0.82rem;
-                        color: var(--muted);
-                        line-height: 1.4;
-                    "
+                    class="received-picker-overlay-summary"
                 ></div>
                 <input
                     id="receivedPickerSearch"
@@ -4429,14 +5395,14 @@
                 return html;
             }
 
-            /** Multi-card Search: uniform badges via repeated base art per tier (same idea as ♦×N). */
+            /** Repeated base sprites per tier for picker badges (parallel to diamond/star counts). */
             const MULTI_PICKER_BADGE_STACK = {
                 100: ["C.png", 1],
                 200: ["C.png", 2],
                 300: ["C.png", 3],
                 400: ["C.png", 4],
                 500: ["AR.png", 1],
-                /* ★★★ Immersive: same star unit as AR, ×3 (was IM.png composite scaling down) */
+                /* Rarity 800 immersive: stack three AR units (instead of shrunk IM composite) */
                 800: ["AR.png", 3],
                 830: ["S.png", 1],
                 860: ["S.png", 2],
@@ -4468,7 +5434,7 @@
             function getRarityIconListHtml(rarityKeys) {
                 const keys = [...rarityKeys];
                 if (!keys.length) return "";
-                return `<span class="rarity-icon-list">${keys.map(getRarityIconHtml).join("")}</span>`;
+                return `<span class="rarity-icon-list rarity-icon-list--picker-badges">${keys.map(getMultiPickerRarityBadgeHtml).join("")}</span>`;
             }
 
             function warmRarityIconImages() {
@@ -4496,7 +5462,7 @@
                 });
                 const chips = entries.map(([rarityKey, count]) => {
                     const label = getRarityFilterLabel(rarityKey);
-                    return `<span class="rarity-count-chip" title="${escapeHtml(label)}: ${formatNumber(count)}">${getRarityIconHtml(rarityKey)}<span class="rarity-count-value">${formatNumber(count)}</span></span>`;
+                    return `<span class="rarity-count-chip" title="${escapeHtml(label)}: ${formatNumber(count)}">${getMultiPickerRarityBadgeHtml(rarityKey)}<span class="rarity-count-value">${formatNumber(count)}</span></span>`;
                 });
                 return `<span class="rarity-icon-list rarity-count-list">${chips.join("")}</span>`;
             }
@@ -4508,7 +5474,7 @@
                 const name = info.name || cardId;
                 const rarityHtml =
                     info.rarityValue != null
-                        ? ` ${getRarityIconHtml(getCardRarityFilterKey(cardId, info))}`
+                        ? ` <span class="format-card-label-rarity">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(cardId, info))}</span>`
                         : "";
                 return `<b>${escapeHtml(name)}</b>${rarityHtml}`;
             }
@@ -4718,6 +5684,7 @@
                 sectionLibraryBtn: document.getElementById("sectionLibraryBtn"),
                 sectionMultiBtn: document.getElementById("sectionMultiBtn"),
                 sectionWishlistBtn: document.getElementById("sectionWishlistBtn"),
+                backToTopBtn: document.getElementById("backToTopBtn"),
                 toolbarSection: document.getElementById("toolbarSection"),
                 statsSection: document.getElementById("statsSection"),
                 filtersSection: document.getElementById("filtersSection"),
@@ -4754,6 +5721,7 @@
             // Invalidate on filter/sort/data/expansion/pagination changes.
             const DB_VIEWS = ["rows", "accounts", "traded", "shared"];
             let multiSearchStickyResizeObserver = null;
+            let multiSearchStickyVvResizeHandler = null;
             let sectionSwitcherStickyResizeObserver = null;
             const _viewDomCache = new Map();
             function invalidateViewDomCache() {
@@ -4920,13 +5888,13 @@
                     const accountLabel =
                         state.accountFileLabelMap.get(account) || account;
 
-                    titleEl.innerHTML = `Which card was received in exchange for ${formatCardLabel(gaveCardId)}?`;
+                    titleEl.innerHTML = `Which card was received in exchange for <span class="received-picker-gave-label">${formatCardLabel(gaveCardId)}</span>?`;
                     const allowedHtml = allowedRarities.size
                         ? getRarityIconListHtml(
                               getTradeableRarityDisplayKeys(allowedRarities),
                           )
                         : "<em>(none)</em>";
-                    summaryEl.innerHTML = `Account: ${escapeHtml(accountLabel)} \u2022 Allowed rarity: ${allowedHtml}`;
+                    summaryEl.innerHTML = `<span>Account:</span> <span>${escapeHtml(accountLabel)}</span> \u2022 <span class="received-picker-allowed"><span>Allowed rarity:</span> ${allowedHtml}</span>`;
 
                     // Build candidate list once (filtered by rarity).
                     let candidates = [];
@@ -4947,9 +5915,9 @@
                         const term = normaliseSearch(searchEl.value);
                         const matches = term
                             ? candidates.filter((c) =>
-                                  normaliseSearch(`${c.name} ${c.id}`).includes(
-                                      term,
-                                  ),
+                                  normaliseSearch(
+                                      `${c.name} ${c.id} ${formatTradePickerExpansionLine(c.id, c) || ""}`,
+                                  ).includes(term),
                               )
                             : candidates;
                         const shown = matches.slice(0, MAX_RENDER);
@@ -4966,8 +5934,18 @@
                             .map((info) => {
                                 const img = info.imageUrl
                                     ? `<img src="${escapeHtml(info.imageUrl)}" loading="lazy" alt="${escapeHtml(info.name)}" onerror="this.style.visibility='hidden'">`
-                                    : `<div style="aspect-ratio:0.72;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.75rem;border:1px dashed var(--border);border-radius:6px">No image</div>`;
-                                return `<button type="button" class="received-picker-tile" data-pick-id="${escapeHtml(info.id)}" title="${escapeHtml(info.name)} (${escapeHtml(info.id)})">${img}<div class="rp-name">${escapeHtml(info.name)}</div><div class="rp-rarity">${getRarityIconHtml(getCardRarityFilterKey(info.id, info))}</div></button>`;
+                                    : `<div class="rp-noimg">No image</div>`;
+                                const expLine = formatTradePickerExpansionLine(
+                                    info.id,
+                                    info,
+                                );
+                                const expHtml = expLine
+                                    ? `<div class="rp-expansion">${escapeHtml(expLine)}</div>`
+                                    : "";
+                                const tileTitle = expLine
+                                    ? `${info.name} · ${expLine} · ${info.id}`
+                                    : `${info.name} (${info.id})`;
+                                return `<button type="button" class="received-picker-tile" data-pick-id="${escapeHtml(info.id)}" title="${escapeHtml(tileTitle)}">${img}<div class="rp-caption"><div class="rp-name">${escapeHtml(info.name)}</div>${expHtml}</div><div class="rp-rarity">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(info.id, info))}</div></button>`;
                             })
                             .join("");
                         gridEl.innerHTML = html;
@@ -5884,7 +6862,7 @@
                     shinedustLabel,
                     shinedustTitle,
                 } = options;
-                const ageToggle = `<label class="check-chip account-filter-toggle trade-ready-toggle${ageChecked ? " checked" : ""}" title="Only show accounts at least ${TRADE_READY_MIN_AGE_DAYS} days old"><input id="${ageInputId}" type="checkbox" ${ageChecked ? "checked" : ""}> Account age ${TRADE_READY_MIN_AGE_DAYS}+ days</label>`;
+                const ageToggle = `<label class="check-chip account-filter-toggle trade-ready-toggle${ageChecked ? " checked" : ""}" title="Only show accounts at least ${TRADE_READY_MIN_AGE_DAYS} days old"><input id="${ageInputId}" type="checkbox" ${ageChecked ? "checked" : ""}>Account age ${TRADE_READY_MIN_AGE_DAYS}+ days</label>`;
                 const dustLabel =
                     shinedustLabel ||
                     `With at least ${formatNumber(requiredShinedust)} shinedust`;
@@ -5893,7 +6871,7 @@
                     `Only show accounts with at least ${formatNumber(requiredShinedust)} shinedust`;
                 const shinedustToggle =
                     requiredShinedust > 0
-                        ? `<label class="check-chip account-filter-toggle shinedust-filter-toggle${shinedustChecked ? " checked" : ""}" title="${escapeHtml(dustTitle)}"><input id="${shinedustInputId}" type="checkbox" ${shinedustChecked ? "checked" : ""}> ${escapeHtml(dustLabel)}</label>`
+                        ? `<label class="check-chip account-filter-toggle shinedust-filter-toggle${shinedustChecked ? " checked" : ""}" title="${escapeHtml(dustTitle)}"><input id="${shinedustInputId}" type="checkbox" ${shinedustChecked ? "checked" : ""}>${escapeHtml(dustLabel)}</label>`
                         : "";
                 return ageToggle + shinedustToggle;
             }
@@ -5997,6 +6975,25 @@
             const _numFmt = new Intl.NumberFormat();
             function formatNumber(value) {
                 return _numFmt.format(value || 0);
+            }
+
+            /** English singular/plural for counts (treat 0 like plural: "0 accounts"). */
+            function pluralWord(count, singular, pluralForm) {
+                const n = Number(count);
+                return Number.isFinite(n) && n === 1 ? singular : pluralForm;
+            }
+
+            /** Present tense for countable subjects ("1 account has" vs "3 accounts have"). */
+            function verbSubjectHas(count) {
+                return Number(count) === 1 ? "has" : "have";
+            }
+
+            /** Shared copy for Multi-search account match summaries (verb + noun agreement). */
+            function formatMultiSearchAccountSummary(
+                matchingAccountCount,
+                selectedCardCount,
+            ) {
+                return `${formatNumber(matchingAccountCount)} ${pluralWord(matchingAccountCount, "account", "accounts")} ${verbSubjectHas(matchingAccountCount)} at least one of ${formatNumber(selectedCardCount)} selected ${pluralWord(selectedCardCount, "card", "cards")}.`;
             }
 
             const _normaliseSearchCache = new Map();
@@ -6440,12 +7437,12 @@
                 if (retryAt && now < retryAt) {
                     const minutes = Math.ceil((retryAt - now) / 60000);
                     appendStatus(
-                        `Missing ${missingIds.length} card id(s). Next remote retry in about ${minutes} minute(s).`,
+                        `Missing ${missingIds.length} ${pluralWord(missingIds.length, "card ID", "card IDs")}. Next remote retry in about ${minutes} ${pluralWord(minutes, "minute", "minutes")}.`,
                     );
                     return;
                 }
                 appendStatus(
-                    `Missing ${missingIds.length} card id(s). Refreshing card data once...`,
+                    `Missing ${missingIds.length} ${pluralWord(missingIds.length, "card ID", "card IDs")}. Refreshing card data once...`,
                 );
                 await loadResources(true);
                 const stillMissing = missingIds.filter(
@@ -6457,7 +7454,7 @@
                         String(now + ONE_HOUR),
                     );
                     appendStatus(
-                        `Still missing ${stillMissing.length} card id(s). Will not retry again for at least 1 hour.`,
+                        `Still missing ${stillMissing.length} ${pluralWord(stillMissing.length, "card ID", "card IDs")}. Will not retry again for at least 1 hour.`,
                     );
                 } else {
                     localStorage.removeItem(LS_MISSING_RETRY_AT);
@@ -7244,14 +8241,14 @@
                         ? ` (${formatNumber(parseResult.linkedAccountCount)} with metadata)`
                         : "";
                 setStatus(
-                    `Loaded ${formatNumber(state.accountCount)} accounts · ${formatNumber(state.rowCount)} entries · ${formatNumber(state.totalCards)} cards${linkedNote}.`,
+                    `Loaded ${formatNumber(state.accountCount)} ${pluralWord(state.accountCount, "account", "accounts")} · ${formatNumber(state.rowCount)} ${pluralWord(state.rowCount, "entry", "entries")} · ${formatNumber(state.totalCards)} ${pluralWord(state.totalCards, "card", "cards")}${linkedNote}.`,
                 );
                 if (skippedCount) {
                     const sampleText = skippedSamples.length
-                        ? ` First skipped file(s): ${skippedSamples.join(", ")}.`
+                        ? ` First ${pluralWord(skippedSamples.length, "skipped file", "skipped files")}: ${skippedSamples.join(", ")}.`
                         : "";
                     appendStatus(
-                        `Skipped ${formatNumber(skippedCount)} invalid account JSON file(s).${sampleText}`,
+                        `Skipped ${formatNumber(skippedCount)} invalid ${pluralWord(skippedCount, "account JSON file", "account JSON files")}.${sampleText}`,
                     );
                 }
 
@@ -7279,7 +8276,7 @@
                 }
 
                 appendStatus(
-                    `Reading ${formatNumber(files.length)} account JSON file(s)...`,
+                    `Reading ${formatNumber(files.length)} ${pluralWord(files.length, "account JSON file", "account JSON files")}...`,
                 );
                 const documents = [];
                 const skippedFiles = [];
@@ -7475,6 +8472,55 @@
                 );
                 if (pkMatch) return Math.floor(Number(pkMatch[1]) / 10);
                 return Number.NaN;
+            }
+
+            /** Expansion + coll. number for multisearch chips (same name+rarity across sets). */
+            function buildMultiChipExpansionSubtitle(cardId, info) {
+                const id = String(cardId ?? "").trim();
+                if (!id) return null;
+                const pack = String(getCardExpansionId(id) || "").trim();
+                const coll = getCardExpansionNumber(id, info);
+                if (!pack && !Number.isFinite(coll)) return null;
+                const parts = [];
+                if (Number.isFinite(coll))
+                    parts.push(`#${formatNumber(coll)}`);
+                if (pack) parts.push(pack);
+                const shortLabel = parts.join(" · ");
+                const tipParts = [];
+                if (Number.isFinite(coll))
+                    tipParts.push(`Collection #${formatNumber(coll)}`);
+                if (pack) tipParts.push(getPackLabel(pack));
+                const tooltip =
+                    tipParts.filter(Boolean).join(" · ") || shortLabel;
+                return { shortLabel, tooltip };
+            }
+
+            function renderMultiChipExpansionCueHtml(cardId, info, variant) {
+                const meta = buildMultiChipExpansionSubtitle(cardId, info);
+                if (!meta) return "";
+                const allowedVariants = new Set([
+                    "match-chip",
+                    "missing-chip",
+                    "picker",
+                    "selected-chip",
+                ]);
+                const v = allowedVariants.has(String(variant || ""))
+                    ? String(variant || "")
+                    : "";
+                const vClass = v ? ` multi-chip-expansion--${v}` : "";
+                return `<span class="multi-chip-expansion${vClass}" title="${escapeHtml(meta.tooltip)}"><span class="multi-chip-expansion-text">${escapeHtml(meta.shortLabel)}</span></span>`;
+            }
+
+            /** Trade-picker expansion line: collection number + expansion ID only (no long set title). */
+            function formatTradePickerExpansionLine(cardId, info) {
+                const id = String(cardId ?? "").trim();
+                if (!id) return "";
+                const coll = getCardExpansionNumber(id, info);
+                const expId = String(getCardExpansionId(id) || "").trim();
+                const parts = [];
+                if (Number.isFinite(coll)) parts.push(`#${formatNumber(coll)}`);
+                if (expId) parts.push(expId);
+                return parts.length ? parts.join(" · ") : "";
             }
 
             const _buildRowDerivedCache = new Map();
@@ -8028,7 +9074,7 @@
                 invalidateViewDomCache();
                 renderCurrent();
                 appendStatus(
-                    `Linked metadata for ${formatNumber(parseResult.linkedAccountCount)} account(s) from ${sourceLabel}.`,
+                    `Linked metadata for ${formatNumber(parseResult.linkedAccountCount)} ${pluralWord(parseResult.linkedAccountCount, "account", "accounts")} from ${sourceLabel}.`,
                 );
             }
 
@@ -8182,7 +9228,10 @@
                 }
                 state.allPacks = new Map(
                     [...packs.entries()].sort((a, b) =>
-                        a[1].localeCompare(b[1]),
+                        a[0].localeCompare(b[0], undefined, {
+                            numeric: true,
+                            sensitivity: "base",
+                        }),
                     ),
                 );
                 state.allRarities = computeAllRarityFilters(state.rows);
@@ -8200,8 +9249,16 @@
                 const packParts = [];
                 for (const [packCode, packLabel] of state.allPacks) {
                     const checked = state.selectedPacks.has(packCode);
+                    const iconUrl = getPackIconUrl(packCode);
+                    const noLogoClass =
+                        !iconUrl || !String(iconUrl).trim()
+                            ? " pack-filter-no-logo"
+                            : "";
+                    const imgHtml = iconUrl
+                        ? `<img class="pack-filter-logo" src="${escapeHtml(iconUrl)}" alt="${escapeHtml(packLabel)}" loading="lazy" decoding="async" onerror="var w=this.closest('.pack-filter-chip-media'); if(w) w.classList.add('pack-filter-logo-error');">`
+                        : "";
                     packParts.push(
-                        `<label class="check-chip ${checked ? "checked" : ""}"><input type="checkbox" value="${escapeHtml(packCode)}" ${checked ? "checked" : ""}> <span>${escapeHtml(packLabel)}</span></label>`,
+                        `<label class="check-chip pack-filter-chip ${checked ? "checked" : ""}" title="${escapeHtml(packLabel)}"><input type="checkbox" value="${escapeHtml(packCode)}" ${checked ? "checked" : ""}> <span class="pack-filter-chip-media${noLogoClass}">${imgHtml}<span class="pack-filter-fallback">${escapeHtml(String(packCode))}</span></span></label>`,
                     );
                 }
                 el.packFilters.innerHTML = packParts.join("");
@@ -8555,7 +9612,7 @@
                 );
                 const totalAccounts = accounts.length;
                 const shown = Math.min(state.displayLimit, totalAccounts);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} account(s) \u00b7 ${formatNumber(totalCards)} traded card(s).`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} traded ${pluralWord(totalCards, "card", "cards")}.`;
                 const fragment = document.createDocumentFragment();
                 for (let i = 0; i < shown; i++) {
                     fragment.appendChild(
@@ -8592,22 +9649,25 @@
                         .map((p) => {
                             const g = getCardInfo(p.gave);
                             const r = getCardInfo(p.received);
-                            const gImg = g.imageUrl
-                                ? `<img src="${escapeHtml(g.imageUrl)}" alt="" loading="lazy">`
-                                : "";
-                            const rImg = r.imageUrl
-                                ? `<img src="${escapeHtml(r.imageUrl)}" alt="" loading="lazy">`
-                                : "";
+                            const gThumb = g.imageUrl
+                                ? `<span class="pair-thumb"><img src="${escapeHtml(g.imageUrl)}" alt="" loading="lazy" decoding="async"></span>`
+                                : `<span class="pair-thumb pair-thumb--empty" aria-hidden="true"></span>`;
+                            const rThumb = r.imageUrl
+                                ? `<span class="pair-thumb"><img src="${escapeHtml(r.imageUrl)}" alt="" loading="lazy" decoding="async"></span>`
+                                : `<span class="pair-thumb pair-thumb--empty" aria-hidden="true"></span>`;
+                            const tip =
+                                `Gave ${g.name}\u2192\u00a0${r.name}`;
+                            const aria = `Trade: gave ${g.name}, received ${r.name}`;
                             return (
-                                `<span class="received-pair" title="Gave ${escapeHtml(g.name)} -> Received ${escapeHtml(r.name)}">` +
-                                `<span class="pair-side">${gImg}<span class="pair-name">${escapeHtml(g.name)}</span></span>` +
+                                `<span class="received-pair" role="group" title="${escapeHtml(tip)}" aria-label="${escapeHtml(aria)}">` +
+                                `<span class="pair-side">${gThumb}</span>` +
                                 `<span class="pair-arrow" aria-hidden="true">-></span>` +
-                                `<span class="pair-side">${rImg}<span class="pair-name">${escapeHtml(r.name)}</span></span>` +
+                                `<span class="pair-side">${rThumb}</span>` +
                                 `</span>`
                             );
                         })
                         .join("");
-                    pairsHtml = `<div class="pairs-row"><strong>Trades:</strong>${items}</div>`;
+                    pairsHtml = `<div class="pairs-row"><div class="pairs-row-head"><strong>Trades:</strong></div><div class="pairs-row-chips">${items}</div></div>`;
                 }
                 const latestLabel =
                     account.latestTs > 0
@@ -8615,7 +9675,7 @@
                         : "";
                 const article = document.createElement("article");
                 article.className = "db-row panel";
-                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} traded card(s)</span><span>${formatNumber(pairs.length)} paired</span>${latestLabel}</div></div></div>${pairsHtml}<div class="row-body"></div>`;
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} traded ${pluralWord(cardIds.length, "card", "cards")}</span><span>${formatNumber(pairs.length)} ${pluralWord(pairs.length, "trade pair", "trade pairs")}</span>${latestLabel}</div></div></div>${pairsHtml}<div class="row-body"></div>`;
                 const body = article.querySelector(".row-body");
                 body.appendChild(
                     renderCardGrid(cardIds, {
@@ -8652,7 +9712,7 @@
                 );
                 const totalAccounts = accounts.length;
                 const shown = Math.min(state.displayLimit, totalAccounts);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} account(s) \u00b7 ${formatNumber(totalCards)} shared card(s).`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(totalAccounts)} ${pluralWord(totalAccounts, "account", "accounts")} \u00b7 ${formatNumber(totalCards)} shared ${pluralWord(totalCards, "card", "cards")}.`;
                 const fragment = document.createDocumentFragment();
                 for (let i = 0; i < shown; i++) {
                     fragment.appendChild(
@@ -8680,7 +9740,7 @@
                         : "";
                 const article = document.createElement("article");
                 article.className = "db-row panel";
-                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} shared card(s)</span>${latestLabel}</div></div><div class="row-actions"><button type="button" class="clear-shared-btn" data-clear-shared-account="${escapeHtml(acc)}" title="Remove all shared cards for this account">Clear all</button></div></div><div class="row-body"></div>`;
+                article.innerHTML = `<div class="row-head"><div class="row-title"><strong>${titleMain}</strong><div class="meta"><span>Account ${escapeHtml(acc)}</span><span>${formatNumber(cardIds.length)} shared ${pluralWord(cardIds.length, "card", "cards")}</span>${latestLabel}</div></div><div class="row-actions"><button type="button" class="clear-shared-btn" data-clear-shared-account="${escapeHtml(acc)}" title="Remove all shared cards for this account">Clear all</button></div></div><div class="row-body"></div>`;
                 const body = article.querySelector(".row-body");
                 body.appendChild(
                     renderCardGrid(cardIds, {
@@ -8705,7 +9765,7 @@
                         const accLabel =
                             state.accountFileLabelMap.get(acc) || acc;
                         const ok = await showConfirm(
-                            `Remove all ${cardIds.length} shared card(s) for ${accLabel}?`,
+                            `Remove all ${cardIds.length} shared ${pluralWord(cardIds.length, "card", "cards")} for ${accLabel}?`,
                         );
                         if (!ok) return;
                         for (const cid of cardIds) removeShared(acc, cid);
@@ -9055,11 +10115,36 @@
                               );
                               const rarityHtml =
                                   getMultiPickerRarityBadgeHtml(rarityKey);
-                              return `<span class="multi-card-chip"><span class="multi-card-chip-thumb-wrap">${thumb}</span><span class="multi-card-chip-name" title="${escapeHtml(card.info.name)}">${escapeHtml(card.info.name)}</span><span class="multi-picker-rarity multi-card-chip-rarity">${rarityHtml}</span><button type="button" class="multi-card-remove" data-multi-remove-card="${escapeHtml(card.id)}" title="Remove ${escapeHtml(card.info.name)}" aria-label="Remove ${escapeHtml(card.info.name)}">&times;</button></span>`;
+                              const expansionMeta =
+                                  buildMultiChipExpansionSubtitle(
+                                      card.id,
+                                      card.info,
+                                  );
+                              const expCueHtml = renderMultiChipExpansionCueHtml(
+                                  card.id,
+                                  card.info,
+                                  "selected-chip",
+                              );
+                              const nameTitle = expansionMeta
+                                  ? `${card.info.name} · ${expansionMeta.tooltip}`
+                                  : card.info.name;
+                              const bottomRow = `<span class="multi-card-chip-bottom-row">${expCueHtml}<span class="multi-picker-rarity multi-card-chip-rarity">${rarityHtml}</span></span>`;
+                              return `<span class="multi-card-chip"><span class="multi-card-chip-thumb-wrap">${thumb}</span><span class="multi-card-chip-name" title="${escapeHtml(nameTitle)}">${escapeHtml(card.info.name)}</span>${bottomRow}<button type="button" class="multi-card-remove" data-multi-remove-card="${escapeHtml(card.id)}" title="Remove ${escapeHtml(card.info.name)}" aria-label="Remove ${escapeHtml(card.info.name)}">&times;</button></span>`;
                           })
                           .join("")
                     : `<span class="multi-card-empty">Click card images below to build a search set.</span>`;
-                return `<div class="multi-card-search panel"><div class="multi-card-search-head"><div class="multi-card-search-title">Selected cards</div><div class="multi-card-search-actions"><div class="multi-score">${formatNumber(cards.length)} selected</div><button type="button" id="multiSearchClearSelected" ${cards.length ? "" : "disabled"}>Clear selected</button></div></div><div class="multi-card-chip-list">${chips}</div></div>`;
+                return `<div class="multi-card-search panel"><div class="multi-card-search-head"><div class="multi-card-search-title">Selected cards</div><div class="multi-card-search-actions"><div class="multi-score">${formatNumber(cards.length)} selected</div><button type="button" id="multiSearchClearSelected" ${cards.length ? "" : "disabled"}>Clear selected</button></div></div><div class="multi-card-chip-sheet"><div class="multi-card-chip-list">${chips}</div></div></div>`;
+            }
+
+            /** Miniatura carta (best-accounts match/missing chips), stesso asset di Selected cards. */
+            function renderMiniCardThumbForResultChip(card, ghost) {
+                if (ghost) {
+                    return `<span class="multi-card-chip-thumb-wrap multi-result-mini-thumb multi-result-mini-thumb--ghost" aria-hidden="true"><span class="multi-card-chip-thumb-fallback"></span></span>`;
+                }
+                const thumb = card.info.imageUrl
+                    ? `<img src="${escapeHtml(card.info.imageUrl)}" alt="" loading="lazy" decoding="async">`
+                    : `<span class="multi-card-chip-thumb-fallback" aria-hidden="true"></span>`;
+                return `<span class="multi-card-chip-thumb-wrap multi-result-mini-thumb">${thumb}</span>`;
             }
 
             function buildMultiCardAccountRows(
@@ -9204,32 +10289,95 @@
                             .map((card) => {
                                 const copies =
                                     row.perCardCounts.get(card.id) || 0;
-                                const rarityHtml =
-                                    getMultiPickerRarityBadgeHtml(
-                                        getCardRarityFilterKey(
-                                            card.id,
-                                            card.info,
-                                        ),
+                                const noTrade =
+                                    card.info.rarityValue === 800 ||
+                                    card.info.rarityValue === 900 ||
+                                    isPromoCard(card.id);
+                                const isLowRarityShare =
+                                    !noTrade &&
+                                    (card.info.rarityValue === 100 ||
+                                        card.info.rarityValue === 200 ||
+                                        card.info.rarityValue === 300 ||
+                                        card.info.rarityValue === 400);
+                                const expCueMatch =
+                                    renderMultiChipExpansionCueHtml(
+                                        card.id,
+                                        card.info,
+                                        "match-chip",
                                     );
-                                return `<span class="multi-match-chip" title="${escapeHtml(card.id)}"><span class="multi-chip-rarity multi-picker-rarity">${rarityHtml}</span><span class="multi-chip-name">${escapeHtml(card.info.name)}</span><span class="multi-chip-count">&times;${formatNumber(copies)}</span></span>`;
+                                const expMetaMatch =
+                                    buildMultiChipExpansionSubtitle(
+                                        card.id,
+                                        card.info,
+                                    );
+                                const chipTitleEsc = expMetaMatch
+                                    ? `${escapeHtml(card.id)} · ${escapeHtml(expMetaMatch.tooltip)}`
+                                    : escapeHtml(card.id);
+                                const nameStackMatch = `<span class="multi-chip-name-stack"><span class="multi-chip-name">${escapeHtml(card.info.name)}</span>${expCueMatch}</span>`;
+
+                                const footDashMatched = noTrade
+                                    ? `<span class="multi-chip-actions-foot-dash" title="Not tradeable">-</span>`
+                                    : "";
+
+                                let tradeRowContent = "";
+                                if (!noTrade) {
+                                    if (accountTradeBlocked) {
+                                        tradeRowContent = `<span class="multi-match-chip-trade-row"><span class="multi-match-chip-trade-hint" title="Trade locked by account age (${TRADE_READY_MIN_AGE_DAYS}+ days)">-</span></span>`;
+                                    } else {
+                                        tradeRowContent = `<span class="multi-match-chip-trade-row"><button type="button" class="multi-match-chip-trade-btn" data-multi-mark-traded-account="${escapeHtml(row.account)}" data-multi-mark-traded-card="${escapeHtml(card.id)}" title="Mark traded on this account">Trade</button></span>`;
+                                    }
+                                }
+
+                                const shareRowContent =
+                                    noTrade || !isLowRarityShare
+                                        ? ""
+                                        : `<button type="button" class="multi-match-chip-share-btn" data-multi-mark-shared-account="${escapeHtml(row.account)}" data-multi-mark-shared-card="${escapeHtml(card.id)}" title="Mark this card as shared">Share</button>`;
+
+                                const actionsIndicatorClass = noTrade
+                                    ? " multi-match-chip-actions--nontrade-indicator"
+                                    : "";
+                                const primaryClasses = noTrade
+                                    ? "multi-match-chip-actions-primary multi-match-chip-actions-primary--ghost"
+                                    : "multi-match-chip-actions-primary";
+                                const primaryAriaHidden = noTrade
+                                    ? " aria-hidden=\"true\""
+                                    : "";
+                                const tradeCell = `<span class="multi-match-chip-actions${actionsIndicatorClass}"><span class="${primaryClasses}"${primaryAriaHidden}>${shareRowContent}${tradeRowContent}</span>${footDashMatched}</span>`;
+                                return `<span class="multi-match-chip" title="${chipTitleEsc}">${renderMiniCardThumbForResultChip(card, false)}${nameStackMatch}<span class="multi-chip-count">&times;${formatNumber(copies)}</span>${tradeCell}</span>`;
                             })
                             .join("");
                         const missingShown = missingCards.slice(0, 6);
                         const missingHtml = missingShown
                             .map((card) => {
-                                const rarityHtml =
-                                    getMultiPickerRarityBadgeHtml(
-                                        getCardRarityFilterKey(
-                                            card.id,
-                                            card.info,
-                                        ),
+                                const expCueMiss = renderMultiChipExpansionCueHtml(
+                                    card.id,
+                                    card.info,
+                                    "missing-chip",
+                                );
+                                const expMetaMiss =
+                                    buildMultiChipExpansionSubtitle(
+                                        card.id,
+                                        card.info,
                                     );
-                                return `<span class="multi-missing-chip" title="${escapeHtml(card.id)}"><span class="multi-chip-rarity multi-picker-rarity">${rarityHtml}</span><span class="multi-chip-name">${escapeHtml(card.info.name)}</span><span class="multi-chip-count" aria-hidden="true"></span></span>`;
+                                const missTitleEsc = expMetaMiss
+                                    ? `${escapeHtml(card.id)} · ${escapeHtml(expMetaMiss.tooltip)}`
+                                    : escapeHtml(card.id);
+                                const nameStackMiss = `<span class="multi-chip-name-stack"><span class="multi-chip-name">${escapeHtml(card.info.name)}</span>${expCueMiss}</span>`;
+                                const noTradeMiss =
+                                    card.info.rarityValue === 800 ||
+                                    card.info.rarityValue === 900 ||
+                                    isPromoCard(card.id);
+                                const silentQtyCell = `<span class="multi-chip-count multi-chip-count--placeholder" aria-hidden="true">\u2007</span>`;
+                                const missFootTitle = noTradeMiss
+                                    ? "Not tradeable"
+                                    : "Not on this account";
+                                const missingTrailingCell = `<span class="multi-match-chip-actions multi-match-chip-actions--missing-foot multi-match-chip-actions--nontrade-indicator"><span class="multi-match-chip-actions-primary multi-match-chip-actions-primary--ghost" aria-hidden="true"></span><span class="multi-chip-actions-foot-dash" title="${escapeHtml(missFootTitle)}">-</span></span>`;
+                                return `<span class="multi-missing-chip${noTradeMiss ? " multi-missing-chip--no-trade" : ""}" title="${missTitleEsc}">${renderMiniCardThumbForResultChip(card, false)}${nameStackMiss}${silentQtyCell}${missingTrailingCell}</span>`;
                             })
                             .join("");
                         const extraMissing =
                             missingCards.length > missingShown.length
-                                ? `<span class="multi-missing-chip"><span class="multi-chip-rarity" aria-hidden="true"></span><span class="multi-chip-name">+${formatNumber(missingCards.length - missingShown.length)} more</span><span class="multi-chip-count" aria-hidden="true"></span></span>`
+                                ? `<span class="multi-missing-chip multi-missing-chip--more" title="Additional selected cards missing on this account">${renderMiniCardThumbForResultChip(null, true)}<span class="multi-chip-name-stack"><span class="multi-chip-name">+${formatNumber(missingCards.length - missingShown.length)} more</span></span><span class="multi-chip-count multi-chip-count--placeholder" aria-hidden="true">\u2007</span><span class="multi-match-chip-actions multi-match-chip-actions--missing-foot multi-match-chip-actions--nontrade-indicator"><span class="multi-match-chip-actions-primary multi-match-chip-actions-primary--ghost" aria-hidden="true"></span><span class="multi-chip-actions-foot-dash" title="Additional selected cards missing on this account">-</span></span></span>`
                                 : "";
                         const tradeableMatchedCards = matchedCards.filter(
                             (card) =>
@@ -9240,21 +10388,6 @@
                                     isPromoCard(card.id)
                                 ),
                         );
-                        const tradeActionsHtml = matchedCards
-                            .map((card) => {
-                                const noTrade =
-                                    card.info.rarityValue === 800 ||
-                                    card.info.rarityValue === 900 ||
-                                    isPromoCard(card.id);
-                                if (noTrade) {
-                                    return `<div class="multi-trade-action"><span class="multi-trade-card" title="${escapeHtml(card.id)}">${escapeHtml(card.info.name)}</span><span class="multi-results-subtitle">Not tradeable</span></div>`;
-                                }
-                                if (accountTradeBlocked) {
-                                    return `<div class="multi-trade-action"><span class="multi-trade-card" title="${escapeHtml(card.id)}">${escapeHtml(card.info.name)}</span><span class="multi-results-subtitle">Trade locked by account age</span></div>`;
-                                }
-                                return `<div class="multi-trade-action"><span class="multi-trade-card" title="${escapeHtml(card.id)}">${escapeHtml(card.info.name)}</span><span class="multi-trade-buttons"><button type="button" data-multi-mark-traded-account="${escapeHtml(row.account)}" data-multi-mark-traded-card="${escapeHtml(card.id)}">Mark traded</button></span></div>`;
-                            })
-                            .join("");
                         const tradeableCardIds = tradeableMatchedCards
                             .map((card) => card.id)
                             .join(",");
@@ -9271,12 +10404,12 @@
                                 )
                               ? `<button type="button" class="primary start-trade-btn" disabled title="Account must be at least ${TRADE_READY_MIN_AGE_DAYS} days old to trade">Start trade</button>`
                             : "";
-                        return `<div class="multi-result-item${isSelectedAccount ? " selected" : ""}" data-multi-result-account="${escapeHtml(row.account)}"><div class="multi-result-head"><div><div class="catalog-account-name">${accountNameLabel}</div><div class="multi-result-meta"><span>${escapeHtml(shinedustLabel)}</span>${requiredShinedustLabel ? `<span>${escapeHtml(requiredShinedustLabel)}</span>` : ""}${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div></div><div class="multi-score">${formatNumber(row.matchedUnique)}/${formatNumber(selectedCount)}</div></div>${matchedHtml ? `<div class="multi-card-mini-list">${matchedHtml}</div>` : ""}${missingCards.length ? `<div class="multi-card-mini-list">${missingHtml}${extraMissing}</div>` : ""}${tradeActionsHtml ? `<div class="multi-trade-actions">${tradeActionsHtml}</div>` : ""}<div class="multi-result-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${startTradeBtn}</div></div>`;
+                        return `<div class="multi-result-item${isSelectedAccount ? " selected" : ""}" data-multi-result-account="${escapeHtml(row.account)}"><div class="multi-result-head"><div class="multi-result-head-main"><div class="catalog-account-name${isSelectedAccount ? " selected" : ""}">${accountNameLabel}</div><div class="catalog-account-meta"><span>${escapeHtml(shinedustLabel)}</span>${requiredShinedustLabel ? `<span>${escapeHtml(requiredShinedustLabel)}</span>` : ""}${instanceLabel ? `<span>${escapeHtml(instanceLabel)}</span>` : ""}<span>${escapeHtml(ageLabel)}</span></div></div><div class="multi-score">${formatNumber(row.matchedUnique)}/${formatNumber(selectedCount)}</div></div>${matchedHtml ? `<div class="multi-card-mini-list">${matchedHtml}</div>` : ""}${missingCards.length ? `<div class="multi-card-mini-list">${missingHtml}${extraMissing}</div>` : ""}<div class="multi-result-actions"><button type="button" data-copy-account="${escapeHtml(preferredRaw)}">Copy account</button>${startTradeBtn}</div></div>`;
                     })
                     .join("");
                 const clipped =
                     rows.length > visibleRows.length
-                        ? `<div class="multi-results-subtitle">Showing top ${formatNumber(visibleRows.length)} of ${formatNumber(rows.length)} matching account(s).</div>`
+                        ? `<div class="multi-results-subtitle">Showing top ${formatNumber(visibleRows.length)} of ${formatNumber(rows.length)} matching ${pluralWord(rows.length, "account", "accounts")}.</div>`
                         : "";
                 return `<div class="multi-result-list">${itemsHtml}</div>${clipped}`;
             }
@@ -9352,7 +10485,7 @@
                     : "<em>No selected card summary available.</em>";
                 const extraCards =
                     matchedCardIds.length > 8
-                        ? `<div>+${formatNumber(matchedCardIds.length - 8)} more selected card(s)</div>`
+                        ? `<div>+${formatNumber(matchedCardIds.length - 8)} more selected ${pluralWord(matchedCardIds.length - 8, "card", "cards")}</div>`
                         : "";
                 const summary =
                     `<div>Account: ${escapeHtml(preferredAccountName)}</div>` +
@@ -9518,7 +10651,8 @@
                         "[data-multi-mark-traded-account][data-multi-mark-traded-card]",
                     )
                     .forEach((btn) => {
-                        btn.addEventListener("click", async () => {
+                        btn.addEventListener("click", async (event) => {
+                            event.stopPropagation();
                             const account =
                                 btn.getAttribute(
                                     "data-multi-mark-traded-account",
@@ -9538,10 +10672,43 @@
                     });
                 el.rows
                     .querySelectorAll(
+                        "[data-multi-mark-shared-account][data-multi-mark-shared-card]",
+                    )
+                    .forEach((btn) => {
+                        btn.addEventListener("click", (event) => {
+                            event.stopPropagation();
+                            const account =
+                                btn.getAttribute(
+                                    "data-multi-mark-shared-account",
+                                ) || "";
+                            const cardId =
+                                btn.getAttribute(
+                                    "data-multi-mark-shared-card",
+                                ) || "";
+                            if (!account || !cardId) return;
+                            if (account)
+                                state.multiSelectedAccount = account;
+                            const preferredAccountName =
+                                state.accountFileLabelMap.get(account) ||
+                                account;
+                            showConfirm(
+                                `Mark ${formatCardLabel(cardId)} as shared for ${escapeHtml(preferredAccountName)}?`,
+                                { html: true },
+                            ).then((confirmed) => {
+                                if (!confirmed) return;
+                                if (!isTraded(account, cardId))
+                                    addShared(account, cardId);
+                                renderMultiCardSearchView();
+                            });
+                        });
+                    });
+                el.rows
+                    .querySelectorAll(
                         "[data-multi-start-trade-account][data-multi-start-trade-cards]",
                     )
                     .forEach((btn) => {
-                        btn.addEventListener("click", async () => {
+                        btn.addEventListener("click", async (event) => {
+                            event.stopPropagation();
                             const account =
                                 btn.getAttribute(
                                     "data-multi-start-trade-account",
@@ -9594,7 +10761,7 @@
                     `${sw.offsetHeight}px`,
                 );
                 if (state.view === "multisearch")
-                    syncMultiSearchStickySecondaryTop();
+                    syncMultiSearchStickyLayoutMetrics();
             }
 
             function attachSectionSwitcherStickyMetrics() {
@@ -9619,6 +10786,17 @@
             }
 
             function disconnectMultiSearchStickyLayoutWatch() {
+                const page = document.querySelector(".multi-search-page");
+                if (page) page.style.paddingBottom = "";
+                const layout = document.querySelector(".multi-search-layout");
+                if (layout) layout.style.minHeight = "";
+                if (multiSearchStickyVvResizeHandler && window.visualViewport) {
+                    window.visualViewport.removeEventListener(
+                        "resize",
+                        multiSearchStickyVvResizeHandler,
+                    );
+                    multiSearchStickyVvResizeHandler = null;
+                }
                 if (multiSearchStickyResizeObserver) {
                     multiSearchStickyResizeObserver.disconnect();
                     multiSearchStickyResizeObserver = null;
@@ -9629,17 +10807,145 @@
                 const page = document.querySelector(".multi-search-page");
                 const selected = document.querySelector(".multi-card-search");
                 if (!page || !selected) return;
+
+                const pageCs = getComputedStyle(page);
+                const gapPxSource = pageCs.rowGap || pageCs.gap || "14px";
+                let gapPx = parseFloat(String(gapPxSource).trim());
+                if (!Number.isFinite(gapPx)) gapPx = 14;
+
+                /* Never parseFloat/CSS var string: --sticky-below-tabs is calc(...) */
+                let stickyTabsPx = parseFloat(
+                    String(getComputedStyle(selected).top).trim(),
+                );
+                if (!Number.isFinite(stickyTabsPx)) stickyTabsPx = 72;
+
+                /* Fixed offset while scrolling avoids feedback loops (changing `top`
+                   during scroll makes Pick/Rarity jitter). Bump height + gap from layout. */
                 const h = selected.offsetHeight;
-                const gap = 14;
-                let base = 72;
-                try {
-                    const parsed = parseFloat(getComputedStyle(selected).top);
-                    if (Number.isFinite(parsed)) base = parsed;
-                } catch (_) {}
+                const subpixelSlackPx = 2;
+                const secondaryPx = Math.ceil(
+                    stickyTabsPx + h + gapPx + subpixelSlackPx,
+                );
+
                 page.style.setProperty(
                     "--multi-search-sticky-secondary-top",
-                    `${base + h + gap}px`,
+                    `${secondaryPx}px`,
                 );
+            }
+
+            function syncMultiSearchPageBottomPadding() {
+                if (state.view !== "multisearch") return;
+                const page = document.querySelector(".multi-search-page");
+                const layout = document.querySelector(".multi-search-layout");
+                const stickyPanel = document.querySelector(
+                    ".multi-results-sticky",
+                );
+                const picker = document.querySelector(".multi-search-picker");
+                if (!page) return;
+                const clearExtents = () => {
+                    page.style.paddingBottom = "";
+                    if (layout) layout.style.minHeight = "";
+                };
+                if (!stickyPanel || !picker || !layout) {
+                    clearExtents();
+                    return;
+                }
+
+                let insetPx = parseFloat(
+                    getComputedStyle(page)
+                        .getPropertyValue("--multi-search-sticky-secondary-top")
+                        .trim(),
+                );
+                if (!Number.isFinite(insetPx)) insetPx = 0;
+
+                const panelH = stickyPanel.offsetHeight;
+                const pickStretchH = picker.offsetHeight || 0;
+                const vh =
+                    typeof window.visualViewport?.height === "number"
+                        ? window.visualViewport.height
+                        : window.innerHeight;
+
+                /* docHeight extends past .multi-search-page by load-more wrap + main
+                   padding-bottom; fold that into the panel's bottom-gap so scroll-bottom
+                   stays within the panel's sticky range. */
+                const pageScrollY =
+                    window.pageYOffset ||
+                    document.documentElement.scrollTop ||
+                    0;
+                const pageBottomDoc =
+                    page.getBoundingClientRect().bottom + pageScrollY;
+                const docHeight =
+                    document.documentElement.scrollHeight || pageBottomDoc;
+                const extrasBelow = Math.max(0, docHeight - pageBottomDoc);
+
+                const basePanelGap =
+                    parseFloat(
+                        getComputedStyle(document.documentElement)
+                            .getPropertyValue("--page-panel-stack-y")
+                            .trim(),
+                    ) || 12;
+                stickyPanel.style.setProperty(
+                    "--multi-results-sticky-bottom-gap",
+                    `${Math.ceil(basePanelGap + extrasBelow)}px`,
+                );
+
+                const pickerMainEl = picker.querySelector(
+                    ".multi-search-picker-main",
+                );
+                const pickerCtlEl = picker.querySelector(".catalog-controls");
+                let intrinsicPickH =
+                    (pickerMainEl?.offsetHeight || 0) +
+                    (pickerCtlEl?.offsetHeight || 0);
+                if (intrinsicPickH > 2) intrinsicPickH += 16;
+
+                /*
+                    Extra document bottom scroll for sticky unwind near the footer; do not increase
+                    layout min-height on the results column (ResizeObserver instability risk).
+                    Slack scales with viewport slack and unusually tall Best-results panels, capped
+                    to roughly one viewport of extra slack.
+                */
+                const tailBuf = Math.max(48, Math.round(vh * 0.05));
+                let slackPx = Math.max(0, insetPx + panelH + tailBuf - vh);
+
+                const tallerBestThanPick = Math.max(0, panelH - intrinsicPickH);
+                if (tallerBestThanPick > 72) {
+                    slackPx += Math.min(
+                        Math.ceil(tallerBestThanPick * 0.52),
+                        Math.ceil(panelH * 0.48),
+                        560,
+                    );
+                }
+
+                const stretchVoid = Math.max(0, pickStretchH - intrinsicPickH);
+                if (stretchVoid > 140 && tallerBestThanPick <= 140) {
+                    slackPx += Math.min(Math.ceil(stretchVoid * 0.32), 280);
+                }
+
+                slackPx = Math.ceil(slackPx);
+
+                /* Cap slack so scroll-bottom never exceeds Best Accounts' sticky range. */
+                const effectivePanelH = Math.min(
+                    panelH,
+                    Math.max(0, vh - insetPx - basePanelGap - extrasBelow),
+                );
+                const noOverlapCap = Math.max(
+                    0,
+                    vh - insetPx - effectivePanelH - extrasBelow,
+                );
+                slackPx = Math.min(slackPx, noOverlapCap);
+
+                /* Final slack clamp so pathological tall panels cannot blow up page padding */
+                const slackAbsMax = Math.ceil(vh * 2.85 + panelH + insetPx + 900);
+                slackPx = Math.min(slackPx, slackAbsMax);
+
+                layout.style.minHeight = "";
+                page.style.paddingBottom =
+                    slackPx > 0 ? `${slackPx}px` : "";
+            }
+
+            function syncMultiSearchStickyLayoutMetrics() {
+                syncMultiSearchStickySecondaryTop();
+                syncMultiSearchPageBottomPadding();
             }
 
             function attachMultiSearchStickyLayoutWatch() {
@@ -9648,12 +10954,42 @@
                 const page = document.querySelector(".multi-search-page");
                 const selected = document.querySelector(".multi-card-search");
                 if (!page || !selected) return;
-                syncMultiSearchStickySecondaryTop();
+                syncMultiSearchStickyLayoutMetrics();
+
+                const vv = window.visualViewport;
+                if (vv) {
+                    multiSearchStickyVvResizeHandler = () => {
+                        if (state.view === "multisearch")
+                            syncMultiSearchStickyLayoutMetrics();
+                    };
+                    vv.addEventListener(
+                        "resize",
+                        multiSearchStickyVvResizeHandler,
+                        { passive: true },
+                    );
+                }
+
                 if (typeof ResizeObserver === "undefined") return;
                 multiSearchStickyResizeObserver = new ResizeObserver(() => {
-                    syncMultiSearchStickySecondaryTop();
+                    syncMultiSearchStickyLayoutMetrics();
                 });
                 multiSearchStickyResizeObserver.observe(selected);
+                const stickyPanel = document.querySelector(
+                    ".multi-results-sticky",
+                );
+                if (stickyPanel)
+                    multiSearchStickyResizeObserver.observe(stickyPanel);
+                const pickerCol = document.querySelector(
+                    ".multi-search-picker",
+                );
+                if (pickerCol)
+                    multiSearchStickyResizeObserver.observe(pickerCol);
+
+                const mainCol = pickerCol?.querySelector(
+                    ".multi-search-picker-main",
+                );
+                if (mainCol)
+                    multiSearchStickyResizeObserver.observe(mainCol);
             }
 
             function rebuildMultiSelectionUI() {
@@ -9681,7 +11017,10 @@
                 const resultSummary = !state.csvLoaded
                     ? "No account data loaded."
                     : selectedCards.length
-                      ? `${formatNumber(matchingAccountCount)} account(s) have at least one of ${formatNumber(selectedCards.length)} selected card(s).`
+                      ? formatMultiSearchAccountSummary(
+                            matchingAccountCount,
+                            selectedCards.length,
+                        )
                       : "Select cards to rank accounts by best match.";
                 el.resultNote.textContent = resultSummary;
 
@@ -9697,7 +11036,7 @@
                     shinedustTitle:
                         "Only show accounts with enough shinedust for the selected cards they have",
                 });
-                const newResultsHtml = `<aside class="multi-search-results"><div class="multi-results-panel panel"><div class="multi-results-title-row"><div class="multi-results-titles"><div class="multi-results-title">Best accounts</div><div class="multi-results-subtitle">Sorted by selected cards matched, then selected-card copies.</div></div></div><div class="multi-results-toolbar">${multiFilterTogglesHtml}</div>${renderMultiResultList(selectedCards, accountRows)}</div></aside>`;
+                const newResultsHtml = `<aside class="multi-search-results"><div class="multi-results-sticky"><div class="multi-results-panel panel"><div class="multi-results-title-row"><div class="multi-results-titles"><div class="multi-results-title">Best accounts</div><div class="multi-results-subtitle">Sorted by selected cards matched, then selected-card copies.</div></div></div><div class="multi-results-toolbar">${multiFilterTogglesHtml}</div>${renderMultiResultList(selectedCards, accountRows)}</div></div></aside>`;
 
                 const selectedEl = el.rows.querySelector(".multi-card-search");
                 if (selectedEl) selectedEl.outerHTML = newSelectedHtml;
@@ -9726,7 +11065,7 @@
                 const hasVisibleCards = renderedSections.length > 0;
                 return hasVisibleCards
                     ? showingExpansionList
-                        ? `<article class="multi-picker-section panel"><div class="multi-picker-section-head"><div class="multi-picker-section-title">Expansions</div><div class="catalog-section-meta">${formatNumber(renderedSections.length)} set(s)</div></div><div class="multi-expansion-list">${renderedSections
+                        ? `<article class="multi-picker-section panel"><div class="multi-picker-section-head"><div class="multi-picker-section-title">Expansions</div><div class="catalog-section-meta">${formatNumber(renderedSections.length)} ${pluralWord(renderedSections.length, "set", "sets")}</div></div><div class="multi-expansion-list">${renderedSections
                               .map((section) => {
                                   const total = section.cards.length;
                                   const available = section.cards.filter(
@@ -9743,7 +11082,7 @@
                                       ? `<img class="multi-expansion-logo" src="${escapeHtml(iconUrl)}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'multi-expansion-logo-empty\\'></div>'">`
                                       : `<div class="multi-expansion-logo-empty"></div>`;
                                   const badge = selectedInSection
-                                      ? `<span class="multi-expansion-selected-badge" title="${formatNumber(selectedInSection)} selected card(s)">${formatNumber(selectedInSection)}</span>`
+                                      ? `<span class="multi-expansion-selected-badge" title="${formatNumber(selectedInSection)} selected ${pluralWord(selectedInSection, "card", "cards")}">${formatNumber(selectedInSection)}</span>`
                                       : "";
                                   const selectedClass = selectedInSection
                                       ? " has-selected"
@@ -9774,7 +11113,7 @@
                                       const thumbHtml = imgPart
                                           ? imgPart
                                           : `<span style="font-size:0.64rem;color:var(--muted)">No image</span>`;
-                                      return `<button type="button" class="multi-picker-row${unavailableClass}${selectedClass}" data-multi-picker-card-id="${escapeHtml(card.id)}" aria-pressed="${selected ? "true" : "false"}"><span class="multi-picker-thumb">${thumbHtml}</span><span class="multi-picker-main"><span class="multi-picker-name">${escapeHtml(card.info.name)}</span></span><span class="multi-picker-rarity">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(card.id, card.info))}</span></button>`;
+                                      return `<button type="button" class="multi-picker-row${unavailableClass}${selectedClass}" data-multi-picker-card-id="${escapeHtml(card.id)}" aria-pressed="${selected ? "true" : "false"}"><span class="multi-picker-thumb">${thumbHtml}</span><span class="multi-picker-main"><span class="multi-picker-name">${escapeHtml(card.info.name)}</span>${renderMultiChipExpansionCueHtml(card.id, card.info, "picker")}</span><span class="multi-picker-rarity">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(card.id, card.info))}</span></button>`;
                                   })
                                   .join("");
                               const availableInSection = section.cards.filter(
@@ -9893,7 +11232,10 @@
                 const resultSummary = !state.csvLoaded
                     ? "No account data loaded."
                     : selectedCards.length
-                      ? `${formatNumber(matchingAccountCount)} account(s) have at least one of ${formatNumber(selectedCards.length)} selected card(s).`
+                      ? formatMultiSearchAccountSummary(
+                            matchingAccountCount,
+                            selectedCards.length,
+                        )
                       : "Select cards to rank accounts by best match.";
                 el.resultNote.textContent = `${resultSummary}${clippedNote}`;
 
@@ -9937,13 +11279,13 @@
 
                 void picker.offsetHeight;
                 restorePickerScroll();
-                syncMultiSearchStickySecondaryTop();
+                syncMultiSearchStickyLayoutMetrics();
 
                 requestAnimationFrame(() => {
                     if (pickerMainHeightLockEl)
                         pickerMainHeightLockEl.style.minHeight = "";
                     restorePickerScroll();
-                    syncMultiSearchStickySecondaryTop();
+                    syncMultiSearchStickyLayoutMetrics();
                     attachMultiSearchStickyLayoutWatch();
                     const searchInput = document.getElementById("multiCardSearch");
                     if (preserveCatalogSearchFocus && searchInput) {
@@ -10168,7 +11510,10 @@
                 const resultSummary = !state.csvLoaded
                     ? "No account data loaded."
                     : selectedCards.length
-                      ? `${formatNumber(matchingAccountCount)} account(s) have at least one of ${formatNumber(selectedCards.length)} selected card(s).`
+                      ? formatMultiSearchAccountSummary(
+                            matchingAccountCount,
+                            selectedCards.length,
+                        )
                       : "Select cards to rank accounts by best match.";
                 el.resultNote.textContent = `${resultSummary}${clippedNote}`;
 
@@ -10182,7 +11527,7 @@
                     shinedustTitle:
                         "Only show accounts with enough shinedust for the selected cards they have",
                 });
-                const resultsHtml = `<aside class="multi-search-results"><div class="multi-results-panel panel"><div class="multi-results-title-row"><div class="multi-results-titles"><div class="multi-results-title">Best accounts</div><div class="multi-results-subtitle">Sorted by selected cards matched, then selected-card copies.</div></div></div><div class="multi-results-toolbar">${multiFilterTogglesHtml}</div>${renderMultiResultList(selectedCards, accountRows)}</div></aside>`;
+                const resultsHtml = `<aside class="multi-search-results"><div class="multi-results-sticky"><div class="multi-results-panel panel"><div class="multi-results-title-row"><div class="multi-results-titles"><div class="multi-results-title">Best accounts</div><div class="multi-results-subtitle">Sorted by selected cards matched, then selected-card copies.</div></div></div><div class="multi-results-toolbar">${multiFilterTogglesHtml}</div>${renderMultiResultList(selectedCards, accountRows)}</div></div></aside>`;
                 el.rows.innerHTML = `<div class="multi-search-page">${selectedHtml}<div class="multi-search-layout"><section class="multi-search-picker"><div class="multi-search-picker-controls">${controlsHtml}</div><div class="multi-search-picker-main">${sectionsHtml}</div></section>${resultsHtml}</div></div>`;
                 /* Sync scroll restore (avoids a flash at scroll 0 before deferred layout). */
                 void el.rows.offsetHeight;
@@ -10199,7 +11544,7 @@
                     if (scrollContainer !== document.documentElement)
                         scrollContainer.scrollTop = ty;
                 }
-                syncMultiSearchStickySecondaryTop();
+                syncMultiSearchStickyLayoutMetrics();
 
                 el.rows.onclick = (event) => {
                     if (state.view !== "multisearch") return;
@@ -10244,7 +11589,7 @@
                         document.activeElement?.blur();
                     void el.rows.offsetHeight;
                     restoreScroll();
-                    syncMultiSearchStickySecondaryTop();
+                    syncMultiSearchStickyLayoutMetrics();
                     if (preserveCatalogSearchFocus && searchInput) {
                         try {
                             searchInput.focus({ preventScroll: true });
@@ -10261,7 +11606,7 @@
                     }
                     requestAnimationFrame(() => {
                         restoreScroll();
-                        syncMultiSearchStickySecondaryTop();
+                        syncMultiSearchStickyLayoutMetrics();
                         requestAnimationFrame(() => {
                             restoreScroll();
                             attachMultiSearchStickyLayoutWatch();
@@ -10563,7 +11908,7 @@
                     const accountCount = accountRows.length;
                     const accountWord =
                         accountCount === 1 ? "account" : "accounts";
-                    const rarityHtml = getRarityIconHtml(
+                    const rarityHtml = getMultiPickerRarityBadgeHtml(
                         getCardRarityFilterKey(selected.id, selected.info),
                     );
                     selectedMeta = `<div class="catalog-side-meta"><div class="catalog-side-meta-card"><span class="catalog-side-card-name">${escapeHtml(selected.info.name)}</span><span class="catalog-side-card-rarity">${rarityHtml}</span></div><div class="catalog-side-meta-stats"><span>${formatNumber(copyCount)} ${catalogFiltersActive ? "eligible" : "available"} ${copyWord}</span><span>${formatNumber(accountCount)} ${accountWord}</span></div></div>`;
@@ -10692,6 +12037,11 @@
                 el.rows.innerHTML = `<div class="empty panel">Loading wishlist...</div>`;
             }
 
+            /** Hookup reminders for Save for Trade vs InjectWP, with richer presentation. */
+            function buildWishlistIntroHtml() {
+                return `<aside class="wishlist-intro" aria-label="Wishlist automation tips"><span class="wishlist-intro-glyph" aria-hidden="true">&#9829;</span><div class="wishlist-intro-copy"><p class="wishlist-intro-lead">Wishlist Features (PTCGPB.ahk):</p><ul class="wishlist-intro-points"><li class="wishlist-intro-point wishlist-intro-point--sft"><span class="wishlist-intro-point-label">S4T</span><p class="wishlist-intro-point-body">Enable <strong>Save for Trade</strong>, then <strong>Wishlist</strong>, in PTCGPB to receive custom notifications for cards you add to this wishlist.</p></li><li class="wishlist-intro-point wishlist-intro-point--inj"><span class="wishlist-intro-point-label">InjectWP</span><p class="wishlist-intro-point-body">Enable <strong>InjectWP Card Detection</strong>, then <strong>Wishlist 2★</strong>, to save accounts that find cards from this wishlist.</p></li></ul></div></aside>`;
+            }
+
             function buildWishlistTilesHtml(cardIds) {
                 return cardIds
                     .map((id) => {
@@ -10702,7 +12052,7 @@
                         const fallbackClass = info.imageUrl
                             ? "hidden empty"
                             : "empty";
-                        const rarityHtml = getRarityIconHtml(
+                        const rarityHtml = getMultiPickerRarityBadgeHtml(
                             getCardRarityFilterKey(id, info),
                         );
                         return `<div class="card-tile wishlisted" data-wishlist-tile="${escapeHtml(id)}"><div class="card-media"><button type="button" class="wishlist-heart-btn on" data-wishlist-card="${escapeHtml(id)}" aria-pressed="true" title="Remove from wishlist" aria-label="Remove from wishlist">♥</button>${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div></div><div class="card-name">${escapeHtml(info.name)}</div><div class="card-badges"><span class="mini-badge">${rarityHtml}</span></div></div>`;
@@ -10779,7 +12129,7 @@
                         const iconHtml = g.iconUrl
                             ? `<img class="catalog-section-logo" src="${escapeHtml(g.iconUrl)}" alt="${escapeHtml(g.label)}" title="${escapeHtml(g.label)}" loading="lazy" onerror="this.outerHTML='<div class=\\'catalog-section-title\\'>${escapeHtml(g.label).replace(/'/g, "\\'")}</div>'">`
                             : `<div class="catalog-section-title">${escapeHtml(g.label)}</div>`;
-                        return `<article class="wishlist-section panel" data-wishlist-section="${escapeHtml(g.code)}"><div class="catalog-section-head"><span></span><div class="catalog-section-logo-wrap">${iconHtml}</div><div class="catalog-section-meta">${formatNumber(g.cardIds.length)} card(s)</div></div><div class="cards-grid">${tilesHtml}</div></article>`;
+                        return `<article class="wishlist-section panel" data-wishlist-section="${escapeHtml(g.code)}"><div class="catalog-section-head"><span></span><div class="catalog-section-logo-wrap">${iconHtml}</div><div class="catalog-section-meta">${formatNumber(g.cardIds.length)} ${pluralWord(g.cardIds.length, "card", "cards")}</div></div><div class="cards-grid">${tilesHtml}</div></article>`;
                     })
                     .join("");
             }
@@ -10798,7 +12148,7 @@
                 }
                 const summary = root.querySelector(".wishlist-summary");
                 if (summary)
-                    summary.textContent = `${formatNumber(ids.length)} card(s) in your wishlist`;
+                    summary.textContent = `${formatNumber(ids.length)} ${pluralWord(ids.length, "card", "cards")} in your wishlist`;
                 const groupsRoot = root.querySelector(".wishlist-groups");
                 if (groupsRoot) {
                     groupsRoot.innerHTML = buildWishlistGroupsHtml(
@@ -10881,25 +12231,15 @@
                     return;
                 }
                 const ids = [...state.wishlistSet];
+                const wishlistIntro = buildWishlistIntroHtml();
                 if (!ids.length) {
-                    el.rows.innerHTML = `<div class="empty panel"><div style="font-size:1.1rem;font-weight:800;margin-bottom:6px">Your wishlist is empty</div><div style="color:var(--muted)">Open <strong>Card Library</strong>, then tap the ♡ button on any card you want to track here.</div></div>`;
+                    el.rows.innerHTML = `<section class="wishlist-page"><header class="wishlist-head"><div><h2 class="wishlist-title">Wishlist</h2><div class="wishlist-summary">${formatNumber(0)} cards in your wishlist</div></div></header>${wishlistIntro}<div class="empty panel"><div style="font-size:1.1rem;font-weight:800;margin-bottom:6px">Your wishlist is empty</div><div style="color:var(--muted)">Open <strong>Card Library</strong>, then tap the ♡ button on any card you want to track here.</div></div></section>`;
                     return;
                 }
                 const groups = buildWishlistGroups();
                 const groupsHtml = buildWishlistGroupsHtml(groups);
-                el.rows.innerHTML = `<section class="wishlist-page"><header class="wishlist-head"><div><h2 class="wishlist-title">Wishlist</h2><div class="wishlist-summary">${formatNumber(ids.length)} card(s) in your wishlist</div></div><button type="button" id="wishlistClearBtn" class="ghost" title="Clear wishlist">Clear all</button></header><div class="wishlist-groups">${groupsHtml}</div></section>`;
+                el.rows.innerHTML = `<section class="wishlist-page"><header class="wishlist-head"><div><h2 class="wishlist-title">Wishlist</h2><div class="wishlist-summary">${formatNumber(ids.length)} ${pluralWord(ids.length, "card", "cards")} in your wishlist</div></div></header>${wishlistIntro}<div class="wishlist-groups">${groupsHtml}</div></section>`;
                 _attachWishlistListeners();
-                const clearBtn = document.getElementById("wishlistClearBtn");
-                if (clearBtn)
-                    clearBtn.addEventListener("click", async () => {
-                        const ok = await showConfirm(
-                            `Remove all ${ids.length} card(s) from your wishlist?`,
-                        );
-                        if (!ok) return;
-                        state.wishlistSet.clear();
-                        saveWishlist();
-                        renderWishlistView();
-                    });
             }
 
             function buildCardAccountCounts() {
@@ -11261,7 +12601,7 @@
                                               : "";
                                           // Heart is <span>: tile is already a <button> (no nested buttons).
                                           const wishBtn = `<span class="wishlist-heart-btn${wishOn ? " on" : ""}" role="button" tabindex="-1" data-wishlist-card="${escapeHtml(card.id)}" aria-pressed="${wishOn ? "true" : "false"}" title="${wishOn ? "Remove from wishlist" : "Add to wishlist"}" aria-label="${wishOn ? "Remove from wishlist" : "Add to wishlist"}">${wishOn ? "♥" : "♡"}</span>`;
-                                          return `<button type="button" class="catalog-card-btn" data-catalog-card-id="${escapeHtml(card.id)}"><div class="card-tile${selectedClass}${unavailableClass}${wishClass}"><div class="card-media">${wishBtn}${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="qty">×${formatNumber(card.totalCopies)}</div></div><div class="card-name">${escapeHtml(card.info.name)}</div><div class="card-badges"><span class="mini-badge">${getRarityIconHtml(getCardRarityFilterKey(card.id, card.info))}</span></div></div></button>`;
+                                          return `<button type="button" class="catalog-card-btn" data-catalog-card-id="${escapeHtml(card.id)}"><div class="card-tile${selectedClass}${unavailableClass}${wishClass}"><div class="card-media">${wishBtn}${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div><div class="qty">×${formatNumber(card.totalCopies)}</div></div><div class="card-name">${escapeHtml(card.info.name)}</div><div class="card-badges"><span class="mini-badge">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(card.id, card.info))}</span></div></div></button>`;
                                       })
                                       .join("");
                                   const availableInSection =
@@ -11381,7 +12721,7 @@
                     const accountCount = accountRows.length;
                     const accountWord =
                         accountCount === 1 ? "account" : "accounts";
-                    const rarityHtml = getRarityIconHtml(
+                    const rarityHtml = getMultiPickerRarityBadgeHtml(
                         getCardRarityFilterKey(selected.id, selected.info),
                     );
                     selectedMeta = `<div class="catalog-side-meta"><div class="catalog-side-meta-card"><span class="catalog-side-card-name">${escapeHtml(selected.info.name)}</span><span class="catalog-side-card-rarity">${rarityHtml}</span></div><div class="catalog-side-meta-stats"><span>${formatNumber(copyCount)} ${catalogFiltersActive ? "eligible" : "available"} ${copyWord}</span><span>${formatNumber(accountCount)} ${accountWord}</span></div></div>`;
@@ -11524,7 +12864,7 @@
                 syncCatalogLibraryControlsFromState();
 
                 el.resultNote.textContent = parts.hasVisibleCards
-                    ? `${formatNumber(parts.availableCards)} of ${formatNumber(parts.byCardIdSize)} cards available · ${formatNumber(parts.availableCopies)} total available copy(s).`
+                    ? `${formatNumber(parts.availableCards)} of ${formatNumber(parts.byCardIdSize)} cards available · ${formatNumber(parts.availableCopies)} total available ${pluralWord(parts.availableCopies, "copy", "copies")}.`
                     : "No cards match the selected rarity filters.";
                 if (parts.hasVisibleCards && parts.hiddenCardCount)
                     el.resultNote.textContent += parts.clippedNote;
@@ -11829,7 +13169,7 @@
 
                 el.rows.innerHTML = `<div class="catalog-layout"><section class="catalog-library-picker">${parts.controlsHtml}<div class="catalog-library-main">${parts.sectionsHtml}</div></section>${parts.sideHtml}</div>`;
                 el.resultNote.textContent = parts.hasVisibleCards
-                    ? `${formatNumber(parts.availableCards)} of ${formatNumber(parts.byCardIdSize)} cards available · ${formatNumber(parts.availableCopies)} total available copy(s).`
+                    ? `${formatNumber(parts.availableCards)} of ${formatNumber(parts.byCardIdSize)} cards available · ${formatNumber(parts.availableCopies)} total available ${pluralWord(parts.availableCopies, "copy", "copies")}.`
                     : "No cards match the selected rarity filters.";
                 if (parts.hasVisibleCards && parts.hiddenCardCount)
                     el.resultNote.textContent += parts.clippedNote;
@@ -12231,7 +13571,7 @@
                 }
                 const total = state.filteredRows.length;
                 const shown = Math.min(state.displayLimit, total);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching row(s).`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching ${pluralWord(total, "row", "rows")}.`;
                 if (!total) {
                     el.rows.innerHTML = `<div class="empty panel">No rows match the current filters.</div>`;
                     return;
@@ -12266,8 +13606,8 @@
                 }
                 const countMeta =
                     visibleCardIds.length !== row.cardCount
-                        ? `${formatNumber(visibleCardIds.length)} card(s) shown · ${formatNumber(row.cardCount)} total`
-                        : `${formatNumber(row.cardCount)} card(s)`;
+                        ? `${formatNumber(visibleCardIds.length)} ${pluralWord(visibleCardIds.length, "card", "cards")} shown · ${formatNumber(row.cardCount)} total`
+                        : `${formatNumber(row.cardCount)} ${pluralWord(row.cardCount, "card", "cards")}`;
                 const timestampLabel = formatRowTimestamp(row);
                 const tsMeta = timestampLabel
                     ? `<span>${escapeHtml(timestampLabel)}</span>`
@@ -12496,7 +13836,7 @@
                 const accounts = buildAccountOverview();
                 const total = accounts.length;
                 const shown = Math.min(state.displayLimit, total);
-                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching account(s).`;
+                el.resultNote.textContent = `Showing ${formatNumber(shown)} of ${formatNumber(total)} matching ${pluralWord(total, "account", "accounts")}.`;
                 if (!total) {
                     el.rows.innerHTML = `<div class="empty panel">No accounts match the current filters.</div>`;
                     return;
@@ -12531,11 +13871,11 @@
                 const cardFiltersActive =
                     visibleEntries.length !== account.cardEntries.length;
                 const countLabel = cardFiltersActive
-                    ? `${formatNumber(visibleCount)} card(s) shown · ${formatNumber(account.totalCards)} total`
-                    : `${formatNumber(account.totalCards)} total card(s)`;
+                    ? `${formatNumber(visibleCount)} ${pluralWord(visibleCount, "card", "cards")} shown · ${formatNumber(account.totalCards)} total`
+                    : `${formatNumber(account.totalCards)} total ${pluralWord(account.totalCards, "card", "cards")}`;
                 const uniqueLabel = cardFiltersActive
                     ? `${formatNumber(visibleUnique)} unique shown · ${formatNumber(account.uniqueCards)} total`
-                    : `${formatNumber(account.uniqueCards)} unique card id(s)`;
+                    : `${formatNumber(account.uniqueCards)} unique ${pluralWord(account.uniqueCards, "card ID", "card IDs")}`;
                 const latestShinedust = state.accountShinedustMap.has(
                     account.account,
                 )
@@ -12545,7 +13885,7 @@
                 const ageLabel =
                     ageDays == null
                         ? "Age n/a"
-                        : `${formatNumber(ageDays)} day(s)`;
+                        : `${formatNumber(ageDays)} ${pluralWord(ageDays, "day", "days")}`;
                 const rawFileLabel =
                     state.accountFileLabelMap.get(account.account) || "";
                 const fileLabelShort = buildFileLabelMeta(rawFileLabel);
@@ -12776,7 +14116,7 @@
                             ? `<button class="traded-btn shared-remove-btn" type="button" data-shared-remove-account="${escapeHtml(account)}" data-shared-remove-card="${escapeHtml(id)}" title="Remove from shared">\u2715</button>`
                             : "";
                     parts.push(
-                        `<div class="card-tile${tradedClass}${sharedClass}">${tradedBtn}${sharedRemoveBtn}<div class="card-media">${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div>${qtyPart}</div><div class="card-name">${escapeHtml(card.name)}</div><div class="card-badges"><span class="mini-badge">${getRarityIconHtml(getCardRarityFilterKey(id, card))}</span></div></div>`,
+                        `<div class="card-tile${tradedClass}${sharedClass}">${tradedBtn}${sharedRemoveBtn}<div class="card-media">${imgPart}<div class="${fallbackClass}" style="padding:22px 8px">No image</div>${qtyPart}</div><div class="card-name">${escapeHtml(card.name)}</div><div class="card-badges"><span class="mini-badge">${getMultiPickerRarityBadgeHtml(getCardRarityFilterKey(id, card))}</span></div></div>`,
                     );
                 }
                 const grid = document.createElement("div");
@@ -13110,6 +14450,24 @@
             el.sectionWishlistBtn.addEventListener("click", () =>
                 setView("wishlist"),
             );
+            if (el.backToTopBtn) {
+                el.backToTopBtn.addEventListener("click", () => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+                const updateBackToTopVisibility = () => {
+                    const y =
+                        window.pageYOffset ||
+                        document.documentElement.scrollTop ||
+                        0;
+                    el.backToTopBtn.hidden = y < 200;
+                };
+                window.addEventListener(
+                    "scroll",
+                    updateBackToTopVisibility,
+                    { passive: true },
+                );
+                updateBackToTopVisibility();
+            }
             el.cardSize.addEventListener("change", () =>
                 document.documentElement.style.setProperty(
                     "--card-w",
