@@ -108,6 +108,79 @@ PackMethod_ConsumeStayOnPackScreen() {
 }
 
 ;-------------------------------------------------------------------------------
+; UniqueArray - Return a copy of the array with only the first occurrence of
+; each value preserved (preserves original order).
+;-------------------------------------------------------------------------------
+UniqueArray(arr) {
+    seen := {}
+    result := []
+    for _, value in arr {
+        if (!seen[value]) {
+            seen[value] := true
+            result.Push(value)
+        }
+    }
+    return result
+}
+
+;-------------------------------------------------------------------------------
+; SelectGroupRerollFriendIDs - Pick 9 random IDs from ids.txt plus the configured
+; FriendID for group reroll. If ids.txt has fewer than 10 IDs, use all of them.
+; The returned list never contains duplicates, even if FriendID is also in ids.txt.
+;-------------------------------------------------------------------------------
+SelectGroupRerollFriendIDs(fileIDs, friendID) {
+    if (!IsObject(fileIDs))
+        fileIDs := []
+
+    fileIDs := UniqueArray(fileIDs)
+
+    n := fileIDs.MaxIndex()
+    if (!n)
+        n := 0
+
+    ; Not enough IDs for the 10-ID sampling rule: fall back to using all IDs.
+    if (n < 10) {
+        if (friendID != "" && !HasVal(fileIDs, friendID))
+            fileIDs.Push(friendID)
+        return fileIDs
+    }
+
+    ; Build a pool of ids.txt entries excluding the FriendID.
+    pool := []
+    for _, id in fileIDs {
+        if (id != friendID)
+            pool.Push(id)
+    }
+
+    if (!pool.MaxIndex() || pool.MaxIndex() < 9) {
+        if (friendID != "" && !HasVal(fileIDs, friendID))
+            fileIDs.Push(friendID)
+        return fileIDs
+    }
+
+    ; Shuffle pool (Fisher-Yates) and take the first 9.
+    poolN := pool.MaxIndex()
+    Loop % poolN {
+        i := poolN - A_Index + 1
+        Random, j, 1, %i%
+        temp := pool[i] . ""
+        pool[i] := pool[j] . ""
+        pool[j] := temp . ""
+    }
+
+    selected := []
+    Loop 9 {
+        selected.Push(pool[A_Index])
+    }
+
+    ; The 10th slot is always the configured FriendID.
+    if (friendID != "")
+        selected.Push(friendID)
+
+    return selected
+}
+
+;-------------------------------------------------------------------------------
 ; AddFriends - Add friends from friend code list
 ;-------------------------------------------------------------------------------
 AddFriends(renew := false, getFC := false) {
@@ -126,10 +199,14 @@ AddFriends(renew := false, getFC := false) {
         friendIDs := ReadFile("ids")
         if (!friendIDs)
             friendIDs := []
+        if (botConfig.get("groupRerollEnabled") && botConfig.get("groupRerollRandom10")) {
+            ; Group reroll with random 10: pick 9 random IDs from ids.txt plus the FriendID.
+            friendIDs := SelectGroupRerollFriendIDs(friendIDs, botConfig.get("FriendID"))
+        } else if(!HasVal(friendIDs, botConfig.get("FriendID")) && botConfig.get("FriendID") != "") {
+            ; Full list: append the FriendID if missing.
+            friendIDs.Push(botConfig.get("FriendID"))
+        }
         session.set("friendIDs", friendIDs)
-
-        if(!HasVal(session.get("friendIDs"), botConfig.get("FriendID")) && botConfig.get("FriendID") != "")
-            session.get("friendIDs").Push(botConfig.get("FriendID"))
     } else if (!getFC) {
         session.set("friendIDs", false)
     }
@@ -204,6 +281,10 @@ AddFriends(renew := false, getFC := false) {
         session.set("friendIDs", [])
         session.get("friendIDs").Push(botConfig.get("FriendID"))  ; Use an array to hold the single friend ID
     }
+    if (!renew)
+        session.set("addedFriendIDs", [])
+    else if (!IsObject(session.get("addedFriendIDs")))
+        session.set("addedFriendIDs", [])
     FindImageAndClick("Friend_SearchFriendWindowCancelButtonCorner", 75, 440)
     FindFriendIDInputAndClick("", "initial")
 
@@ -241,11 +322,13 @@ AddFriends(renew := false, getFC := false) {
             if(FindOrLoseImage("Friend_RequestButtonInSearchResult", 0, failSafeTime, 80)) {
                 adbClick_wbb(243, 258)
                 MarkFriendCleanupPending("Friend request submitted")
+                AddFriends_RecordAddedFriendID(value)
                 Delay(1)
                 gosub, WaitAfterFriendRequestSend
                 break
             }
             else if(FindOrLoseImage("Friend_WithdrawButton", 0, failSafeTime)) {
+                AddFriends_RecordAddedFriendID(value)
                 MarkFriendCleanupPending("Friend request pending")
                 break
             }
@@ -260,6 +343,7 @@ AddFriends(renew := false, getFC := false) {
                 Loop{
                     Delay(0.25)
                     if(FindOrLoseImage("Friend_AcceptedButtonInFriendDetails", 0, failSafeTime)) {
+                        AddFriends_RecordAddedFriendID(value)
                         MarkFriendCleanupPending("Friend accepted from details")
                         break
                     }
@@ -288,6 +372,7 @@ AddFriends(renew := false, getFC := false) {
                 break
             }
             else if(FindOrLoseImage("Friend_AcceptedButtonInFriendDetails", 0, failSafeTime)) {
+                AddFriends_RecordAddedFriendID(value)
                 MarkFriendCleanupPending("Friend accepted from details")
                 CloseFriendDetailsIfOpen()
                 break
@@ -302,6 +387,7 @@ AddFriends(renew := false, getFC := false) {
                 break
             }
             else if(FindOrLoseImage("Friend_AcceptedButtonInSearchResult", 0, failSafeTime)) {
+                AddFriends_RecordAddedFriendID(value)
                 MarkFriendCleanupPending("Friend accepted")
                 if(renew){
                     interceptProc := true
@@ -320,6 +406,7 @@ AddFriends(renew := false, getFC := false) {
                     Delay(1) ; otherwise it will sometimes click before UI finishes loading
                     adbClick_wbb(243, 258)
                     MarkFriendCleanupPending("Friend request renewed")
+                    AddFriends_RecordAddedFriendID(value)
                     gosub, WaitAfterFriendRequestSend
                 }
                 break
@@ -438,6 +525,23 @@ AddFriends(renew := false, getFC := false) {
             writeLastActivityEpoch(session.get("scriptName"), 4000)
         }
     }
+
+    if (IsObject(session.get("addedFriendIDs"))) {
+        requestCount := session.get("addedFriendIDs").MaxIndex()
+        if (requestCount) {
+            instanceIdx := RegExReplace(session.get("scriptName"), "\D")
+            if (instanceIdx != "") {
+                heartBeatIni := A_ScriptDir . "\..\HeartBeat.ini"
+                IniRead, prevCount, %heartBeatIni%, FriendRequests, Instance%instanceIdx%, 0
+                newCount := prevCount + requestCount
+                IniWrite, %newCount%, %heartBeatIni%, FriendRequests, Instance%instanceIdx%
+                LogToFile("Heartbeat friend requests written | instance=" . session.get("scriptName") . " added=" . requestCount . " prev=" . prevCount . " new=" . newCount . " key=Instance" . instanceIdx, "FriendRequests.txt")
+            } else {
+                LogToFile("Heartbeat friend requests skipped | instance=" . session.get("scriptName") . " count=" . requestCount, "FriendRequests.txt")
+            }
+        }
+    }
+
     clearLastActivityEpoch(session.get("scriptName"))
     return n ;return added friends so we can dynamically update the .txt in the middle of a run without leaving friends at the end
 
@@ -1343,6 +1447,15 @@ EnsureAccountFriendInfo(methodType := "", alreadyOnFriendSearch := false, force 
         LogWarn("Failed to save account friend info for " . accountFileName)
     }
     return saved
+}
+
+AddFriends_RecordAddedFriendID(friendCode) {
+    global session
+
+    if (!IsObject(session.get("addedFriendIDs")))
+        session.set("addedFriendIDs", [])
+
+    session.get("addedFriendIDs").Push(friendCode)
 }
 
 AccountFriendInfo_GetDeviceAccount() {
