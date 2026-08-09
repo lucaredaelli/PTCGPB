@@ -190,7 +190,7 @@ loadAccount(favoritePackName := "") {
     startPTCGPApp()
     currentAccountInfo .= "Account: " . session.get("accountFileName") . "`nDeviceAccount: " . session.get("deviceAccount")
     CreateStatusMessage(currentAccountInfo, "AccountInfo", 0, 46, false)
-    SetTimer, DestoryAccountInfoUI, -15000
+    SetTimer, DestroyAccountInfoUI, -15000
 
     getMetaData()
 
@@ -208,8 +208,8 @@ loadAccount(favoritePackName := "") {
     return loadFile
 }
 
-DestoryAccountInfoUI(){
-    SetTimer, DestoryAccountInfoUI, Off
+DestroyAccountInfoUI(){
+    SetTimer, DestroyAccountInfoUI, Off
     guiName := "AccountInfo" . session.get("scriptName")
     Gui, %guiName%:+LastFoundExist
     if WinExist()
