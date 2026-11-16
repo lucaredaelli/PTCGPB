@@ -1089,6 +1089,20 @@ FindOrLoseImage(needleName := "DEFAULT", EL := 1, safeTime := 0, searchVariation
         confirmed := true
     }
 
+    if(imageName = "SelectExpansion" || imageName = "ExpansionSeries") {
+        ; the special pack notification popup swallows every click on the expansion screen
+        notifObj := needlesDict.Get("Pack_SpecialPackNotification")
+        Path := imagePath . notifObj.imageName . ".png"
+        pNotifNeedle := GetNeedle(Path)
+        vNotif := Gdip_ImageSearch_wbb(pBitmap, pNotifNeedle, vPosXY, notifObj.coords.startX, notifObj.coords.startY, notifObj.coords.endX, notifObj.coords.endY, searchVariation)
+        if (vNotif = 1) {
+            adbClick_wbb(37, 378)
+            Delay(1)
+            Gdip_DisposeImage(pBitmap)
+            return false
+        }
+    }
+
     if (imageName = "CommunityShowcase" || imageName = "Search" || imageName = "inHamburgerMenu" || imageName = "Trade") {
         Path = %imagePath%Tutorial.png
         pNeedle := GetNeedle(Path)
@@ -1245,6 +1259,18 @@ FindImageAndClick(needleName := "DEFAULT", clickx := 0, clicky := 0, searchVaria
         }
 
         ErrorCheckInScreen(pBitmap)
+
+        if(imageName = "SelectExpansion" || imageName = "ExpansionSeries") {
+            ; the special pack notification popup swallows every click on the expansion screen
+            notifObj := needlesDict.Get("Pack_SpecialPackNotification")
+            Path := imagePath . notifObj.imageName . ".png"
+            pNotifNeedle := GetNeedle(Path)
+            vNotif := Gdip_ImageSearch_wbb(pBitmap, pNotifNeedle, vPosXY, notifObj.coords.startX, notifObj.coords.startY, notifObj.coords.endX, notifObj.coords.endY, searchVariation)
+            if(vNotif = 1) {
+                adbClick_wbb(37, 378)
+                Delay(1)
+            }
+        }
 
         if (imageName = "CommunityShowcase" || imageName = "Add" || imageName = "Search") {
             Path = %imagePath%Tutorial.png
